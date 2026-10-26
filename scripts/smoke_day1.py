@@ -43,23 +43,25 @@ def load_png(path: Path) -> tuple[np.ndarray, bytes]:
 
 
 def draw_masks(image: np.ndarray, records: list[dict], out_path: Path) -> bool:
+    """Boxes always; filled masks only if meta_sam_parser is installed."""
     try:
         from meta_sam_parser import decode_mask_to_raster
     except ImportError:
-        return False
+        decode_mask_to_raster = None
     overlay = image.copy()
     rng = np.random.default_rng(0)
     for record in records:
-        height, width = (int(v) for v in record["mask"].split(",")[:2])
-        raster = np.asarray(decode_mask_to_raster(record["mask"]), dtype=np.uint8)
-        mask = cv2.resize(raster.reshape(height, width), image.shape[1::-1]) > 0
-        overlay[mask] = rng.integers(60, 255, 3)
+        if decode_mask_to_raster is not None:
+            height, width = (int(v) for v in record["mask"].split(",")[:2])
+            raster = np.asarray(decode_mask_to_raster(record["mask"]), dtype=np.uint8)
+            mask = cv2.resize(raster.reshape(height, width), image.shape[1::-1]) > 0
+            overlay[mask] = rng.integers(60, 255, 3)
         b = record["box"]
         cv2.rectangle(
             overlay, (int(b["x1"]), int(b["y1"])), (int(b["x2"]), int(b["y2"])), (0, 0, 255), 2
         )
     cv2.imwrite(str(out_path), cv2.addWeighted(image, 0.5, overlay, 0.5, 0))
-    return True
+    return decode_mask_to_raster is not None
 
 
 def run_sam(client: MetaClient, path: Path, prompt: str) -> bool:
@@ -73,10 +75,11 @@ def run_sam(client: MetaClient, path: Path, prompt: str) -> bool:
     print(f"  {len(records)} objects in {elapsed:.1f}s, raw text in outputs/smoke/sam_raw.txt")
     for record in records[:5]:
         print(f"  id={record['id']} box={record['box']}")
-    if records and draw_masks(image, records, OUT_DIR / "sam_overlay.png"):
+    if records:
+        masks_drawn = draw_masks(image, records, OUT_DIR / "sam_overlay.png")
         print("  overlay in outputs/smoke/sam_overlay.png")
-    elif records:
-        print("  meta_sam_parser not installed: masks not drawn")
+        if not masks_drawn:
+            print("  meta_sam_parser not installed: boxes only, masks not drawn")
     return bool(records)
 
 
@@ -96,7 +99,9 @@ def run_muse(client: MetaClient, path: Path) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sam-image", type=Path, default=ROOT / "data/raw/commons_onkalo_1.jpg")
-    parser.add_argument("--prompt", default="drill core piece")
+    # Tried on Onkalo 1 (Oct 26): "stone" 16 objects (c 0.8-0.9), "rock" 14 (c ~0.55),
+    # "cylinder" 28 incl. box frame; "drill core", "core sample", "wooden box" 0.
+    parser.add_argument("--prompt", default="stone")
     parser.add_argument("--muse-image", type=Path, default=ROOT / "data/raw/commons_potter_27.jpg")
     args = parser.parse_args()
 

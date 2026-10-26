@@ -15,5 +15,14 @@ def test_parse_sam_text_reads_box_and_mask_per_record():
     assert records[1]["mask"] == "39,30,!xyz"
 
 
+def test_parse_sam_text_payload_with_separator_characters():
+    text = (
+        "<0f>0<|box;x1=1;y1=2;x2=3;y2=4;w=10;h=10|><|mask;x=0;y=0;data=2,2,~a|>b,c;d|>,"
+        "1<|box;x1=5;y1=6;x2=7;y2=8;w=10;h=10|><|mask;x=0;y=0;data=2,2,!z|>\n"
+    )
+    records = parse_sam_text(text)
+    assert [r["mask"] for r in records] == ["2,2,~a|>b,c;d", "2,2,!z"]
+
+
 def test_parse_sam_text_no_matches():
     assert parse_sam_text("") == []

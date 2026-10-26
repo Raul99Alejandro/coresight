@@ -24,8 +24,10 @@ SAM_MODEL_ID = "sam-3.1"
 MUSE_SPARK_MODEL_ID = "muse-spark-1.3"
 RESPONSES_PATH = "/responses"
 
-# One SAM record: "<id><|box;...|><|mask;...|>" (docs: sam/reading-segmentation).
-_RECORD = re.compile(r"(\d+)<\|box;([^|]*)\|><\|mask;([^|]*)\|>")
+# One SAM record: "<id><|box;...|><|mask;...;data=H,W,ENC payload|>" (docs:
+# sam/reading-segmentation). The box token has no payload, so records are found
+# by their box; the base85 mask payload can itself contain "|", ">" and ",".
+_RECORD_START = re.compile(r"(\d+)<\|box;([^|]*)\|><\|mask;")
 
 
 def _data_url(image_png: bytes) -> str:
@@ -47,11 +49,14 @@ def parse_sam_text(text: str) -> list[dict]:
     Each record: {"id", "box": {x1, y1, x2, y2, w, h[, c]}, "mask": "H,W,ENC payload"}.
     Decoding the mask raster needs the official meta_sam_parser package.
     """
+    starts = list(_RECORD_START.finditer(text))
     records = []
-    for obj_id, box_body, mask_body in _RECORD.findall(text):
-        box = {k: float(v) for k, v in _fields(box_body).items()}
-        mask = _fields(mask_body)
-        records.append({"id": int(obj_id), "box": box, "mask": mask.get("data", "")})
+    for i, match in enumerate(starts):
+        end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
+        mask_body = text[match.end() : end].rstrip().removesuffix(",").removesuffix("|>")
+        _, _, data = mask_body.partition("data=")
+        box = {k: float(v) for k, v in _fields(match.group(2)).items()}
+        records.append({"id": int(match.group(1)), "box": box, "mask": data})
     return records
 
 
