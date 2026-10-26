@@ -36,6 +36,19 @@ pytest
 
 *To be filled on day 9: automatic RQD vs manually logged boxes (MAE), dataset description and failure cases.*
 
+## Built before the hackathon
+
+The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These four commits were made on Oct 25, before kickoff. Everything after commit `013503a` was built during the hackathon.
+
+| Commit | What existed before kickoff |
+|---|---|
+| `1d32fde` | Project scaffold: `pyproject.toml`, Pydantic contracts (`schemas.py`), the deterministic geometry engine (`geometry.py`: RQD, TCR, fracture frequency, mechanical break merging) with its tests, pipeline stubs (`pipeline.py`), CI workflow, day-by-day plan (`docs/PLAN.md`) |
+| `fb53c33` | CI switched to manual runs |
+| `3a7c613` | Survey of public core photo sources and their licenses (`data/labels/SOURCES.md`) |
+| `013503a` | Script that downloads the public photos (`scripts/fetch_public_images.py`); `meta_client.py` written from the public Meta Model API docs (not yet run against the API); day 1 smoke test script (`scripts/smoke_day1.py`); SAM response parser tests |
+
+Not built before kickoff: calibration, SAM segmentation of rows into pieces, wiring the geometry engine to real photos, Muse Spark descriptions and anomaly flags, the review UI and CSV export, the lab and safety hand-offs, the evaluation, and the demo.
+
 ## Status
 
 Early scaffold. The geometry engine is implemented and tested; the model stages are being built day by day (see `docs/PLAN.md`).
