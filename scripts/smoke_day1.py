@@ -7,8 +7,7 @@ scripts/fetch_public_images.py. Outputs go to outputs/smoke/.
     .venv\\Scripts\\python scripts\\smoke_day1.py
     .venv\\Scripts\\python scripts\\smoke_day1.py --sam-image data\\raw\\commons_onkalo_2.jpg
 
-If meta_sam_parser is installed (pip install meta-sam-parser, SAM License),
-the masks are also decoded and drawn on the photo.
+The SAM masks are decoded with meta_sam_parser (SAM License) and drawn on the photo.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from coresight.meta_client import MetaClient, parse_sam_text
+from coresight.meta_client import MetaClient, parse_sam_text, sam_masks
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "outputs" / "smoke"
@@ -42,26 +41,16 @@ def load_png(path: Path) -> tuple[np.ndarray, bytes]:
     return image, buf.tobytes()
 
 
-def draw_masks(image: np.ndarray, records: list[dict], out_path: Path) -> bool:
-    """Boxes always; filled masks only if meta_sam_parser is installed."""
-    try:
-        from meta_sam_parser import decode_mask_to_raster
-    except ImportError:
-        decode_mask_to_raster = None
+def draw_masks(image: np.ndarray, raw: str, out_path: Path) -> None:
+    """Each mask filled in its own color, pasted at its bounds, with its box."""
     overlay = image.copy()
     rng = np.random.default_rng(0)
-    for record in records:
-        if decode_mask_to_raster is not None:
-            height, width = (int(v) for v in record["mask"].split(",")[:2])
-            raster = np.asarray(decode_mask_to_raster(record["mask"]), dtype=np.uint8)
-            mask = cv2.resize(raster.reshape(height, width), image.shape[1::-1]) > 0
-            overlay[mask] = rng.integers(60, 255, 3)
-        b = record["box"]
-        cv2.rectangle(
-            overlay, (int(b["x1"]), int(b["y1"])), (int(b["x2"]), int(b["y2"])), (0, 0, 255), 2
-        )
-    cv2.imwrite(str(out_path), cv2.addWeighted(image, 0.5, overlay, 0.5, 0))
-    return decode_mask_to_raster is not None
+    for obj in sam_masks(raw):
+        left, top, right, bottom = obj["bounds"]
+        region = overlay[top:bottom, left:right]
+        region[obj["mask"][: region.shape[0], : region.shape[1]]] = rng.integers(60, 255, 3)
+        cv2.rectangle(overlay, (left, top), (right, bottom), (0, 0, 255), 2)
+    cv2.imwrite(str(out_path), cv2.addWeighted(image, 0.4, overlay, 0.6, 0))
 
 
 def run_sam(client: MetaClient, path: Path, prompt: str) -> bool:
@@ -76,10 +65,8 @@ def run_sam(client: MetaClient, path: Path, prompt: str) -> bool:
     for record in records[:5]:
         print(f"  id={record['id']} box={record['box']}")
     if records:
-        masks_drawn = draw_masks(image, records, OUT_DIR / "sam_overlay.png")
+        draw_masks(image, raw, OUT_DIR / "sam_overlay.png")
         print("  overlay in outputs/smoke/sam_overlay.png")
-        if not masks_drawn:
-            print("  meta_sam_parser not installed: boxes only, masks not drawn")
     return bool(records)
 
 

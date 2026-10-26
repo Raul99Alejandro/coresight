@@ -1,4 +1,18 @@
-from coresight.meta_client import parse_sam_text
+from pathlib import Path
+
+from coresight.meta_client import parse_sam_text, sam_masks
+
+# One real SAM 3.1 record (prompt "stone", Onkalo 1 at 2048 px wide), Oct 26.
+SAM_ONE_RECORD = Path(__file__).parent / "data" / "sam_one_record.txt"
+
+
+def test_sam_masks_decodes_real_record_at_its_bounds():
+    masks = sam_masks(SAM_ONE_RECORD.read_text(encoding="utf-8"))
+    assert len(masks) == 1
+    left, top, right, bottom = masks[0]["bounds"]
+    assert masks[0]["mask"].shape == (bottom - top, right - left)
+    assert 0.5 < masks[0]["mask"].mean() < 1.0
+    assert masks[0]["id"] == 0
 
 
 def test_parse_sam_text_reads_box_and_mask_per_record():

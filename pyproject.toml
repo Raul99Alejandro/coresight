@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn",
     "httpx",
     "python-dotenv",
+    "meta-sam-parser>=0.1.0",  # official SAM 3.1 mask decoder (SAM License)
 ]
 
 [project.optional-dependencies]

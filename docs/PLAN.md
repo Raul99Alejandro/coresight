@@ -79,4 +79,5 @@ Lo que dicen la página oficial y la aplicación, y cómo cambia el plan:
 - **Reglas oficiales leídas (26 oct).** Repo público, video de 3 minutos que muestre solo lo hecho en el hackathon, se permite código previo si se marca claramente, entrega en la plataforma de Cerebral Valley. Evitar parecer un "simple image analyzer": el flujo completo con revisión y agentes es lo que lo distingue.
 - **Muse Code está prometido en la aplicación.** Usarlo en al menos una pieza real y documentarlo en `docs/APPLICATION.md`.
 - **Modo Contributor de Muse Spark** es más barato pero Meta puede entrenar con esos datos. Solo usarlo con imágenes públicas, nunca con datos de clientes.
+- **Créditos de Meta aplicados (26 oct): $150.** Mientras se usan, Billing avisa que el contenido puede usarse para mejorar el producto. Misma regla: solo imágenes públicas, nunca fotos de una mina o de un cliente. Para datos privados, "Stop using free credits" en Billing o el modo Glimmer local.
 - **Workshops y office hours en Discord** del 27 oct al 4 nov. Llevar preguntas concretas de SAM 3.1 (prompts para fracturas) a las office hours.

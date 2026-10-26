@@ -14,8 +14,11 @@ import json
 import os
 import re
 
+import cv2
 import httpx
+import numpy as np
 from dotenv import load_dotenv
+from meta_sam_parser import CompletedOutcome, decode_mask_to_raster, image_segmentation_format
 
 from coresight.schemas import GeologyDescription
 
@@ -47,7 +50,7 @@ def parse_sam_text(text: str) -> list[dict]:
     """Records of a single-image SAM response, masks left encoded.
 
     Each record: {"id", "box": {x1, y1, x2, y2, w, h[, c]}, "mask": "H,W,ENC payload"}.
-    Decoding the mask raster needs the official meta_sam_parser package.
+    Use sam_masks() for the decoded rasters.
     """
     starts = list(_RECORD_START.finditer(text))
     records = []
@@ -58,6 +61,37 @@ def parse_sam_text(text: str) -> list[dict]:
         box = {k: float(v) for k, v in _fields(match.group(2)).items()}
         records.append({"id": int(match.group(1)), "box": box, "mask": data})
     return records
+
+
+def sam_masks(text: str) -> list[dict]:
+    """Decoded masks of a single-image SAM response, via the official meta_sam_parser.
+
+    Each mask comes cropped to its object's bounds. Returns one dict per object:
+    {"id", "bounds": (left, top, right, bottom), "confidence", "mask"} where "mask"
+    is a bool array of shape (bottom - top, right - left) in source pixels.
+    """
+    parser = image_segmentation_format().create_parser()
+    parser.push(text)
+    result = parser.finish(CompletedOutcome()).result
+    out = []
+    for record in result.records:
+        if record.kind != "mask":
+            continue
+        m, b = record.mask, record.bounds
+        raster = np.frombuffer(decode_mask_to_raster(m), dtype=np.uint8)
+        raster = raster.reshape(m.height, m.width)
+        size = (b.right - b.left, b.bottom - b.top)
+        if raster.shape[::-1] != size:
+            raster = cv2.resize(raster, size, interpolation=cv2.INTER_NEAREST)
+        out.append(
+            {
+                "id": int(record.object_id),
+                "bounds": (b.left, b.top, b.right, b.bottom),
+                "confidence": record.confidence,
+                "mask": raster > 0,
+            }
+        )
+    return out
 
 
 def _output_text(response: dict) -> str:
