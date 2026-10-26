@@ -1,0 +1,270 @@
+{
+ "about": "Reference scale for the calibration check (day 3). Kaggle: two points on the tape measure in the photo (the 10|11 and 90|91 colour boundaries on green tapes, the centres of the numbers 10 and 90 on red tapes), read by eye and snapped to the colour edge. Onkalo: the metre marks in data/labels/pieces/. site_photos are the held-out photos used to set each site's tray length; they are not among the evaluated boxes.",
+ "sites": {
+  "onkalo": {
+   "box_length_cm": 100.0,
+   "set_from": "nominal 1 m core tray"
+  },
+  "kaggle": {
+   "box_length_cm": 104.0,
+   "set_from": "site_photos (104.57 and 103.46 cm)"
+  }
+ },
+ "site_photos": {
+  "data/raw/kaggle_mining_core/train/M3-BH130-5.jpg": {
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     426,
+     2408
+    ],
+    [
+     3492,
+     2446
+    ]
+   ]
+  },
+  "data/raw/kaggle_mining_core/train/M3-BH13150-20.jpg": {
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     427,
+     2241
+    ],
+    [
+     3690,
+     2223
+    ]
+   ]
+  }
+ },
+ "boxes": {
+  "I3000_box01": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH300-1.JPG",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     397,
+     2456
+    ],
+    [
+     3664,
+     2440
+    ]
+   ]
+  },
+  "I3000_box12": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH300-12.JPG",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     430,
+     2486
+    ],
+    [
+     3755,
+     2490
+    ]
+   ]
+  },
+  "I3000_box20": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH300-20.JPG",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     380,
+     1992
+    ],
+    [
+     3367,
+     2008
+    ]
+   ]
+  },
+  "I3075_box01": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH130-1.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     423,
+     2064
+    ],
+    [
+     3393,
+     2055
+    ]
+   ]
+  },
+  "I3075_box02": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH130-2.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     381,
+     2072
+    ],
+    [
+     3427,
+     2040
+    ]
+   ]
+  },
+  "I3075_box03": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH130-3.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     451,
+     2487
+    ],
+    [
+     3621,
+     2477
+    ]
+   ]
+  },
+  "I3150_box01": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13150-1.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     417,
+     2137
+    ],
+    [
+     3457,
+     2154
+    ]
+   ]
+  },
+  "I3150_box05": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13150-5.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     432,
+     1958
+    ],
+    [
+     3486,
+     1965
+    ]
+   ]
+  },
+  "I3150_box10": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13150-10.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     415,
+     2009
+    ],
+    [
+     3433,
+     1989
+    ]
+   ]
+  },
+  "I3250_box01": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13250-1.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     370,
+     1911
+    ],
+    [
+     2853,
+     1918
+    ]
+   ]
+  },
+  "I3250_box03": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13250-3.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     342,
+     1725
+    ],
+    [
+     2818,
+     1759
+    ]
+   ]
+  },
+  "I3250_box08": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13250-8.jpg",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     351,
+     1748
+    ],
+    [
+     2842,
+     1744
+    ]
+   ]
+  },
+  "I3400_box01": {
+   "image": "data/raw/kaggle_mining_core/train/M3-BH13400-1.JPG",
+   "tape_cm": [
+    10,
+    90
+   ],
+   "tape_points_px": [
+    [
+     437,
+     2268
+    ],
+    [
+     3349,
+     2246
+    ]
+   ]
+  }
+ }
+}

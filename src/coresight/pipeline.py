@@ -7,13 +7,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import cv2
 
-def calibrate(image_path: Path):
-    """Detect box edges and scale markers, return px->cm scale and row crops.
+from coresight.calibration import Tray, find_trays
 
-    Day 3. Done when the px->cm error is below 2% on the labelled boxes.
+
+def calibrate(image_path: Path, box_length_cm: float, n_rows: int = 5) -> list[Tray]:
+    """Find the trays in a photo: straightened geometry, px->cm along the rows, rows.
+
+    ``box_length_cm`` is the site's tray length (see coresight.calibration).
+    Checked by scripts/eval_calibration.py (error < 2% on the labelled boxes).
     """
-    raise NotImplementedError("day 3: calibration")
+    image = cv2.imread(str(image_path))
+    if image is None:
+        raise FileNotFoundError(image_path)
+    return find_trays(image, box_length_cm, n_rows=n_rows)
 
 
 def segment(rows):
