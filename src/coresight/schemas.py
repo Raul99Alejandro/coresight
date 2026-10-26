@@ -7,6 +7,7 @@ pipeline is allowed to use it. Hand-made labels use the same contracts.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -55,6 +56,18 @@ class LabelRun(Interval):
     tcr_pct: float = Field(ge=0, le=100)
     # None: the source did not log fractures (e.g. RQD and CR read from a box lid).
     natural_fractures: int | None = Field(default=None, ge=0)
+
+
+class IntervalResult(Interval):
+    """What the pipeline reports for one run, every number from geometry.py."""
+
+    rqd_pct: float = Field(ge=0, le=100)
+    tcr_pct: float = Field(ge=0, le=100)
+    natural_fractures: int = Field(ge=0)
+    fracture_frequency_per_m: float = Field(ge=0)
+    uncertain_breaks: int = Field(ge=0)  # counted as natural, flagged for the geologist
+    rock_quality: Literal["very poor", "poor", "fair", "good", "excellent"]
+    complete: bool  # the whole run is in this photo (else it continues in another box)
 
 
 class BoxLabel(_Strict):

@@ -51,19 +51,51 @@ class RowPieces:
     method: str
     px_per_cm: float
     intervals_px: list[tuple[float, float]] = field(default_factory=list)
+    cuts_px: list[float] = field(default_factory=list)  # fracture-profile cuts (uncertain)
 
     @property
     def pieces(self) -> list[Piece]:
         return [Piece(a / self.px_per_cm, b / self.px_per_cm) for a, b in self.intervals_px]
 
 
+def _magenta(crop_hsv: np.ndarray) -> np.ndarray:
+    h, s, v = crop_hsv[..., 0], crop_hsv[..., 1], crop_hsv[..., 2]
+    return (h >= 135) & (h <= 175) & (s >= 90) & (v >= 80)
+
+
 def _is_marker(crop_hsv: np.ndarray, mask: np.ndarray) -> bool:
     """Magenta or pink foam block used as a depth marker."""
-    h, s, v = (crop_hsv[..., i][mask] for i in range(3))
-    if len(h) == 0:
+    if not mask.any():
         return False
-    magenta = ((h >= 135) & (h <= 175) & (s >= 90) & (v >= 80)).mean()
-    return bool(magenta >= MARKER_MIN_FRACTION)
+    return bool(_magenta(crop_hsv)[mask].mean() >= MARKER_MIN_FRACTION)
+
+
+def run_markers(crop: np.ndarray, px_per_cm: float) -> list[float]:
+    """x centres (crop px) of the magenta foam blocks that mark the end of a run.
+
+    A block stands across the middle of the row; seen at different angles it
+    shows 0.5 to 10 cm of magenta. The tape measure and paint lie on the
+    slats, outside the middle band. Pieces of one block less than 2.5 cm apart
+    are one block; two blocks side by side (a run with no recovery) stay two.
+    """
+    h = crop.shape[0]
+    share = _magenta(cv2.cvtColor(crop, cv2.COLOR_BGR2HSV))[h // 4 : 3 * h // 4].mean(axis=0)
+    spans: list[list[int]] = []
+    x, w = 0, len(share)
+    while x < w:
+        if share[x] < 0.1:
+            x += 1
+            continue
+        end = x
+        while end < w and share[end] >= 0.1:
+            end += 1
+        if share[x:end].max() >= 0.3:
+            if spans and x - spans[-1][1] < 2.5 * px_per_cm:
+                spans[-1][1] = end
+            else:
+                spans.append([x, end])
+        x = end
+    return [(a + b) / 2 for a, b in spans if 0.5 * px_per_cm <= b - a <= 10 * px_per_cm]
 
 
 def masks_to_intervals(
@@ -124,7 +156,8 @@ def fill_gaps(
     wood = np.median(np.vstack([lab[:strip], lab[-strip:]]).reshape(-1, 3), axis=0)
     middle = lab[h // 4 : 3 * h // 4]
     distance = np.linalg.norm(middle - wood, axis=2)
-    core_col = np.median(distance, axis=0) > WOOD_DISTANCE
+    magenta = _magenta(cv2.cvtColor(crop, cv2.COLOR_BGR2HSV))[h // 4 : 3 * h // 4]
+    core_col = (np.median(distance, axis=0) > WOOD_DISTANCE) & (magenta.mean(axis=0) < 0.3)
     filled = np.zeros((h, w), dtype=bool)
 
     covered = np.zeros(w, dtype=bool)
@@ -273,7 +306,8 @@ def segment_row(
     if method != "sam":
         intervals, filled = fill_gaps(crop, intervals, px_per_cm)
         union |= filled
+    cuts: list[float] = []
     if method == "sam+fill+profile":
         cuts = [c for iv in intervals for c in fracture_cuts(crop, union, iv, px_per_cm)]
         intervals = split_intervals(intervals, cuts, px_per_cm)
-    return RowPieces(method=method, px_per_cm=px_per_cm, intervals_px=intervals)
+    return RowPieces(method=method, px_per_cm=px_per_cm, intervals_px=intervals, cuts_px=cuts)
