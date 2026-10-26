@@ -25,5 +25,21 @@ La aplicación dice que Muse Code acelera el build. Hay que usarlo de verdad y d
 Registro de uso:
 - (vacío)
 
+## Alcance ampliado (decidido el 26 oct)
+Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.
+
+| # | Compromiso nuevo | Modelo de Meta | Día |
+|---|---|---|---|
+| 9 | Orquestador que decide qué áreas se ven afectadas por una caja aprobada | Muse Wonder | 8 |
+| 10 | 4 agentes de área con borradores y aprobación humana: laboratorio, seguridad y geotecnia, planta, finanzas | Muse Spark 1.3 con herramientas | 8 |
+| 11 | Correcciones dictadas por voz en la UI de revisión | Muse Voice Transcribe | 7 |
+| 12 | Descripción con modelo abierto en infraestructura propia (modo sin internet en la mina) | Muse Glimmer, plan B Muse Spark Open | 6 |
+| 13 | Evaluación científica: MAE, Bland-Altman, ablaciones, robustez, costo y tiempo por caja | Todos | 5 y 9 |
+| 14 | Video con HyperFrames y voz | (herramienta de video) | 10 |
+
+El compromiso 6 (handoffs a laboratorio y seguridad) queda cubierto por el 10.
+
+Premios extra a los que apunta: Best Agentic Use-Case (9 y 10), Best Build on Meta Open Weight Models (12), Most Viral Project (14).
+
 ## Visión (no es compromiso del hackathon)
-CoreSight es el primer módulo de una capa de agentes que conecte los departamentos de una mina (operaciones, laboratorio, seguridad, administración y finanzas). Va en el pitch y en el video, no en el alcance.
+CoreSight es el primer módulo de una capa de agentes que conecte los departamentos de una mina. En el hackathon se construyen laboratorio, seguridad, planta y finanzas. Mantenimiento, operaciones y administración van en el pitch y en el video, no en el código.

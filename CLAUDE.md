@@ -23,10 +23,11 @@ Nada relacionado con Freight Technologies: ni código, ni datos, ni el dominio d
 | 2 | segmentation: piezas intactas y fracturas por fila | `pipeline.segment` + `meta_client` | SAM 3.1 (Meta Model API) |
 | 3 | geometry: longitudes, RQD, frecuencia de fracturas, recuperación | `geometry.py` | Python determinista, sin LLM |
 | 4 | describe: litología, alteración, mineralización, anomalías | `pipeline.describe` + `meta_client` | Muse Spark, salida validada con Pydantic |
-| 5 | handoffs: borrador de solicitud de ensayes y alerta de terreno | `pipeline.draft_handoffs` | Agente, solo con aprobación humana |
-| 6 | api + UI de revisión, correcciones guardadas, export CSV | por crear (día 7) | FastAPI |
+| 5 | api + UI de revisión, correcciones escritas o dictadas, export CSV | por crear (día 7) | FastAPI, Muse Voice Transcribe |
+| 6 | agentes de área: orquestador y borradores para laboratorio, seguridad/geotecnia, planta y finanzas | `pipeline.draft_handoffs` (día 8) | Muse Wonder orquesta, Muse Spark con herramientas; solo con aprobación humana |
 
-Visión a futuro (no es compromiso del hackathon): capa de agentes que conecte operaciones, laboratorio, seguridad, administración y finanzas de una mina.
+La etapa 4 también corre con Muse Glimmer en infraestructura propia (modo sin internet), con el mismo contrato de salida.
+Visión a futuro (no es compromiso del hackathon): sumar mantenimiento, operaciones y administración a la misma capa de agentes.
 
 ## Reglas
 - Los cálculos geotécnicos viven solo en `geometry.py` y tienen tests. El LLM nunca calcula el RQD.

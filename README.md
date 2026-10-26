@@ -17,8 +17,10 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | 2. Segmentation: intact pieces and fractures per row | `pipeline.segment`, `meta_client` | SAM 3.1 (Meta Model API) |
 | 3. Geometry: piece lengths, RQD, fracture frequency, recovery | `geometry.py` | Deterministic Python, no LLM |
 | 4. Description: lithology, alteration, mineralization, anomaly flags | `pipeline.describe`, `meta_client` | Muse Spark, Pydantic-validated JSON |
-| 5. Hand-offs: assay request for the lab, ground-condition alert for safety | `pipeline.draft_handoffs` | Agent drafts, human approval required |
-| 6. Review UI: geologist corrects intervals, exports CSV | FastAPI app | FastAPI |
+| 5. Review UI: geologist corrects intervals by typing or by voice, exports CSV | FastAPI app | FastAPI, Muse Voice Transcribe |
+| 6. Area agents: an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each agent drafts, a human approves | `pipeline.draft_handoffs` | Muse Wonder (orchestrator), Muse Spark with tools |
+
+Stage 4 can also run on Muse Glimmer on the mine's own hardware (offline mode), with the same validated output.
 
 ## Quickstart
 
