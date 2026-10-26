@@ -72,6 +72,14 @@ class Tray:
         pts = np.asarray(points, dtype=np.float64).reshape(-1, 1, 2)
         return cv2.perspectiveTransform(pts, self.homography).reshape(-1, 2)
 
+    def row_index(self, x: float, y1: float, y2: float) -> int | None:
+        """Row holding at least 80% of the vertical span y1..y2 (original px) at x."""
+        top, bottom = self.to_straight(np.array([[x, y1], [x, y2]], dtype=float))[:, 1]
+        for row in self.rows:
+            if min(bottom, row.y2) - max(top, row.y1) >= 0.8 * (bottom - top):
+                return row.index
+        return None
+
     def straighten(self, image: np.ndarray) -> np.ndarray:
         return cv2.warpPerspective(image, self.homography, (self.width, self.height))
 

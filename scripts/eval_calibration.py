@@ -37,16 +37,6 @@ def straight_length_cm(tray: Tray, a, b) -> float:
     return float(np.linalg.norm(q - p)) / tray.px_per_cm
 
 
-def row_of(tray: Tray, y1: float, y2: float, x: float) -> int | None:
-    """Detected row holding at least 80% of the vertical extent y1..y2 at x."""
-    top, bottom = tray.to_straight(np.array([[x, y1], [x, y2]], dtype=float))[:, 1]
-    for row in tray.rows:
-        overlap = min(bottom, row.y2) - max(top, row.y1)
-        if overlap >= 0.8 * (bottom - top):
-            return row.index
-    return None
-
-
 def kaggle_pieces(image_name: str) -> list[tuple[float, float, float, float]]:
     if not KAGGLE_CSV.exists():
         return []
@@ -107,7 +97,7 @@ def main() -> int:
         true_cm = ref["tape_cm"][1] - ref["tape_cm"][0]
         measured = straight_length_cm(tray, a, b)
         pieces = kaggle_pieces(Path(ref["image"]).name)
-        in_row = sum(row_of(tray, y, y + h, x + w / 2) is not None for x, y, w, h in pieces)
+        in_row = sum(tray.row_index(x + w / 2, y, y + h) is not None for x, y, w, h in pieces)
         draw(image, [tray], OUT_DIR / f"{name}.jpg")
         results.append((name, measured, true_cm, in_row, len(pieces)))
 
@@ -119,7 +109,7 @@ def main() -> int:
         tray = min(trays, key=lambda t: abs(t.corners[:, 1].mean() - y_mid))
         measured, true_cm = onkalo_reference(sheet, tray)
         in_row = sum(
-            row_of(tray, r.y1, r.y2, (r.pieces[0].x1 + r.pieces[-1].x2) / 2) == i
+            tray.row_index((r.pieces[0].x1 + r.pieces[-1].x2) / 2, r.y1, r.y2) == i
             for i, r in enumerate(sheet.rows)
         )
         draw(image, trays, OUT_DIR / "onkalo.jpg")

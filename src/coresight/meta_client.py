@@ -3,16 +3,23 @@
 Endpoints, model IDs and request shapes come from the official docs
 (https://dev.meta.ai/docs/, read 2026-10-25): sam/segmenting,
 sam/reading-segmentation, image-understanding and structured-output.
-Not yet run against a real key: the day 1 smoke test
-(scripts/smoke_day1.py) is what confirms them.
+Confirmed against the real API by the day 1 smoke test (scripts/smoke_day1.py).
+
+SAM responses are cached on disk by a hash of model, prompt and image, so the
+same row is never paid for twice, and transient failures (timeouts, 429, 5xx)
+are retried with exponential backoff.
 """
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import re
+import time
+from collections.abc import Callable
+from pathlib import Path
 
 import cv2
 import httpx
@@ -26,6 +33,8 @@ DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 SAM_MODEL_ID = "sam-3.1"
 MUSE_SPARK_MODEL_ID = "muse-spark-1.3"
 RESPONSES_PATH = "/responses"
+DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
+RETRY_STATUS = {408, 429, 500, 502, 503, 504}
 
 # One SAM record: "<id><|box;...|><|mask;...;data=H,W,ENC payload|>" (docs:
 # sam/reading-segmentation). The box token has no payload, so records are found
@@ -104,28 +113,74 @@ def _output_text(response: dict) -> str:
     return "".join(parts)
 
 
+class TransientAPIError(RuntimeError):
+    """A failure worth retrying: timeout, rate limit or server error."""
+
+
+def sam_cache_key(image_png: bytes, prompt: str) -> str:
+    h = hashlib.sha256()
+    for part in (SAM_MODEL_ID.encode(), b"\0", prompt.encode(), b"\0", image_png):
+        h.update(part)
+    return h.hexdigest()
+
+
 class MetaClient:
-    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        cache_dir: Path | None = DEFAULT_CACHE_DIR,
+        max_retries: int = 4,
+        backoff_s: float = 2.0,
+        transport: httpx.BaseTransport | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         load_dotenv()
         self.api_key = api_key or os.getenv("META_API_KEY")
         self.base_url = (base_url or os.getenv("META_API_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+        self.cache_dir = cache_dir
+        self.max_retries = max_retries
+        self.backoff_s = backoff_s
+        self._sleep = sleep
         if not self.api_key:
             raise RuntimeError("META_API_KEY must be set in .env")
         self._http = httpx.Client(
             base_url=self.base_url,
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=180,
+            transport=transport,
         )
 
-    def segment_row(self, image_png: bytes, prompt: str) -> list[dict]:
-        """SAM 3.1: one record per object matching a short noun-phrase prompt.
+    def _with_retries(self, call: Callable[[], str]) -> str:
+        """Run ``call``; on a transient failure wait backoff_s * 2**attempt and retry."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                return call()
+            except (TransientAPIError, httpx.TimeoutException, httpx.TransportError):
+                if attempt == self.max_retries:
+                    raise
+                self._sleep(self.backoff_s * 2**attempt)
+        raise AssertionError("unreachable")
 
-        Day 4 adds caching by image hash and retries.
-        """
+    def segment_row(self, image_png: bytes, prompt: str) -> list[dict]:
+        """SAM 3.1: one record per object matching a short noun-phrase prompt."""
         return parse_sam_text(self.segment_row_raw(image_png, prompt))
 
     def segment_row_raw(self, image_png: bytes, prompt: str) -> str:
-        """SAM 3.1 raw output text, streamed as the docs recommend."""
+        """SAM 3.1 raw output text: from the cache, or from the API and then cached."""
+        path = None
+        if self.cache_dir is not None:
+            path = Path(self.cache_dir) / "sam" / f"{sam_cache_key(image_png, prompt)}.txt"
+            if path.exists():
+                return path.read_text(encoding="utf-8")
+        text = self._with_retries(lambda: self._sam_request(image_png, prompt))
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        return text
+
+    def _sam_request(self, image_png: bytes, prompt: str) -> str:
+        """One streamed SAM 3.1 call, as the docs recommend."""
         body = {
             "model": SAM_MODEL_ID,
             "stream": True,
@@ -144,7 +199,8 @@ class MetaClient:
         with self._http.stream("POST", RESPONSES_PATH, json=body) as resp:
             if resp.status_code >= 400:
                 resp.read()
-                raise RuntimeError(f"SAM {resp.status_code}: {resp.text}")
+                error = TransientAPIError if resp.status_code in RETRY_STATUS else RuntimeError
+                raise error(f"SAM {resp.status_code}: {resp.text}")
             for line in resp.iter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -188,7 +244,12 @@ class MetaClient:
                 }
             },
         }
-        resp = self._http.post(RESPONSES_PATH, json=body)
-        if resp.status_code >= 400:
-            raise RuntimeError(f"Muse Spark {resp.status_code}: {resp.text}")
-        return GeologyDescription.model_validate_json(_output_text(resp.json()))
+
+        def call() -> str:
+            resp = self._http.post(RESPONSES_PATH, json=body)
+            if resp.status_code >= 400:
+                error = TransientAPIError if resp.status_code in RETRY_STATUS else RuntimeError
+                raise error(f"Muse Spark {resp.status_code}: {resp.text}")
+            return _output_text(resp.json())
+
+        return GeologyDescription.model_validate_json(self._with_retries(call))

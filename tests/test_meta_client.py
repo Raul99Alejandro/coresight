@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from coresight.meta_client import parse_sam_text, sam_masks
+import httpx
+import pytest
+
+from coresight.meta_client import MetaClient, TransientAPIError, parse_sam_text, sam_masks
 
 # One real SAM 3.1 record (prompt "stone", Onkalo 1 at 2048 px wide), Oct 26.
 SAM_ONE_RECORD = Path(__file__).parent / "data" / "sam_one_record.txt"
@@ -40,3 +43,70 @@ def test_parse_sam_text_payload_with_separator_characters():
 
 def test_parse_sam_text_no_matches():
     assert parse_sam_text("") == []
+
+
+SSE_OK = (
+    'data: {"type": "response.output_text.delta", "delta": "0<|box;x1=1|>"}\n\n'
+    'data: {"type": "response.output_text.delta", "delta": "<|mask;data=2,2,~a|>"}\n\n'
+    "data: [DONE]\n\n"
+)
+
+
+def fake_client(tmp_path, statuses, waits=None):
+    """MetaClient whose HTTP answers come from ``statuses`` (an int status or an exception)."""
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        status = statuses[min(len(calls) - 1, len(statuses) - 1)]
+        if isinstance(status, Exception):
+            raise status
+        if status == 200:
+            return httpx.Response(200, text=SSE_OK)
+        return httpx.Response(status, text="error")
+
+    client = MetaClient(
+        api_key="test",
+        cache_dir=tmp_path,
+        backoff_s=1.0,
+        transport=httpx.MockTransport(handler),
+        sleep=(waits.append if waits is not None else lambda s: None),
+    )
+    return client, calls
+
+
+def test_sam_response_is_cached_by_image_and_prompt(tmp_path):
+    client, calls = fake_client(tmp_path, [200])
+    first = client.segment_row_raw(b"png-bytes", "stone")
+    again = client.segment_row_raw(b"png-bytes", "stone")
+    assert first == again == "0<|box;x1=1|><|mask;data=2,2,~a|>"
+    assert len(calls) == 1
+    client.segment_row_raw(b"png-bytes", "rock")
+    client.segment_row_raw(b"other-bytes", "stone")
+    assert len(calls) == 3
+    assert len(list((tmp_path / "sam").glob("*.txt"))) == 3
+
+
+def test_transient_errors_are_retried_with_backoff(tmp_path):
+    waits = []
+    client, calls = fake_client(
+        tmp_path, [429, httpx.ConnectTimeout("slow"), 503, 200], waits=waits
+    )
+    assert client.segment_row_raw(b"png", "stone").startswith("0<|box")
+    assert len(calls) == 4
+    assert waits == [1.0, 2.0, 4.0]
+
+
+def test_client_errors_are_not_retried(tmp_path):
+    client, calls = fake_client(tmp_path, [400])
+    with pytest.raises(RuntimeError, match="SAM 400"):
+        client.segment_row_raw(b"png", "stone")
+    assert len(calls) == 1
+    assert not (tmp_path / "sam").exists()
+
+
+def test_retries_give_up_after_max_retries(tmp_path):
+    client, calls = fake_client(tmp_path, [500])
+    with pytest.raises(TransientAPIError):
+        client.segment_row_raw(b"png", "stone")
+    assert len(calls) == client.max_retries + 1
