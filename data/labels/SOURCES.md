@@ -7,7 +7,7 @@ Licenses were checked on the source page on 2026-10-25.
 
 | # | Source | What it has | License | Commercial use | Notes |
 |---|---|---|---|---|---|
-| 1 | [Wikimedia Commons: Drill cores at Potter Mine, Timmins](https://commons.wikimedia.org/wiki/Category:Drill_cores_at_Potter_Mine,_Timmins,_Ontario) (James St. John, via Flickr) | 41 photos of drill core, about 4000 x 2400 px | CC BY 2.0 (checked on file `...drill_cores_at_the_Potter_Mine..._2_(40906253163).jpg`) | Yes, with attribution | Check each file page; not every photo is a full box |
+| 1 | [Wikimedia Commons: Drill cores at Potter Mine, Timmins](https://commons.wikimedia.org/wiki/Category:Drill_cores_at_Potter_Mine,_Timmins,_Ontario) (James St. John, via Flickr) | 41 photos of drill core, about 4000 x 1500 px | CC BY 2.0 (all 41 checked via the Commons API) | Yes, with attribution | Close-ups of one or two pieces, not full boxes. Good for descriptions, not for RQD |
 | 2 | [Wikimedia Commons: Drill core boxes Onkalo 1](https://commons.wikimedia.org/wiki/File:Drill_core_boxes_Onkalo_1.jpg) and `Drill_core_boxes_Onkalo_2.jpg` (Kallerna) | Core boxes from Olkiluoto, Finland, 4200 x 2800 px | CC BY-SA 4.0 | Yes, attribution and share-alike | Share-alike applies to derived images (crops, overlays) |
 | 3 | [USGS: Drill core example, INLPO Core Storage Library](https://www.usgs.gov/media/images/drill-core-example-september-2021) (Allison Trcka) | One core photo, full-size download | Public domain | Yes | Search usgs.gov/media for more "drill core" photos |
 | 4 | [geoloogia.info: Aseri PH012B drill core box images](https://geoloogia.info/en/file/154417/) and [Toolse PH016B core tray images](https://geoloogia.info/en/file/155467/) (Estonia, OÜ Inseneribüroo STEIGER) | Full core box series of real holes, as PDF | Portal default CC BY-SA, file page does not name one | Probably yes | Confirm the license per file before using; images must be extracted from the PDF |
@@ -27,8 +27,26 @@ Rejected or pending:
 - NC sources (5, 6, 8): evaluation only. Do not ship them in the deployed demo and do not use them for anything paid. Confirm with the official hackathon rules on day 1.
 - Muse Spark Contributor mode only with these public images, never with client data.
 
+## Finding (2026-10-25)
+
+Openly licensed photos of **full** core boxes are scarce. A Commons search for core box and core tray
+photos returned only 3 usable full boxes (Onkalo 1 and 2, Warren County). The rest are close-ups,
+warehouses or unrelated. USGS core photo releases found so far are marine sediment vibracores, not
+hard-rock boxes. Volume for day 2 has to come from the Kaggle and DAMAST sets (NC, evaluation only)
+or from photos taken with permission at a mine.
+
 ## Images used
+
+Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).
 
 | File in `data/raw/` | Source URL | Author | License | Changes |
 |---|---|---|---|---|
-| (none yet) | | | | |
+| `commons_onkalo_1.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Drill_core_boxes_Onkalo_1.jpg) | Kallerna | CC BY-SA 4.0 | none |
+| `commons_onkalo_2.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Drill_core_boxes_Onkalo_2.jpg) | Kallerna | CC BY-SA 4.0 | none |
+| `commons_warren_dolostone_1.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Dolostone_(Knox_Dolomite,_Upper_Cambrian;_Warren_County_core,_Ohio,_USA)_1.jpg) | James St. John | CC BY-SA 4.0 | none |
+| `commons_potter_07.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_7_(32928631057).jpg) | James St. John | CC BY 2.0 | none |
+| `commons_potter_27.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_cores_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_27_(46962006025).jpg) | James St. John | CC BY 2.0 | none |
+| `commons_potter_28.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_cores_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_28_(47826051212).jpg) | James St. John | CC BY 2.0 | none |
+| `commons_potter_30.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_30_(34001032088).jpg) | James St. John | CC BY 2.0 | none |
+| `commons_potter_32.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_32_(34001038068).jpg) | James St. John | CC BY 2.0 | none |
+| `commons_potter_argillite_2.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Sulfidic_argillite_%26_polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_cores_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_2_(46959105055).jpg) | James St. John | CC BY 2.0 | none |
