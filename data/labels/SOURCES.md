@@ -50,3 +50,16 @@ Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).
 | `commons_potter_30.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_30_(34001032088).jpg) | James St. John | CC BY 2.0 | none |
 | `commons_potter_32.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_32_(34001038068).jpg) | James St. John | CC BY 2.0 | none |
 | `commons_potter_argillite_2.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Sulfidic_argillite_%26_polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_cores_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_2_(46959105055).jpg) | James St. John | CC BY 2.0 | none |
+
+### Kaggle Mining Core Sampling Dataset (evaluation only)
+
+| Files | Source URL | Author | License | Changes |
+|---|---|---|---|---|
+| `kaggle_mining_core/train/*.jpg` (156 photos), `kaggle_mining_core/test/*.jpg` (48 photos), `train.csv`, `test.csv` | [Kaggle, version 1](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset/versions/1) | Eisa (imoore); photos from Sirjan Copper Co., Takht-e-Gonbad mine | CC BY-NC-SA 4.0 | none |
+
+Downloaded by hand on 2026-10-26 (Kaggle login required). Version 2 of the dataset is empty (22 B zip):
+use version 1. Extract to `data/raw/kaggle_mining_core/`.
+
+The labels `I3000_*`, `I3075_*`, `I3150_*`, `I3250_*` and `I3400_*` in this folder are transcribed from
+the box lids in these photos, so they are a derived work under CC BY-NC-SA 4.0 with the attribution above.
+Use them and the photos only for evaluation (day 9), never in the deployed demo, the video or anything paid.

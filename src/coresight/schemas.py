@@ -53,7 +53,8 @@ class LabelRun(Interval):
 
     rqd_pct: float = Field(ge=0, le=100)
     tcr_pct: float = Field(ge=0, le=100)
-    natural_fractures: int = Field(ge=0)
+    # None: the source did not log fractures (e.g. RQD and CR read from a box lid).
+    natural_fractures: int | None = Field(default=None, ge=0)
 
 
 class BoxLabel(_Strict):

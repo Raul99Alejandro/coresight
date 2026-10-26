@@ -1,0 +1,49 @@
+{
+  "hole_id": "I3150",
+  "box_number": 1,
+  "image": "data/raw/kaggle_mining_core/train/M3-BH13150-1.jpg",
+  "runs": [
+    {
+      "from_m": 0.0,
+      "to_m": 1.0,
+      "rqd_pct": 0.0,
+      "tcr_pct": 40.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 1.0,
+      "to_m": 2.3,
+      "rqd_pct": 0.0,
+      "tcr_pct": 27.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 2.3,
+      "to_m": 3.5,
+      "rqd_pct": 0.0,
+      "tcr_pct": 50.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 3.5,
+      "to_m": 5.5,
+      "rqd_pct": 11.0,
+      "tcr_pct": 45.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 5.5,
+      "to_m": 6.8,
+      "rqd_pct": 0.0,
+      "tcr_pct": 38.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 6.8,
+      "to_m": 7.8,
+      "rqd_pct": 0.0,
+      "tcr_pct": 35.0,
+      "natural_fractures": null
+    }
+  ]
+}

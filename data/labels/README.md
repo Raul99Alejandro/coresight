@@ -24,6 +24,21 @@ The format is validated by `coresight.schemas.BoxLabel`.
 | `runs[].from_m`, `runs[].to_m` | Run depths in metres |
 | `runs[].rqd_pct` | Sum of intact pieces >= 10 cm / run length x 100 |
 | `runs[].tcr_pct` | Recovered core / run length x 100 |
-| `runs[].natural_fractures` | Natural fractures in the run (mechanical breaks excluded) |
+| `runs[].natural_fractures` | Natural fractures in the run (mechanical breaks excluded); `null` when the source did not log them |
+
+## Labels transcribed from box lids
+
+The Kaggle photos (`data/raw/kaggle_mining_core/`) have the mine geologist's log painted on the box lid:
+run, from, to, length, CR% (= TCR) and RQD%. Those values were measured on the physical core, so they
+are the best ground truth available. Labels made from them:
+
+- take `hole_id` and `box_number` from the lid (`BH NO` / `HOLE ID` and `BOX NO`);
+- copy every run listed on the lid, including runs that continue in the previous or next box;
+  the photo then shows only part of that run, so compare RQD per run, not per box;
+- set `natural_fractures` to `null` (the lid does not log fractures).
+
+Transcription choices to review: `I3075_box01` run 5 RQD written like a "c", read as 0;
+`I3250_box03` run 9 RQD read as 20; `I3150_box10` run 32 RQD read as 70.
+`I3400` box 2 was skipped because its CR and RQD cells for runs 7 and 8 are overwritten.
 
 Record the source and license of every public image in `SOURCES.md` next to the labels.

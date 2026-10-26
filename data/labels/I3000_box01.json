@@ -1,0 +1,28 @@
+{
+  "hole_id": "I3000",
+  "box_number": 1,
+  "image": "data/raw/kaggle_mining_core/train/M3-BH300-1.JPG",
+  "runs": [
+    {
+      "from_m": 0.0,
+      "to_m": 0.9,
+      "rqd_pct": 0.0,
+      "tcr_pct": 100.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 0.9,
+      "to_m": 2.85,
+      "rqd_pct": 0.0,
+      "tcr_pct": 97.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 2.85,
+      "to_m": 5.65,
+      "rqd_pct": 0.0,
+      "tcr_pct": 100.0,
+      "natural_fractures": null
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "hole_id": "I3400",
+  "box_number": 1,
+  "image": "data/raw/kaggle_mining_core/train/M3-BH13400-1.JPG",
+  "runs": [
+    {
+      "from_m": 0.0,
+      "to_m": 3.0,
+      "rqd_pct": 0.0,
+      "tcr_pct": 13.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 3.0,
+      "to_m": 6.0,
+      "rqd_pct": 0.0,
+      "tcr_pct": 0.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 6.0,
+      "to_m": 9.0,
+      "rqd_pct": 3.0,
+      "tcr_pct": 30.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 9.0,
+      "to_m": 12.0,
+      "rqd_pct": 0.0,
+      "tcr_pct": 38.0,
+      "natural_fractures": null
+    },
+    {
+      "from_m": 12.0,
+      "to_m": 15.0,
+      "rqd_pct": 27.0,
+      "tcr_pct": 80.0,
+      "natural_fractures": null
+    }
+  ]
+}
