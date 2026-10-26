@@ -51,6 +51,10 @@ Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).
 | `commons_potter_32.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_32_(34001038068).jpg) | James St. John | CC BY 2.0 | none |
 | `commons_potter_argillite_2.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Sulfidic_argillite_%26_polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_cores_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_2_(46959105055).jpg) | James St. John | CC BY 2.0 | none |
 
+The labels `ONK-DTPH5.1_box05` and `ONK-DTPH5.1_box06` (and their piece sheets) are measured on
+`commons_onkalo_1.jpg` (CC BY-SA 4.0, Kallerna). They are free to use in the demo; overlays drawn
+on the photo carry the same license and attribution.
+
 ### Kaggle Mining Core Sampling Dataset (evaluation only)
 
 | Files | Source URL | Author | License | Changes |

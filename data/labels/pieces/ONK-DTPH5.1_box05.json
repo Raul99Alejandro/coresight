@@ -1,0 +1,154 @@
+{
+ "hole_id": "ONK-DTPH5.1",
+ "box_number": 5,
+ "image": "data/raw/commons_onkalo_1.jpg",
+ "runs": [
+  {
+   "from_m": 17.94,
+   "to_m": 20.71
+  },
+  {
+   "from_m": 20.71,
+   "to_m": 22.6
+  }
+ ],
+ "rows": [
+  {
+   "y1": 207,
+   "y2": 353,
+   "pieces": [
+    {
+     "x1": 348,
+     "x2": 1525,
+     "after": "natural"
+    },
+    {
+     "x1": 1525,
+     "x2": 2450,
+     "after": "uncertain"
+    },
+    {
+     "x1": 2450,
+     "x2": 2840,
+     "after": "natural"
+    },
+    {
+     "x1": 2840,
+     "x2": 3590,
+     "after": "natural"
+    },
+    {
+     "x1": 3590,
+     "x2": 3643,
+     "after": "natural"
+    },
+    {
+     "x1": 3643,
+     "x2": 3696,
+     "after": "natural"
+    },
+    {
+     "x1": 3696,
+     "x2": 3750,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 453,
+   "y2": 603,
+   "pieces": [
+    {
+     "x1": 345,
+     "x2": 1090,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1090,
+     "x2": 3420,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 693,
+   "y2": 843,
+   "pieces": [
+    {
+     "x1": 385,
+     "x2": 2265,
+     "after": "uncertain"
+    },
+    {
+     "x1": 2265,
+     "x2": 3680,
+     "after": "run_end"
+    }
+   ]
+  },
+  {
+   "y1": 925,
+   "y2": 1087,
+   "pieces": [
+    {
+     "x1": 500,
+     "x2": 1940,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1940,
+     "x2": 3765,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 1167,
+   "y2": 1327,
+   "pieces": [
+    {
+     "x1": 350,
+     "x2": 775,
+     "after": "uncertain"
+    },
+    {
+     "x1": 775,
+     "x2": 1510,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1510,
+     "x2": 3600,
+     "after": "run_end"
+    }
+   ]
+  }
+ ],
+ "meter_marks": [
+  {
+   "row": 0,
+   "x": 625,
+   "depth_m": 18
+  },
+  {
+   "row": 1,
+   "x": 835,
+   "depth_m": 19
+  },
+  {
+   "row": 2,
+   "x": 1235,
+   "depth_m": 20
+  },
+  {
+   "row": 3,
+   "x": 1490,
+   "depth_m": 21
+  },
+  {
+   "row": 4,
+   "x": 1540,
+   "depth_m": 22
+  }
+ ]
+}

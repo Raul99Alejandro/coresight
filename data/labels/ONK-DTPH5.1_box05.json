@@ -1,0 +1,21 @@
+{
+  "hole_id": "ONK-DTPH5.1",
+  "box_number": 5,
+  "image": "data/raw/commons_onkalo_1.jpg",
+  "runs": [
+    {
+      "from_m": 17.94,
+      "to_m": 20.71,
+      "rqd_pct": 98.3,
+      "tcr_pct": 100.0,
+      "natural_fractures": 10
+    },
+    {
+      "from_m": 20.71,
+      "to_m": 22.6,
+      "rqd_pct": 99.9,
+      "tcr_pct": 99.9,
+      "natural_fractures": 4
+    }
+  ]
+}

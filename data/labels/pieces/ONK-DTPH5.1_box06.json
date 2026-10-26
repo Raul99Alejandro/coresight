@@ -1,0 +1,143 @@
+{
+ "hole_id": "ONK-DTPH5.1",
+ "box_number": 6,
+ "image": "data/raw/commons_onkalo_1.jpg",
+ "runs": [
+  {
+   "from_m": 22.6,
+   "to_m": 23.66
+  },
+  {
+   "from_m": 23.66,
+   "to_m": 26.7
+  },
+  {
+   "from_m": 26.7,
+   "to_m": 27.2
+  }
+ ],
+ "rows": [
+  {
+   "y1": 1497,
+   "y2": 1659,
+   "pieces": [
+    {
+     "x1": 365,
+     "x2": 2885,
+     "after": "uncertain"
+    },
+    {
+     "x1": 2885,
+     "x2": 3720,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 1727,
+   "y2": 1883,
+   "pieces": [
+    {
+     "x1": 360,
+     "x2": 680,
+     "after": "run_end"
+    },
+    {
+     "x1": 800,
+     "x2": 2050,
+     "after": "natural"
+    },
+    {
+     "x1": 2055,
+     "x2": 3495,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 1956,
+   "y2": 2114,
+   "pieces": [
+    {
+     "x1": 400,
+     "x2": 3720,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 2182,
+   "y2": 2346,
+   "pieces": [
+    {
+     "x1": 350,
+     "x2": 1030,
+     "after": "natural"
+    },
+    {
+     "x1": 1030,
+     "x2": 2860,
+     "after": "natural"
+    },
+    {
+     "x1": 2860,
+     "x2": 3740,
+     "after": "uncertain"
+    }
+   ]
+  },
+  {
+   "y1": 2408,
+   "y2": 2574,
+   "pieces": [
+    {
+     "x1": 355,
+     "x2": 1500,
+     "after": "run_end"
+    },
+    {
+     "x1": 1610,
+     "x2": 1645,
+     "after": "natural"
+    },
+    {
+     "x1": 1645,
+     "x2": 2650,
+     "after": "uncertain"
+    },
+    {
+     "x1": 2650,
+     "x2": 3305,
+     "after": "run_end"
+    }
+   ]
+  }
+ ],
+ "meter_marks": [
+  {
+   "row": 0,
+   "x": 1740,
+   "depth_m": 23
+  },
+  {
+   "row": 1,
+   "x": 1970,
+   "depth_m": 24
+  },
+  {
+   "row": 2,
+   "x": 2300,
+   "depth_m": 25
+  },
+  {
+   "row": 3,
+   "x": 2370,
+   "depth_m": 26
+  },
+  {
+   "row": 4,
+   "x": 2605,
+   "depth_m": 27
+  }
+ ]
+}

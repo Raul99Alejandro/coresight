@@ -41,4 +41,22 @@ Transcription choices to review: `I3075_box01` run 5 RQD written like a "c", rea
 `I3250_box03` run 9 RQD read as 20; `I3150_box10` run 32 RQD read as 70.
 `I3400` box 2 was skipped because its CR and RQD cells for runs 7 and 8 are overwritten.
 
+## Labels measured on the photo (piece sheets)
+
+When the photo has no logged RQD (the Onkalo boxes), the pieces are measured on the photo in
+`pieces/<hole_id>_box<NN>.json` (format in `coresight.labeling`): the core pieces of every row in
+pixels, the break after each piece (`natural`, `mechanical`, `uncertain` or `run_end` at a run
+block) and the metre marks painted on the core, which give the scale. Then
+
+    .venv\Scripts\python scripts\label_from_pieces.py
+
+writes the label with RQD, TCR and fractures computed by `geometry.log_interval`, and an overlay
+in `outputs/labels/` to review the measurements against the photo. A test checks that every label
+still matches its sheet.
+
+Onkalo choices to review: breaks without a clear coating, and the breaks at row ends, are
+`uncertain` (counted as natural, the conservative choice); the crushed end of the first row of
+box 5 is three 1.5 cm fragments; the chip lying on top of that row is not counted.
+`commons_onkalo_2.jpg` shows the same two boxes wet, so it has no label of its own.
+
 Record the source and license of every public image in `SOURCES.md` next to the labels.
