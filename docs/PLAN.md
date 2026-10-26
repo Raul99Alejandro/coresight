@@ -32,6 +32,7 @@ Juzgado: 4 al 8 nov. Final en vivo y ganadores: 9 nov.
 ## Ajustes por la investigación (25 oct)
 Lo que dicen la página oficial y la aplicación, y cómo cambia el plan:
 
+- **CI en pausa.** Actions no corre por la facturación de la cuenta, que se arregla hasta el próximo mes. El workflow queda solo manual. Mientras tanto, antes de cada push: `.venv\Scripts\python -m pytest -q` y `.venv\Scripts\python -m ruff check .`. Si el repo se hace público, Actions es gratis y se reactiva el push.
 - **Track Startup se juzga por "technical execution" y "whether it holds up in production".** Por eso se agregó: CI con tests y ruff desde el día 0, caché y reintentos en `meta_client` (día 4), demo desplegada con URL pública (día 8), manejo de errores visible en la UI (fotos malas, caja sin escala).
 - **Final en vivo el 9 nov.** Tener la demo desplegada estable después de la entrega y un guion de 3 minutos ensayado.
 - **Reglas oficiales aún no publicadas** al 25 oct. Revisarlas el día 1: duración del video, si el repo debe ser público, si se permite código previo y la plataforma de entrega.

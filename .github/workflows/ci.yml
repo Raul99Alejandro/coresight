@@ -1,8 +1,9 @@
 name: ci
 
+# Manual only until Actions billing is restored on the account.
+# Re-enable by adding back:  push:  and  pull_request:
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
