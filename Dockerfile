@@ -1,6 +1,8 @@
 # CoreSight review API and page. Built on a workstation and loaded on the VPS
 # (docs/DEPLOY.md). Only public sample photos go in the image: never the Kaggle set (NC).
 FROM python:3.12-slim
+# the VPS nightly prune keeps images with this label (docs/DEPLOY.md)
+LABEL vps.keep=true
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app

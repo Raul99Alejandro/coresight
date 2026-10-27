@@ -114,15 +114,21 @@ Not built before kickoff: calibration, SAM segmentation of rows into pieces, wir
 
 ## Built with Muse Code
 
-`src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it, was written by Muse Code 1.4.13 against a spec of 20 tests (`tests/test_verify.py`) that we wrote first.
+Three pieces were written by Muse Code 1.4.13 against tests we wrote first. We did not edit its code.
 
-- Two headless runs: `muse exec --contributor-mode off --disable-approval --json`, sandbox on.
-- Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
-- Round 2 (session `88fc39bc-b75a-47b0-8d5f-466e68048e0a`): a ruff fix and 5 new tests (budget left after earlier boxes, numbers from the hole history, runs named from one).
-- Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round and sent the results back. We did not edit its code.
-- Traces of both runs (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
+- `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
+  - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
+  - Round 2 (session `88fc39bc-b75a-47b0-8d5f-466e68048e0a`): a ruff fix and 5 new tests (budget left after earlier boxes, numbers from the hole history, runs named from one).
+  - Round 3 (session `01a17f99-9b2b-7bd3-91e8-c08bf9dd5502`): runs numbered from 1 and failed checks explained in words.
+- `src/coresight/gate.py`, the input gate that refuses a photo that is not a core tray before anything is measured (session `01a17f99-8f2a-7be0-9d5a-d4e1efe7b717`). Spec: `tests/test_gate.py`.
+- Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`.
+- Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
+- Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
+- About `"model": "muse-spark-1.3-contributor"` in `verify-1.json` and `verify-2.json`: that is the model id Muse Code picks by default on this account when no `--model` is given. It is a catalog model, not the contributor mode: `--contributor-mode off` was set on every run and is a separate setting. We checked it with `muse model-profile show` and two one-line runs, one without `--model` (reports `muse-spark-1.3-contributor`) and one with `--model muse-spark-1.3` (reports `muse-spark-1.3`). From the gate on, every run passes `--model muse-spark-1.3`, and the traces say so.
 
 ## Status
+
+Before measuring anything, an input gate checks three signals: how clearly calibration found the tray slats, Muse Spark's look at the whole photo (`is_core_tray`, validated with Pydantic) and the SAM 3.1 confidence. A screenshot, a selfie or core without a tray is refused with a clear message instead of getting an RQD.
 
 Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
 In progress: the area agents (stage 6): orchestrator, four drafting agents and the verifier are built and tested with a simulated API. Day-by-day plan in `docs/PLAN.md`.

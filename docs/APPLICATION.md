@@ -30,6 +30,11 @@ Registro de uso:
   - Comando: `muse exec --contributor-mode off --disable-approval --json`, con sandbox.
   - La sandbox de Windows de Muse no pudo arrancar PowerShell, así que corrimos pytest y ruff fuera de ella y le regresamos el resultado.
   - Trazas: `docs/muse-code/verify-1.json` y `verify-2.json`. Commit: `0b594f1`.
+  - El campo `"model": "muse-spark-1.3-contributor"` de esas dos trazas es el id de modelo que Muse Code usa por omisión en esta cuenta, no el modo contributor (que iba apagado). Lo confirmamos con `muse model-profile show` y dos corridas de prueba. Desde el día 10 todas las corridas llevan `--model muse-spark-1.3`.
+- 27 oct, día 10 (punto A del segundo análisis): dos corridas más, mismo método, con `--model muse-spark-1.3`.
+  - `src/coresight/gate.py`, la compuerta de entrada: rechaza una foto que no es caja con la confianza de calibración, la de SAM y el `is_core_tray` de Muse Spark. Especificación: 16 tests de `tests/test_gate.py`, escritos antes por nosotros. Sesión `01a17f99-8f2a-7be0-9d5a-d4e1efe7b717`, 14 llamadas. Traza: `docs/muse-code/gate-1.json`. Commit: `413093d`.
+  - `src/coresight/verify.py`, ronda 3: tramos desde 1 y detalles en palabras, sin nombres de campo. Sesión `01a17f99-9b2b-7bd3-91e8-c08bf9dd5502`, 22 llamadas. Traza: `docs/muse-code/verify-3.json`. Commit: `1d1681b`.
+  - La sandbox sigue sin arrancar PowerShell; corrimos pytest y ruff fuera. No editamos su código.
 
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.

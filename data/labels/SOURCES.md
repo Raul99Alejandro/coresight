@@ -71,6 +71,7 @@ Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).
 | `commons_nts_1981.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:CORE_SAMPLES,_NEVADA_TEST_SITE_-_DPLA_-_344a80c6542b9421f65b34db561bdfcf.jpg) | U.S. Department of Energy, NNSA (Nevada Test Site) | Public domain | none |
 | `commons_diamond_core.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Diamond_Core.jpeg) | Blastcube | CC BY-SA 3.0 | none |
 | `commons_butte_broken_1.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Broken_drill_core_(Butte_Mining_District,_Montana,_USA)_1.jpg) | James St. John | CC BY 2.0 | none |
+| `commons_selfie_tramping.jpg` (not kept; only to test the input gate) | [Commons](https://commons.wikimedia.org/wiki/File:Tom_selfie_tramping.jpg) | Tdbnz | CC0 | 1280 px thumbnail |
 
 The labels `ONK-DTPH5.1_box05` and `ONK-DTPH5.1_box06` (and their piece sheets) are measured on
 `commons_onkalo_1.jpg` (CC BY-SA 4.0, Kallerna). They are free to use in the demo; overlays drawn
@@ -88,3 +89,10 @@ use version 1. Extract to `data/raw/kaggle_mining_core/`.
 The labels `I3000_*`, `I3075_*`, `I3150_*`, `I3250_*` and `I3400_*` in this folder are transcribed from
 the box lids in these photos, so they are a derived work under CC BY-NC-SA 4.0 with the attribution above.
 Use them and the photos only for evaluation (day 9), never in the deployed demo, the video or anything paid.
+
+## Test images (`tests/data/`)
+
+| File | Source | License | Changes |
+|---|---|---|---|
+| `screenshot_glyphs.jpg` | Our own screenshot of the CoreSight visual guide (`outputs/models_glyphs.png`), the one a judge could upload | Ours | Resized to 1000 px wide |
+| `potter_closeup.jpg` | `commons_potter_27.jpg` above (James St. John) | CC BY 2.0 | Resized to 1000 px wide |
