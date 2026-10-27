@@ -109,18 +109,28 @@ def boundaries(intervals_cm: list[tuple[float, float]]) -> list[float]:
     return merged
 
 
+BREAK_COLOURS = {  # BGR, for the classified breaks of the last method
+    "natural": (0, 0, 230),
+    "uncertain": (255, 0, 255),
+    "possible_mechanical": (0, 200, 255),
+    "mechanical": (230, 120, 0),
+}
+
+
 def draw(crops: list[np.ndarray], results: dict[str, list[RowPieces]], path: Path) -> None:
+    """One bar per method above each row; break lines of the last method coloured by kind."""
     rows = []
+    bars = ((0, 200, 0), (255, 160, 0), (255, 0, 255), (230, 120, 0))
     for i, crop in enumerate(crops):
         vis = crop.copy()
         h = vis.shape[0]
-        for k, (method, colour) in enumerate(
-            zip(METHODS, ((0, 200, 0), (255, 160, 0), (255, 0, 255)), strict=True)
-        ):
+        for k, (method, colour) in enumerate(zip(METHODS, bars, strict=True)):
             y = 8 + k * 14
             for a, b in results[method][i].intervals_px:
                 cv2.line(vis, (int(a) + 3, y), (int(b) - 3, y), colour, 8)
-                cv2.line(vis, (int(b), 0), (int(b), h), colour, 2)
+        last = results[METHODS[-1]][i]
+        for (_, b), kind in zip(last.intervals_px, last.breaks, strict=True):
+            cv2.line(vis, (int(b), 4 * 14), (int(b), h), BREAK_COLOURS[kind], 4)
         rows.append(vis)
     width = max(r.shape[1] for r in rows)
     sheet = np.vstack([cv2.copyMakeBorder(r, 0, 6, 0, width - r.shape[1], 0) for r in rows])

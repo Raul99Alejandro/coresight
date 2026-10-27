@@ -120,3 +120,54 @@ def test_fill_leaves_stretches_sam_covered():
     crop[15:45, 100:700] = (90, 90, 90)
     intervals, _ = fill_gaps(crop, [(100.0, 700.0)], PX_PER_CM)
     assert intervals == [(100.0, 700.0)]
+
+
+def core_with_line(value=150):
+    """Grey core with a long red orientation line along it (BGR)."""
+    crop = grey_crop(value)
+    crop[44:47, :] = (40, 40, 200)
+    return crop
+
+
+def draw_x(crop, x, y=25, size=10):
+    import cv2
+
+    cv2.line(crop, (x - size // 2, y - size // 2), (x + size // 2, y + size // 2), (30, 30, 220), 2)
+    cv2.line(crop, (x - size // 2, y + size // 2), (x + size // 2, y - size // 2), (30, 30, 220), 2)
+
+
+def test_red_x_beside_a_break_makes_it_mechanical():
+    from coresight.segmentation import classify_breaks, mechanical_marks
+
+    crop = core_with_line()
+    draw_x(crop, 385)
+    draw_x(crop, 415)
+    assert len(mechanical_marks(crop, PX_PER_CM)) == 2
+    kinds = classify_breaks(crop, [(0, 400), (400, 700), (705, 990)], [], PX_PER_CM)
+    assert kinds[0] == "mechanical"
+    assert kinds[1] != "mechanical"
+    assert kinds[2] == "uncertain"  # the row end
+
+
+def test_orientation_line_alone_is_not_a_mark():
+    from coresight.segmentation import mechanical_marks
+
+    crop = core_with_line()
+    crop[44:47, 300:320] = 150  # a dashed stretch of the line
+    assert mechanical_marks(crop, PX_PER_CM) == []
+
+
+def test_red_on_reddish_rock_is_not_a_mark():
+    from coresight.segmentation import mechanical_marks
+
+    crop = np.full((H, W, 3), (60, 80, 150), np.uint8)  # brown, saturated rock
+    draw_x(crop, 400)
+    assert mechanical_marks(crop, PX_PER_CM) == []
+
+
+def test_tight_break_with_continuous_line_is_possible_mechanical():
+    from coresight.segmentation import classify_breaks
+
+    crop = core_with_line()
+    kinds = classify_breaks(crop, [(0, 400), (401, 990)], [], PX_PER_CM)
+    assert kinds == ["possible_mechanical", "uncertain"]

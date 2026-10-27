@@ -3,18 +3,15 @@ import pytest
 from coresight.pipeline import build_logs
 from coresight.runs import Position, RunMismatchError, assign_runs, dedupe_markers
 from coresight.schemas import Interval
-from coresight.segmentation import RowPieces
+from coresight.segmentation import RowPieces, default_breaks
 
 PPC = 10.0  # px per cm
 
 
-def row(*pieces_cm, cuts_cm=()):
-    return RowPieces(
-        "sam",
-        PPC,
-        [(a * PPC, b * PPC) for a, b in pieces_cm],
-        [c * PPC for c in cuts_cm],
-    )
+def row(*pieces_cm, cuts_cm=(), breaks=None):
+    intervals = [(a * PPC, b * PPC) for a, b in pieces_cm]
+    cuts = [c * PPC for c in cuts_cm]
+    return RowPieces("sam", PPC, intervals, cuts, breaks or default_breaks(intervals, cuts))
 
 
 def runs(*bounds):
@@ -76,3 +73,12 @@ def test_build_logs_returns_validated_results():
     assert first.rqd_pct == 90.0 and first.rock_quality == "excellent"
     assert first.complete and not second.complete
     assert first.fracture_frequency_per_m == pytest.approx(1.0)
+
+
+def test_mechanical_breaks_are_rejoined_and_possible_ones_are_not():
+    breaks = ["mechanical", "possible_mechanical", "uncertain"]
+    rows = [row((0, 8), (8, 16), (16, 22), breaks=breaks)]
+    [(_, log, _)] = assign_runs(rows, [Position(0, 25)], runs(0.0, 0.3), True)
+    assert log.mechanical_breaks == 1
+    assert log.intact_piece_lengths_cm == pytest.approx((16, 6))
+    assert log.uncertain_breaks == 1  # the possible mechanical one; the last is the run end

@@ -1,6 +1,6 @@
 """Stage 2, segmentation: pieces of core along one straightened row, in cm.
 
-Three methods, each a layer on the previous one, measurable for the ablation
+Four methods, each a layer on the previous one, measurable for the ablation
 (docs/PLAN.md, day 9):
 
 - ``"sam"``: SAM 3.1 masks for the prompt "stone". Each mask becomes an
@@ -15,6 +15,11 @@ Three methods, each a layer on the previous one, measurable for the ablation
   (plan B for fine fractures inside one mask). The brightness along the core
   axis is compared with its local median; a narrow, strong dip that crosses
   most of the core's height is a fracture.
+- ``"sam+fill+profile+marks"``: then classify every break. A break with the
+  geologist's small red "x" marks next to it is mechanical (rejoined for
+  RQD by geometry.py). A tight break between two long pieces whose drawn
+  orientation line runs on across it is a possible mechanical break: still
+  counted as natural (uncertain), but listed first for review.
 
 Positions are in cm from the left end of the row crop. RQD and the rest are
 computed later by geometry.py; this module only measures pieces.
@@ -40,7 +45,14 @@ DIP_MIN_CONTRAST = 0.2  # relative darkening at the line
 DIP_MIN_CROSSING = 0.8  # share of the core height the dark line must cross
 FILL_MIN_GAP_CM = 5.0  # only stretches SAM left empty for this long are filled
 WOOD_DISTANCE = 25.0  # Lab distance from the slat colour that counts as core
-METHODS = ("sam", "sam+fill", "sam+fill+profile")
+MARK_WINDOW_CM = 3.0  # x marks this close to a break belong to it
+MARK_MIN_CM, MARK_MAX_CM = 0.3, 2.5  # size of one hand-drawn x
+MARK_MIN_SAT, MARK_SAT_CONTRAST = 60, 45  # ink is saturated, and much more than the rock
+MARK_MIN_NEIGHBOUR_CM = 3.0  # rubble is not marked: both pieces must be this long
+FIT_MAX_GAP_CM = 0.3  # a possible mechanical break closes this tight
+FIT_MIN_PIECE_CM = 10.0  # between two pieces at least this long
+METHODS = ("sam", "sam+fill", "sam+fill+profile", "sam+fill+profile+marks")
+BreakKind = str  # "natural", "uncertain", "possible_mechanical" or "mechanical"
 DIP_END_MARGIN_CM = 2.0  # ignore dips this close to a piece end
 
 
@@ -52,6 +64,7 @@ class RowPieces:
     px_per_cm: float
     intervals_px: list[tuple[float, float]] = field(default_factory=list)
     cuts_px: list[float] = field(default_factory=list)  # fracture-profile cuts (uncertain)
+    breaks: list[BreakKind] = field(default_factory=list)  # kind of break after each piece
 
     @property
     def pieces(self) -> list[Piece]:
@@ -296,8 +309,112 @@ def row_masks(
     return masks
 
 
+def _red(crop_hsv: np.ndarray) -> np.ndarray:
+    h, s, v = crop_hsv[..., 0], crop_hsv[..., 1], crop_hsv[..., 2]
+    return ((h < 10) | (h > 165)) & (s > 70) & (v > 60)
+
+
+def mechanical_marks(crop: np.ndarray, px_per_cm: float) -> list[float]:
+    """x centres of the small red "x" marks a geologist draws beside a mechanical break.
+
+    The red orientation line is removed first (a horizontal opening, plus
+    everything at the line's height for dashed lines); what is left must be a
+    compact blob of hand-drawn size inside the core band, not on the slats
+    where depths are written.
+    """
+    h = crop.shape[0]
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    sat = hsv[..., 1].astype(np.float32)
+    red = _red(hsv).astype(np.uint8)
+    line_len = max(3, int(3 * px_per_cm))
+    line = cv2.morphologyEx(red, cv2.MORPH_OPEN, np.ones((1, line_len), np.uint8))
+    line = cv2.dilate(line, np.ones((5, 9), np.uint8))
+    marks = red & (1 - line)
+    # a dashed red line survives the opening: drop everything on the line's height
+    rows = red[int(0.12 * h) : int(0.88 * h)].sum(axis=1)
+    line_y = int(0.12 * h) + int(np.argmax(rows)) if rows.max() > 0 else -1
+    band = 0.6 * px_per_cm
+    n, labels, stats, centroids = cv2.connectedComponentsWithStats(marks, connectivity=8)
+    lo, hi = MARK_MIN_CM * px_per_cm, MARK_MAX_CM * px_per_cm
+    out = []
+    for i in range(1, n):
+        _, top, w, hh, area = stats[i]
+        if not (0.2 * h <= centroids[i][1] <= 0.85 * h):
+            continue
+        if line_y >= 0 and top - band <= line_y <= top + hh + band:
+            continue
+        if not (lo <= max(w, hh) <= hi) or max(w, hh) > 2 * min(w, hh):
+            continue
+        # an ink stroke: thin (not a filled reddish stone) on a background that is not red
+        if not (0.15 * w * hh <= area <= 0.6 * w * hh):
+            continue
+        x0, y0 = stats[i][0], top
+        pad = int(0.5 * px_per_cm)
+        ring = red[max(y0 - pad, 0) : y0 + hh + pad, max(x0 - pad, 0) : x0 + w + pad]
+        if (ring.sum() - area) > 0.15 * (ring.size - w * hh):
+            continue
+        # ink stands out in colour; on reddish or brown rock it does not, so skip
+        ring_sat = sat[max(y0 - pad, 0) : y0 + hh + pad, max(x0 - pad, 0) : x0 + w + pad]
+        blob_sat = sat[labels == i]
+        if (
+            blob_sat.mean() < MARK_MIN_SAT
+            or blob_sat.mean() < np.median(ring_sat) + MARK_SAT_CONTRAST
+        ):
+            continue
+        out.append(float(centroids[i][0]))
+    return out
+
+
+def _line_y(crop_hsv: np.ndarray, x1: int, x2: int) -> float | None:
+    """Median y of the drawn orientation lines (blue or red) between x1 and x2."""
+    h, s, v = (crop_hsv[:, x1:x2, i].astype(int) for i in range(3))
+    blue = (h >= 100) & (h <= 130) & (s > 70) & (v > 50)
+    red = ((h < 10) | (h > 165)) & (s > 70) & (v > 60)
+    ys = np.where((blue | red).any(axis=1))[0]
+    return float(np.median(ys)) if len(ys) else None
+
+
+def default_breaks(intervals: list[tuple[float, float]], cuts: list[float]) -> list[BreakKind]:
+    """Without classification: profile cuts and the row end are uncertain, gaps natural."""
+    return [
+        "uncertain"
+        if i == len(intervals) - 1 or any(abs(b - c) <= 1.0 for c in cuts)
+        else "natural"
+        for i, (_, b) in enumerate(intervals)
+    ]
+
+
+def classify_breaks(
+    crop: np.ndarray, intervals: list[tuple[float, float]], cuts: list[float], px_per_cm: float
+) -> list[BreakKind]:
+    """Kind of break after each piece (the last one is the row end)."""
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    marks = mechanical_marks(crop, px_per_cm)
+    window = MARK_WINDOW_CM * px_per_cm
+    kinds = default_breaks(intervals, cuts)
+    for i, (a, b) in enumerate(intervals):
+        last = i == len(intervals) - 1
+        nxt = b if last else intervals[i + 1][0]
+        nb = intervals[i + 1][1] - nxt if not last else b - a
+        marked = any(b - window <= m <= nxt + window for m in marks)
+        if marked and min(b - a, nb) >= MARK_MIN_NEIGHBOUR_CM * px_per_cm:
+            kinds[i] = "mechanical"
+            continue
+        if kinds[i] != "natural":
+            continue
+        long_pieces = min(b - a, intervals[i + 1][1] - nxt) >= FIT_MIN_PIECE_CM * px_per_cm
+        if not long_pieces or nxt - b > FIT_MAX_GAP_CM * px_per_cm:
+            continue
+        span = int(2 * px_per_cm)
+        left = _line_y(hsv, max(int(b) - span, 0), max(int(b) - 2, 1))
+        right = _line_y(hsv, int(nxt) + 2, min(int(nxt) + span, crop.shape[1]))
+        if left is not None and right is not None and abs(left - right) <= 0.5 * px_per_cm:
+            kinds[i] = "possible_mechanical"
+    return kinds
+
+
 def segment_row(
-    crop: np.ndarray, masks: list[dict], px_per_cm: float, method: str = "sam+fill+profile"
+    crop: np.ndarray, masks: list[dict], px_per_cm: float, method: str = METHODS[-1]
 ) -> RowPieces:
     """Pieces of one straightened row crop from its decoded SAM masks."""
     if method not in METHODS:
@@ -307,7 +424,11 @@ def segment_row(
         intervals, filled = fill_gaps(crop, intervals, px_per_cm)
         union |= filled
     cuts: list[float] = []
-    if method == "sam+fill+profile":
+    if method.startswith("sam+fill+profile"):
         cuts = [c for iv in intervals for c in fracture_cuts(crop, union, iv, px_per_cm)]
         intervals = split_intervals(intervals, cuts, px_per_cm)
-    return RowPieces(method=method, px_per_cm=px_per_cm, intervals_px=intervals, cuts_px=cuts)
+    if method.endswith("+marks"):
+        breaks = classify_breaks(crop, intervals, cuts, px_per_cm)
+    else:
+        breaks = default_breaks(intervals, cuts)
+    return RowPieces(method, px_per_cm, intervals, cuts, breaks)

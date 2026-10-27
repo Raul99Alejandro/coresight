@@ -66,6 +66,7 @@ class IntervalResult(Interval):
     natural_fractures: int = Field(ge=0)
     fracture_frequency_per_m: float = Field(ge=0)
     uncertain_breaks: int = Field(ge=0)  # counted as natural, flagged for the geologist
+    mechanical_breaks: int = Field(ge=0)  # rejoined: the core was intact in situ
     rock_quality: Literal["very poor", "poor", "fair", "good", "excellent"]
     complete: bool  # the whole run is in this photo (else it continues in another box)
 

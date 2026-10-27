@@ -9,10 +9,10 @@ run may have started in the previous box and the last one may go on in the
 next. Only runs seen whole get ``complete=True``: those that end at a marker
 in this box and either are not the first or start in this box.
 
-Every number comes from geometry.log_interval. Break types:
-- a gap between two pieces is a natural break;
-- a fracture-profile cut and the break at the end of a row are uncertain
-  (counted as natural, the conservative choice, and flagged for review).
+Every number comes from geometry.log_interval. Break kinds come from
+coresight.segmentation: mechanical breaks are rejoined; uncertain and
+possible mechanical breaks count as natural (the conservative choice) and
+are flagged for review.
 """
 
 from __future__ import annotations
@@ -52,16 +52,24 @@ def dedupe_markers(markers: list[Position]) -> list[Position]:
     return out
 
 
-def _laid_pieces(rows: list[RowPieces]) -> list[tuple[Position, Position, bool]]:
-    """(start, end, uncertain break after) for every piece in reading order."""
+def _laid_pieces(rows: list[RowPieces]) -> list[tuple[Position, Position, str]]:
+    """(start, end, kind of break after) for every piece in reading order."""
     out = []
     for r, row in enumerate(rows):
         ppc = row.px_per_cm
-        for i, (a, b) in enumerate(row.intervals_px):
-            last_in_row = i == len(row.intervals_px) - 1
-            at_cut = any(abs(b - c) <= 1.0 for c in row.cuts_px)
-            out.append((Position(r, a / ppc), Position(r, b / ppc), last_in_row or at_cut))
+        for (a, b), kind in zip(row.intervals_px, row.breaks, strict=True):
+            out.append((Position(r, a / ppc), Position(r, b / ppc), kind))
     return out
+
+
+def _piece(start: float, end: float, kind: str) -> Piece:
+    # a possible mechanical break stays natural (uncertain) until a geologist confirms it
+    return Piece(
+        start,
+        end,
+        mechanical_break_after=kind == "mechanical",
+        uncertain_break_after=kind in ("uncertain", "possible_mechanical"),
+    )
 
 
 def assign_runs(
@@ -78,23 +86,23 @@ def assign_runs(
     if n not in (k - 1, k):
         raise RunMismatchError(f"{n} run markers for {k} runs")
 
-    segments: list[list[tuple[float, bool]]] = [[] for _ in range(n + 1)]
-    for start, end, uncertain in _laid_pieces(rows):
+    segments: list[list[tuple[float, str]]] = [[] for _ in range(n + 1)]
+    for start, end, kind in _laid_pieces(rows):
         seg = sum(m <= start for m in markers)
         cut_inside = [m for m in markers if start < m < end]
         if cut_inside:  # a piece across a marker: the marker splits it
             edges = [start, *cut_inside, end]
             for j, (lo, hi) in enumerate(zip(edges, edges[1:], strict=False)):
                 last = j == len(edges) - 2
-                segments[seg + j].append((hi.x_cm - lo.x_cm, uncertain if last else False))
+                segments[seg + j].append((hi.x_cm - lo.x_cm, kind if last else "natural"))
             continue
-        segments[seg].append((end.x_cm - start.x_cm, uncertain))
+        segments[seg].append((end.x_cm - start.x_cm, kind))
 
     out = []
     for i, run in enumerate(runs):
         pos, pieces = 0.0, []
-        for length, uncertain in segments[i]:
-            pieces.append(Piece(pos, pos + length, uncertain_break_after=uncertain))
+        for length, kind in segments[i]:
+            pieces.append(_piece(pos, pos + length, kind))
             pos += length
         log = log_interval(pieces, run.from_m, run.to_m)
         complete = i < n and (i > 0 or first_starts_in_box)
@@ -112,6 +120,7 @@ def to_result(run: Interval, log: IntervalLog, complete: bool) -> IntervalResult
         natural_fractures=log.natural_fractures,
         fracture_frequency_per_m=round(log.fracture_frequency_per_m, 2),
         uncertain_breaks=log.uncertain_breaks,
+        mechanical_breaks=log.mechanical_breaks,
         rock_quality=rock_quality_class(min(log.rqd_pct, 100.0)),
         complete=complete,
     )

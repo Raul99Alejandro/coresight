@@ -108,6 +108,7 @@ def main() -> None:
                         "tcr": res.tcr_pct,
                         "fractures": res.natural_fractures,
                         "uncertain": res.uncertain_breaks,
+                        "mechanical": res.mechanical_breaks,
                         "ff_per_m": res.fracture_frequency_per_m,
                     }
                 )
