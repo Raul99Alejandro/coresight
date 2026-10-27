@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 import cv2
 import numpy as np
 import pytest
+from test_calibration import photo
 
 from coresight import review
 from coresight.review import ReviewError, ReviewStore
@@ -13,6 +15,7 @@ from coresight.schemas import (
     IntervalResult,
     ReviewPiece,
     RunReview,
+    TrayCheck,
     TrayView,
 )
 
@@ -187,3 +190,49 @@ def test_mask_overlay_colours_only_the_masked_pixels():
     img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_UNCHANGED)
     assert img.shape == (10, 20, 4)
     assert img[5, 10, 3] > 0 and img[0, 0, 3] == 0
+
+
+class GateClient:
+    """Muse Spark's tray check only; SAM must never be called when the gate refuses."""
+
+    def __init__(self, check):
+        self.check, self.sam_calls, self.gates = check, 0, []
+
+    def check_tray(self, png):
+        if isinstance(self.check, Exception):
+            raise self.check
+        return self.check
+
+    def segment_row(self, png, prompt):
+        self.sam_calls += 1
+        return []
+
+
+class GateReporter(review.Reporter):
+    def __init__(self):
+        self.results = []
+
+    def gate(self, result):
+        self.results.append(result)
+
+
+def tray_photo() -> bytes:
+    return cv2.imencode(".png", photo())[1].tobytes()
+
+
+def test_spark_refusal_stops_the_analysis_before_sam():
+    client = GateClient(TrayCheck(is_core_tray=False, what_it_shows="a web page", confidence=1.0))
+    report = GateReporter()
+    with pytest.raises(ReviewError, match="not a core tray: a web page"):
+        review.analyze(tray_photo(), 100.0, [Interval(from_m=1, to_m=2)], True, client, None,
+                       report=report)  # fmt: skip
+    assert client.sam_calls == 0
+    assert [r.signal for r in report.results[0].reasons] == ["spark"]
+
+
+def test_a_real_screenshot_is_refused_by_calibration_without_spark():
+    png = (Path(__file__).parent / "data" / "screenshot_glyphs.jpg").read_bytes()
+    client = GateClient(RuntimeError("Muse Spark is down"))  # an outage: the others decide
+    with pytest.raises(ReviewError, match="no scale to measure in cm"):
+        review.analyze(png, 100.0, [Interval(from_m=1, to_m=2)], True, client, None)
+    assert client.sam_calls == 0

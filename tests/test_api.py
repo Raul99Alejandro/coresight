@@ -249,3 +249,16 @@ def test_dictation_is_counted_in_the_box_ledger(tmp_path):
     c.post("/api/transcribe", files={"audio": ("a.wav", wav(), "audio/wav")}, data={"box_id": bid})
     voice = c.get(f"/api/boxes/{bid}").json()["voice"]
     assert (voice["dictations"], voice["audio_ms"]) == (1, 2100)
+
+
+def test_a_refused_photo_keeps_the_gate_verdict(tmp_path):
+    from coresight.schemas import GateReason, GateResult
+
+    def refusing(photo, job, report):
+        reason = GateReason(signal="calibration", value=0.0, detail="No tray slats were found.")
+        report.gate(GateResult(ok=False, reasons=[reason], message="No tray slats were found."))
+        raise ReviewError("No tray slats were found.")
+
+    box = upload(client(tmp_path, refusing)).json()
+    assert box["status"] == "failed" and box["error"] == "No tray slats were found."
+    assert box["gate"]["reasons"][0]["signal"] == "calibration"

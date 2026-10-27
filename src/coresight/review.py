@@ -1,7 +1,10 @@
 """Stage 5, review: a photo becomes a box the geologist checks, corrects and approves.
 
-- ``analyze``: photo -> calibrate -> segment -> runs -> geometry.py -> describe,
-  kept per run with every piece's place in the tray (for the overlay).
+- ``analyze``: photo -> calibrate -> gate -> segment -> gate -> runs -> geometry.py ->
+  describe, kept per run with every piece's place in the tray (for the overlay).
+  The gate (gate.check_input) refuses a photo that is not a core tray, from the
+  calibration confidence, Muse Spark's look at the whole photo and, after SAM,
+  the SAM confidence: a screenshot is never measured.
 - ``set_break`` / ``remove_piece`` / ``split_piece``: piece corrections. RQD, TCR and FF are
   recomputed by geometry.log_interval (through runs.log_segment), never by a
   model, and the rule anomalies follow the new numbers.
@@ -30,6 +33,7 @@ from coresight.anomalies import with_rule_anomalies
 from coresight.calibration import CalibrationError, Tray, find_trays
 from coresight.crops import run_crops
 from coresight.describe import Describer, cache_key, describe_prompt, png_bytes
+from coresight.gate import check_input
 from coresight.geometry import IntervalLog
 from coresight.meta_client import sam_cache_key
 from coresight.runs import (
@@ -46,12 +50,14 @@ from coresight.schemas import (
     BreakKind,
     Correction,
     DescriptionField,
+    GateResult,
     GeologyDescription,
     Interval,
     IntervalResult,
     Measure,
     ReviewPiece,
     RunReview,
+    TrayCheck,
     TrayView,
 )
 from coresight.segmentation import PROMPT as SAM_PROMPT
@@ -117,6 +123,28 @@ class Reporter:
     def masks(self, row: int, png: bytes) -> None: ...
 
     def crop(self, run: int, jpg: bytes) -> None: ...
+
+    def gate(self, result: GateResult) -> None: ...
+
+
+def _tray_check(client, image: np.ndarray) -> TrayCheck | None:
+    """Muse Spark's look at the whole photo; None without an answer (the other two decide)."""
+    check = getattr(client, "check_tray", None)
+    if check is None:
+        return None
+    try:
+        return check(png_bytes(image))
+    except Exception:  # an outage must not block a real tray: calibration and SAM still vote
+        return None
+
+
+def _gate(calibration: float, sam: float | None, spark: TrayCheck | None, report) -> None:
+    result = check_input(calibration, sam, spark)
+    report.gate(result)
+    if not result.ok:
+        stage = "calibration" if sam is None else "segmentation"
+        report.stage(stage, status="failed", detail="Refused: not a measurable core tray")
+        raise ReviewError(result.message)
 
 
 MASK_MAX_WIDTH_PX = 1600
@@ -221,8 +249,11 @@ def analyze(
     report.tray(view, tray_jpg)
     report.stage(
         "calibration", status="done", progress=1, seconds=time.perf_counter() - t,
-        detail=f"{len(tray.rows)} rows, {tray.px_per_cm:.1f} px per cm",
+        detail=f"{len(tray.rows)} rows, {tray.px_per_cm:.1f} px per cm, "
+               f"confidence {tray.confidence:.2f}",
     )  # fmt: skip
+    spark = _tray_check(client, image)
+    _gate(tray.confidence, None, spark, report)  # before SAM: a screenshot costs no SAM call
 
     # stage 2 as pipeline.segment, one row at a time so the page can follow it
     t, calls, cached, rows, found = time.perf_counter(), 0, 0, [], []
@@ -241,7 +272,7 @@ def analyze(
         rows.append(row)
         found += [Position(i, x / tray.px_per_cm) for x in run_markers(crop, tray.px_per_cm)]
         pieces += len(row.intervals_px)
-        confidences += [m["confidence"] or 0 for m in masks]
+        confidences += [m["confidence"] for m in masks if m["confidence"] is not None]
         mean = sum(confidences) / len(confidences) if confidences else 0
         report.stage(
             "segmentation", progress=(i + 1) / len(crops), calls=calls, cached=cached,
@@ -253,6 +284,9 @@ def analyze(
         seconds=time.perf_counter() - t,
         detail=f"{pieces} pieces in {len(crops)} rows, confidence {mean:.2f}",
     )  # fmt: skip
+    # no mask at all is SAM's "nothing here"; masks without a confidence say nothing
+    sam = mean if confidences else (None if pieces else 0.0)
+    _gate(tray.confidence, sam, spark, report)
 
     if markers is None:
         markers = found

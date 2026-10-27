@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 from meta_sam_parser import CompletedOutcome, decode_mask_to_raster, image_segmentation_format
 
 from coresight.describe import cached_description, describe_prompt
-from coresight.schemas import GeologyDescription, ModelDescription, Transcript
+from coresight.schemas import GeologyDescription, ModelDescription, Transcript, TrayCheck
 
 DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 SAM_MODEL_ID = "sam-3.1"
@@ -44,6 +44,14 @@ TRANSCRIBE_PATH = "/asr/transcribe"
 VOICE_LANGUAGES = ["Spanish", "English"]  # a hint, not a hard setting (docs: languageBias)
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
 RETRY_STATUS = {408, 429, 500, 502, 503, 504}
+TRAY_CHECK_PROMPT = """\
+You are the first check of a drill-core logging system. Look at the whole photo.
+Is it a photo of a drill core tray (a core box): a tray with several parallel rows
+of rock core, taken from above? Answer is_core_tray false for anything else, for
+example a screenshot of software or a web page, a person or a selfie, a document,
+a landscape, or one or two pieces of core held or laid out without a tray.
+what_it_shows: what the photo shows, in a few words. confidence: how sure you are
+of is_core_tray, from 0 to 1."""
 
 # One SAM record: "<id><|box;...|><|mask;...;data=H,W,ENC payload|>" (docs:
 # sam/reading-segmentation). The box token has no payload, so records are found
@@ -261,6 +269,52 @@ class MetaClient:
         return cached_description(
             self.cache_dir, self.model, prompt, image_png, lambda: self._with_retries(call)
         )
+
+    def check_tray(self, image_png: bytes) -> TrayCheck:
+        """Muse Spark on the whole photo: is it a core tray at all? (the input gate).
+
+        Same request as describe_interval with the TrayCheck schema; the answer
+        is validated and cached by a hash of model, prompt and image.
+        """
+        name = hashlib.sha256(
+            b"\0".join([MUSE_SPARK_MODEL_ID.encode(), TRAY_CHECK_PROMPT.encode(), image_png])
+        ).hexdigest()
+        path = self.cache_dir / "tray_check" / f"{name}.json" if self.cache_dir else None
+        if path and path.exists():
+            return TrayCheck.model_validate_json(path.read_text(encoding="utf-8"))
+        body = {
+            "model": MUSE_SPARK_MODEL_ID,
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": TRAY_CHECK_PROMPT},
+                        {"type": "input_image", "image_url": _data_url(image_png)},
+                    ],
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "TrayCheck",
+                    "schema": TrayCheck.model_json_schema(),
+                }
+            },
+        }
+
+        def call() -> str:
+            resp = self._http.post(RESPONSES_PATH, json=body)
+            if resp.status_code >= 400:
+                error = TransientAPIError if resp.status_code in RETRY_STATUS else RuntimeError
+                raise error(f"Muse Spark {resp.status_code}: {resp.text}")
+            return _output_text(resp.json())
+
+        check = TrayCheck.model_validate_json(self._with_retries(call))
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(check.model_dump_json(indent=1), encoding="utf-8")
+        return check
 
     def respond(self, body: dict) -> dict:
         """One Responses API turn with function tools (the area agents).

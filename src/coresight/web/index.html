@@ -151,6 +151,11 @@ a{color:inherit;text-decoration:none}
 .empty{max-width:560px;margin:72px auto;text-align:center}
 .empty h1{margin:0 0 10px;font-size:40px;font-weight:600;letter-spacing:-.03em;line-height:1.15}
 .empty p{margin:0 auto 26px;color:var(--ink-2);font-size:16px;max-width:46ch}
+.gate{text-align:left;padding:6px 18px;margin:0 0 22px}
+.gate-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0}
+.gate-row + .gate-row{border-top:1px solid var(--hair)}
+.gate-row b{display:block;font-weight:600;margin-bottom:2px}
+.gate-row span{color:var(--ink-2);font-size:14px}
 .empty .actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:56px;text-align:left}
 .how div{padding:18px;border-radius:16px;background:var(--surface);box-shadow:var(--sh-1)}
@@ -749,11 +754,23 @@ function render() {
   renderBar();
   const b = S.box;
   if (b.status === "processing") return renderWorking();
+  if (b.status === "failed" && b.gate && !b.gate.ok) return renderRefused(b);
   if (b.status === "failed") {
     $("page").innerHTML = `<div class="empty"><h1>This photo could not be logged</h1>${banner(b.error || "Unknown error.")}<div class="actions"><button class="btn primary" id="retry">Try another photo</button></div></div>`;
     $("retry").onclick = () => openNew(); return;
   }
   renderBox();
+}
+
+const GATE = {spark:["spark", "Muse Spark looked at the whole photo"], calibration:["cv", "Calibration looked for the tray slats"], segmentation:["sam", "SAM 3.1 looked for core pieces"]};
+function renderRefused(b) {
+  const g = b.gate, advice = g.reasons.reduce((m, r) => m.replace(r.detail, ""), g.message).trim();
+  $("page").innerHTML = `<div class="empty"><h1>Not a core tray we can measure</h1>
+    <p>CoreSight checks every photo before it measures anything, so a screenshot never gets an RQD. Nothing was measured.</p>
+    <section class="card gate">${g.reasons.map((r) => `<div class="gate-row">${glyph(GATE[r.signal][0], 20)}<div><b>${GATE[r.signal][1]}</b><span>${esc(r.detail)}</span></div></div>`).join("")}</section>
+    <p>${esc(advice)}</p><div class="actions"><button class="btn primary" id="retry">Try another photo</button><button class="btn" id="sample">Try a sample box</button></div></div>`;
+  $("retry").onclick = () => openNew();
+  $("sample").onclick = () => S.samples.length && startSample(S.samples[0].name);
 }
 
 /* home */

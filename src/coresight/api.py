@@ -51,6 +51,7 @@ from coresight.schemas import (
     BoxReview,
     BreakKind,
     DescriptionField,
+    GateResult,
     Handoffs,
     Interval,
     Stage,
@@ -205,6 +206,10 @@ class StoreReporter(review.Reporter):
 
     def crop(self, run: int, jpg: bytes) -> None:
         self.store.save_file(self.box.id, f"run{run}.jpg", jpg)
+
+    def gate(self, result: GateResult) -> None:
+        self.box.gate = result
+        self.store.save(self.box)
 
 
 class RateLimit:

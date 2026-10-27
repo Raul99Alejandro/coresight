@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import cv2
 import numpy as np
 import pytest
@@ -103,3 +105,19 @@ def test_pipeline_calibrate_reads_the_file(tmp_path):
     assert trays[0].px_per_cm == pytest.approx(PX_PER_CM, rel=0.02)
     with pytest.raises(FileNotFoundError):
         calibrate(tmp_path / "missing.png", TRAY_CM)
+
+
+DATA = Path(__file__).parent / "data"
+
+
+def test_a_tray_is_found_with_confidence():
+    [tray] = find_trays(photo(), TRAY_CM, max_trays=1)
+    assert tray.confidence >= 0.9
+
+
+@pytest.mark.parametrize("name", ["screenshot_glyphs.jpg", "potter_closeup.jpg"])
+def test_no_calibration_confidence_without_slats(name):
+    """The screenshot a judge uploaded (RQD 100 %) and core pieces without a tray
+    (Potter Mine, James St. John, CC BY 2.0): the comb lands, but on no slats."""
+    trays = find_trays(cv2.imread(str(DATA / name)), TRAY_CM, max_trays=1)
+    assert trays[0].confidence < 0.5  # the gate refuses it: no scale to measure with

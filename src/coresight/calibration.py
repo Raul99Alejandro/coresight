@@ -26,6 +26,11 @@ How it works, on a copy of the photo reduced to ``WORK_WIDTH`` px:
    site from a reference photo with a tape. The scale is only valid along the
    rows: some photos are stretched differently in height (the Kaggle set was
    straightened by its author), so the row pitch is never used as a scale.
+6. Confidence. The comb always lands somewhere, also on a screenshot. How
+   deep the fitted dividers are (median valley depth) says whether real slats
+   were found: core trays measure 0.48 to 0.76 (Onkalo, Nevada, Kaggle), close-ups
+   of core without a tray 0.11 to 0.20, a screenshot of a web page 0.0. The
+   input gate (gate.py) refuses a tray below 0.5.
 """
 
 from __future__ import annotations
@@ -39,6 +44,9 @@ WORK_WIDTH = 1000
 N_STRIPS = 12
 BLUR_SIGMA = 4.0
 SECOND_TRAY_MIN_SCORE = 0.6  # a further tray must score this fraction of the best
+# median divider depth mapped to a 0-1 confidence: at or below NO_SLATS nothing like a
+# slat was found, at or above CLEAR_SLATS the dividers are as clear as in real trays
+NO_SLATS_DEPTH, CLEAR_SLATS_DEPTH = 0.15, 0.45
 
 
 @dataclass(frozen=True)
@@ -66,6 +74,7 @@ class Tray:
     height: int
     px_per_cm: float  # along the rows (x) of the straightened tray
     rows: list[Row] = field(default_factory=list)
+    confidence: float = 1.0  # how clearly the slats were found, 0 to 1 (step 6)
 
     def to_straight(self, points: np.ndarray) -> np.ndarray:
         """Map (N, 2) original-photo points into straightened tray pixels."""
@@ -290,6 +299,8 @@ def find_trays(
         target = np.array([[0, 0], [width, 0], [width, height], [0, height]], dtype=np.float32)
         homography = cv2.getPerspectiveTransform(corners.astype(np.float32), target)
         row_px = height / n_rows
+        depth = float(np.median([f[2] for f in fits]))
+        span = CLEAR_SLATS_DEPTH - NO_SLATS_DEPTH
         tray = Tray(
             corners=corners,
             homography=homography,
@@ -297,6 +308,8 @@ def find_trays(
             height=round(height),
             px_per_cm=width / box_length_cm,
             rows=[Row(i, i * row_px, (i + 1) * row_px) for i in range(n_rows)],
+            # rounded as it is shown, so the gate decides on the number people read
+            confidence=round(float(np.clip((depth - NO_SLATS_DEPTH) / span, 0, 1)), 2),
         )
         trays.append(tray)
     return trays
