@@ -1,0 +1,18 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 10.116475500020897,
+ "error": null,
+ "description": {
+  "lithology": "Fine-grained brown to reddish-brown metasedimentary rock, likely siltstone to mudstone, massive to deformed with contorted wispy to schlieren foliated fabric, largely obscured by sulfide overprint",
+  "alteration": "moderate to strong oxidised / iron-oxide staining with brown to reddish-brown discolouration, overprinted by strong sulfidation",
+  "mineralization": "brassy-yellow sulfides, likely chalcopyrite with pyrite/pyrrhotite, as semi-massive to massive blebs, patches, stringers and wispy schlieren, estimated 35-50 vol% overall and up to ~80 vol% in left piece",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Brassy-yellow metallic sulfides occur throughout both pieces as near-massive patches on the left and as wispy stringers and schlieren in brown matrix on the right, totalling ~35-50 vol%.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.65
+ }
+}

@@ -1,6 +1,5 @@
 """End-to-end pipeline: core box photo -> reviewed interval log.
 
-Stages still marked NotImplemented are waiting for their day in docs/PLAN.md.
 ``log_box`` runs photo -> calibrate -> segment -> runs -> geometry.py and
 returns validated IntervalResult rows; ``describe`` adds one validated
 description per run (Muse Spark or Glimmer, same contract). The review of a
@@ -193,9 +192,12 @@ def export_csv(box: BoxReview) -> str:
     return out.getvalue()
 
 
-def draft_handoffs(approved_logs):
-    """Draft the assay request (lab) and ground-condition alert (safety).
+def draft_handoffs(box: BoxReview, history: list[BoxReview]):
+    """Stage 6: the orchestrator and area agents on an approved box (coresight.agents).
 
-    Drafts only. Nothing is sent without human approval. Day 8.
+    Drafts only, each checked by verify.py. Nothing is sent without human approval.
     """
-    raise NotImplementedError("day 8: handoffs")
+    from coresight import agents
+    from coresight.verify import verify
+
+    return agents.draft_handoffs(box, history, MetaClient(), verify)

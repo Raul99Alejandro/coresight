@@ -1,0 +1,25 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 11.22010630001023,
+ "error": null,
+ "cost_usd": 0.00851325,
+ "log": {
+  "from_m": 20.71,
+  "to_m": 22.6,
+  "rqd_pct": 99.9,
+  "tcr_pct": 100.0,
+  "natural_fractures": 4,
+  "fracture_frequency_per_m": 2.12,
+  "uncertain_breaks": 2,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Gneiss / migmatitic gneiss - light to medium grey and whitish-grey, medium-grained, foliated to banded gneissose fabric with irregular leucocratic quartz-feldspar segregations and darker biotite-rich bands, texture massive to weakly banded in the photographed interval, both rows (top and bottom) show the same lithology with no sharp lithological contact visible.",
+  "alteration": "none visible - no distinct chloritic, sericitic, silicified, potassic, carbonate or oxidised alteration discernible at this photo resolution; grey-white colour appears primary gneissic composition rather than alteration.",
+  "mineralization": "none visible - no sulfides or ore minerals (pyrite, chalcopyrite, pyrrhotite, sphalerite, galena) visible as disseminations, veinlets, blebs or massive accumulations, estimated 0 vol%.",
+  "anomalies": [],
+  "confidence": 0.62
+ }
+}

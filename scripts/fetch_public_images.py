@@ -59,6 +59,21 @@ IMAGES: dict[str, str] = {
         "Kidd-Munro Assemblage, Neoarchean, 2.711 to 2.719 Ga; drill cores at the Potter Mine, "
         "east of Timmins, Ontario, Canada) 2 (46959105055).jpg"
     ),
+    # Day 8: full boxes of broken core, candidates for the "dramatic" demo sample.
+    "commons_breidalsvik.jpg": "File:Drill Cores, in Drill Core Library in Breiðdalsvík.jpg",
+    "commons_nts_u12g_1.jpg": (
+        "File:CORE SAMPLES, NEVADA TEST SITE - DPLA - db76f1349ca15c6259411296fd16eef3.jpg"
+    ),
+    "commons_nts_u12g_2.jpg": (
+        "File:CORE SAMPLES, NEVADA TEST SITE - DPLA - 5eb8f78b3e71b2e05f1806559ea3b012.jpg"
+    ),
+    "commons_nts_1981.jpg": (
+        "File:CORE SAMPLES, NEVADA TEST SITE - DPLA - 344a80c6542b9421f65b34db561bdfcf.jpg"
+    ),
+    "commons_diamond_core.jpg": "File:Diamond Core.jpeg",
+    "commons_butte_broken_1.jpg": (
+        "File:Broken drill core (Butte Mining District, Montana, USA) 1.jpg"
+    ),
 }
 
 

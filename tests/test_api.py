@@ -1,4 +1,5 @@
 import struct
+from datetime import UTC, datetime
 
 import cv2
 import numpy as np
@@ -8,7 +9,7 @@ from test_review import PIECES, make_run
 
 from coresight.api import create_app, parse_runs
 from coresight.review import Analysis, ReviewError, ReviewStore
-from coresight.schemas import TrayView
+from coresight.schemas import AgentEvent, AreaDraft, Check, Draft, Handoffs, TrayView
 
 
 def photo_bytes() -> bytes:
@@ -33,11 +34,23 @@ def broken_analyzer(photo, job, report):
     raise RuntimeError("SAM 503: upstream unavailable")
 
 
-def client(tmp_path, analyzer=fake_analyzer, transcriber=None) -> TestClient:
+def fake_handoffs(box, history, save):
+    """The agents' result without the Model API: one verified safety draft."""
+    h = Handoffs(status="done", orchestrator_model="muse-wonder-1.0")
+    h.drafts.append(AreaDraft(area="safety", model="muse-spark-1.3", verified=True,
+                              status="ready", draft=Draft(title="Ground alert", body="Fair."),
+                              checks=[Check(name="figures", ok=True)]))  # fmt: skip
+    h.log.append(AgentEvent(at=datetime.now(UTC), actor="orchestrator", kind="route",
+                            text=f"history {len(history)}"))  # fmt: skip
+    save(h)
+
+
+def client(tmp_path, analyzer=fake_analyzer, transcriber=None, handoffs=fake_handoffs):
     app = create_app(
         store=ReviewStore(tmp_path),
         analyzer=analyzer,
         transcriber=transcriber or (lambda wav: ("alteración clorítica débil", 2100)),
+        handoff_runner=handoffs,
         background=False,
     )
     return TestClient(app)
@@ -88,6 +101,38 @@ def test_upload_review_correct_approve_and_export(tmp_path):
     assert c.post(f"/api/boxes/{bid}/approve").json()["status"] == "approved"
     r = c.post(f"/api/boxes/{bid}/runs/0/breaks/0", json={"kind": "mechanical"})
     assert r.status_code == 400 and "approved" in r.json()["detail"]
+
+
+def test_approving_a_box_runs_the_agents_and_drafts_are_approved_one_by_one(tmp_path):
+    c = client(tmp_path)
+    first = upload(c).json()["id"]
+    c.post(f"/api/boxes/{first}/approve")
+    second = c.post(
+        "/api/boxes",
+        files={"photo": ("box.jpg", photo_bytes(), "image/jpeg")},
+        data={"hole_id": "DDH-1", "box_number": "4", "runs": "12.5-14"},
+    ).json()["id"]
+    box = c.post(f"/api/boxes/{second}/approve").json()
+    assert box["handoffs"]["status"] == "done"
+    assert box["handoffs"]["log"][0]["text"] == "history 1"  # box 3 of the same hole
+    assert box["handoffs"]["drafts"][0]["status"] == "ready"
+
+    box = c.post(f"/api/boxes/{second}/drafts/safety/approve").json()
+    assert box["handoffs"]["drafts"][0]["status"] == "approved"
+    r = c.post(f"/api/boxes/{second}/drafts/lab/approve")
+    assert r.status_code == 400 and "no lab draft" in r.json()["detail"]
+
+
+def test_agents_need_an_approved_box_and_a_crash_is_reported(tmp_path):
+    def crash(box, history, save):
+        raise RuntimeError("muse-wonder-1.0 500")
+
+    c = client(tmp_path, handoffs=crash)
+    bid = upload(c).json()["id"]
+    assert c.post(f"/api/boxes/{bid}/handoffs").status_code == 400
+    box = c.post(f"/api/boxes/{bid}/approve").json()
+    assert box["handoffs"]["status"] == "failed" and "500" in box["handoffs"]["error"]
+    assert c.post(f"/api/boxes/{bid}/handoffs").status_code == 202  # retry allowed
 
 
 def test_bad_photo_is_refused_with_a_message(tmp_path):

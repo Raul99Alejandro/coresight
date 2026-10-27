@@ -376,6 +376,63 @@ button.metric:hover{background:var(--fill-2)}
   .drawer{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:88vh;transform:translateY(105%)}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* area agents (stage 6) */
+.agents{overflow:hidden}
+.routes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--hair)}
+.route{background:var(--surface);padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.route .rh{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14.5px}
+.route .rh .rtag{margin-left:auto;font-size:12px;font-weight:500;padding:1px 8px;border-radius:99px;background:var(--fill);color:var(--ink-3);white-space:nowrap}
+.route.on .rh .rtag{background:var(--model-soft);color:var(--model-ink)}
+.route p{margin:0;color:var(--ink-2);font-size:13.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.route:not(.on) p{color:var(--ink-3)}
+.route-foot{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--hair);font-size:13px;color:var(--ink-3);flex-wrap:wrap}
+.route-foot b{color:var(--ink-2);font-weight:600}
+.drafts{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:16px}
+.draft{padding:20px 22px;display:flex;flex-direction:column;gap:12px;animation:rise .35s var(--ease-out)}
+.draft .dh{display:flex;align-items:center;gap:10px}
+.draft .dh .area{font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.draft .dh .prio{margin-left:auto;font-size:12px;font-weight:500;padding:1px 8px;border-radius:99px;background:var(--fill);color:var(--ink-2);white-space:nowrap}
+.draft .dh .prio.high{background:var(--bad-soft);color:var(--bad)}
+.draft h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.draft .body{margin:0;color:var(--ink-2);font-size:14px;white-space:pre-wrap}
+.draft .chips{display:flex;gap:6px;flex-wrap:wrap}
+.draft .chips span{font-size:12.5px;padding:2px 9px;border-radius:8px;background:var(--fill);color:var(--ink-2)}
+.draft table{width:100%;border-collapse:collapse;font-size:13.5px}
+.draft td{padding:6px 0;border-top:1px solid var(--hair)}
+.draft td.num,.draft th.num{text-align:right}
+.draft th{font-weight:500;color:var(--ink-3);text-align:left;font-size:12.5px;padding-bottom:4px}
+.draft tr.total td{font-weight:600}
+.checks{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:var(--code-soft)}
+.checks .ch{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2)}
+.checks .ch i{flex:none;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:10.5px;font-weight:700;color:#fff;background:var(--ok);margin-top:2px}
+.checks .ch.bad i{background:var(--bad)}
+.checks .ch small{color:var(--ink-3)}
+.checks .ct{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.draft .df{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:4px;flex-wrap:wrap}
+.draft .df .sent{font-size:13px;color:var(--ok);display:inline-flex;align-items:center;gap:6px}
+.draft.pending{opacity:.75}
+.dlog{margin-top:16px;overflow:hidden}
+.dlog summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 20px;font-weight:600}
+.dlog summary::-webkit-details-marker{display:none}
+.dlog summary small{font-weight:400;color:var(--ink-3)}
+.dlog summary svg{margin-left:auto;transition:transform .25s var(--ease)}
+.dlog[open] summary svg{transform:rotate(180deg)}
+.ev{display:grid;grid-template-columns:70px 26px 150px 1fr;gap:10px;align-items:start;padding:8px 20px;border-top:1px solid var(--hair);font-size:13.5px}
+.ev time{color:var(--ink-3);font-variant-numeric:tabular-nums;padding-top:3px}
+.ev .ev-who{font-weight:500;color:var(--ink-2);padding-top:3px}
+.ev .what{color:var(--ink-2);overflow-wrap:anywhere;padding-top:3px}
+.ev .what code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
+.ev.k-error .what{color:var(--bad)}
+.ev.k-approve .what{color:var(--ok)}
+.ev .g.chip{width:26px;height:26px;border-radius:8px}
+.rule2{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:14px 18px;border-radius:14px;background:var(--fill);font-size:13.5px;color:var(--ink-2)}
+.rule2 b{color:var(--ink);font-weight:600}
+.agents-working{display:flex;align-items:center;gap:14px;padding:18px 20px}
+.agents-working b{font-weight:600}
+.agents-working small{display:block;color:var(--ink-3);font-size:13px}
+@media (max-width:900px){.routes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.routes{grid-template-columns:1fr}.drafts{grid-template-columns:1fr}.ev{grid-template-columns:56px 26px 1fr}.ev .ev-who{display:none}}
 </style>
 </head>
 <body>
@@ -387,6 +444,7 @@ button.metric:hover{background:var(--fill-2)}
     <symbol id="g-code" viewBox="0 0 24 24"><path d="M2.5 8.5h19v7h-19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 8.5v3.5M10.5 8.5v2M14.5 8.5v3.5M18.5 8.5v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
     <symbol id="g-cv" viewBox="0 0 24 24"><path d="M3 7V4h3M18 4h3v3M21 17v3h-3M6 20H3v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 9.5h10M7 14.5h10" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2"/></symbol>
     <symbol id="g-human" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="4" rx="2" fill="currentColor" opacity=".35"/><rect x="2" y="10" width="13" height="4" rx="2" fill="currentColor"/><rect x="2" y="16" width="20" height="4" rx="2" fill="currentColor" opacity=".35"/><path d="m16.5 12.2 1.8 1.8 3.4-3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="g-wonder" viewBox="0 0 24 24"><circle cx="5" cy="12" r="3" fill="currentColor"/><path d="M8 12h3.5M11.5 12 16 5.5M11.5 12 16 12M11.5 12 16 18.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="5" r="2.2" fill="currentColor"/><circle cx="19" cy="12" r="2.2" fill="currentColor"/><circle cx="19" cy="19" r="2.2" fill="currentColor"/></symbol>
   </defs>
 </svg>
 
@@ -426,7 +484,10 @@ const BREAK_COLOR = {natural:"var(--natural)",uncertain:"var(--uncertain)",possi
 const BREAK_NAME = {natural:"Natural",uncertain:"Uncertain",possible_mechanical:"Possibly mechanical",mechanical:"Mechanical"};
 const FIELDS = [["lithology","Lithology"],["alteration","Alteration"],["mineralization","Mineralization"],["comment","Comment"]];
 const STATUS = {ready:"Under review",approved:"Approved",processing:"Analyzing",failed:"Could not be logged"};
-const MODEL = {"muse-spark-1.3":"Muse Spark 1.3"};
+const MODEL = {"muse-spark-1.3":"Muse Spark 1.3","muse-wonder-1.0":"Muse Wonder"};
+const AREA = {lab:"Lab", safety:"Safety & geotechnics", plant:"Plant", finance:"Finance"};
+const AREA_ORDER = ["lab", "safety", "plant", "finance"];
+const CHECK_NAME = {intervals:"Intervals inside this box", figures:"Figures equal geometry.py", numbers:"Every number traceable to a tool", prices:"Prices from the table only"};
 const I = {
   mic:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5V15"/></svg>',
   edit:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10.5 2.5l3 3-8 8H2.5v-3z"/></svg>',
@@ -441,7 +502,7 @@ const I = {
 const S = {box:null, boxes:[], samples:[], run:null, piece:null, view:"pieces", pop:null, error:null, poll:null, drafts:{}, open:{description:true}};
 
 /* model identity */
-const ACTOR = {sam:"model", spark:"model", voice:"model", code:"code", cv:"code", human:"human"};
+const ACTOR = {sam:"model", spark:"model", voice:"model", wonder:"model", code:"code", cv:"code", human:"human"};
 function glyph(name, size = 18, cls = null, halo = false) {
   return `<span class="g ${cls || ACTOR[name]}" style="width:${size}px;height:${size}px">${halo ? '<span class="halo"></span>' : ""}<svg width="${size}" height="${size}" aria-hidden="true"><use href="#g-${name}"/></svg></span>`;
 }
@@ -506,6 +567,78 @@ function ledgerHTML(b) {
       <div class="split"><i style="width:${proposed ? (proposed - changed) / proposed * 100 : 100}%"></i></div>
       <small>Pieces, breaks and description fields. ${changed ? `${changed} changed, each kept next to the original for evaluation.` : "Nothing changed yet."}</small></div></div>
   </section>`;
+}
+
+/* area agents (stage 6): routing by Muse Wonder, drafts by Muse Spark, checks by verify.py */
+const agentsWorking = (b) => !!(b.handoffs && b.handoffs.status === "working");
+const hhmm = (t) => new Date(t).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false});
+const usd = (x) => `$${Number(x).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+function evGlyph(e) {
+  if (e.actor === "verifier") return ["code", "verify.py"];
+  if (e.actor === "geologist") return ["human", "Geologist"];
+  if (e.actor === "orchestrator") return ["wonder", MODEL[e.model] || "Orchestrator"];
+  return ["spark", AREA[e.actor] || e.actor];
+}
+function eventHTML(e) {
+  const [g, who] = evGlyph(e);
+  let text = esc(e.text);
+  if (e.kind === "tool") { const m = e.text.match(/^(\w+)\((.*?)\) → (.*)$/s); if (m) text = `<code>${esc(m[1])}(${esc(m[2])})</code> → <span class="muted">${esc(m[3])}</span>`; }
+  return `<div class="ev k-${e.kind}"><time>${hhmm(e.at)}</time><span class="g chip ${ACTOR[g]}"><svg width="15" height="15" aria-hidden="true"><use href="#g-${g}"/></svg></span><span class="ev-who">${esc(who)}</span><span class="what">${text}</span></div>`;
+}
+function checksHTML(d) {
+  if (!d.checks.length) return "";
+  const ok = d.checks.filter((c) => c.ok).length;
+  return `<div class="checks"><div class="ct">${glyph("code", 13)}verify.py, deterministic: ${ok} of ${d.checks.length} checks passed</div>
+    ${d.checks.map((c) => `<div class="ch ${c.ok ? "" : "bad"}"><i>${c.ok ? "✓" : "!"}</i><span>${esc(CHECK_NAME[c.name] || c.name)}${c.detail ? ` <small>${esc(c.detail)}</small>` : ""}</span></div>`).join("")}</div>`;
+}
+function draftHTML(d) {
+  const x = d.draft;
+  if (!x) return `<section class="card draft pending"><div class="dh">${glyph("spark", 18, "model work")}<span class="area">${AREA[d.area]}</span></div>
+    <h3>${d.status === "failed" ? "The agent could not write a draft" : "Writing the draft…"}</h3>${d.error ? `<p class="body">${esc(d.error)}</p>` : ""}</section>`;
+  const iv = x.intervals.map((i) => `<span>${i.from_m.toFixed(2)}–${i.to_m.toFixed(2)} m</span>`).join("");
+  const lines = x.lines.length ? `<table><tr><th>Test</th><th class="num">Samples</th><th class="num">Unit</th><th class="num">Total</th></tr>
+    ${x.lines.map((l) => `<tr><td>${esc(l.code)}</td><td class="num">${l.samples}</td><td class="num">${usd(l.unit_usd)}</td><td class="num">${usd(l.total_usd)}</td></tr>`).join("")}
+    ${x.total_usd != null ? `<tr class="total"><td colspan="3">Total (example prices)</td><td class="num">${usd(x.total_usd)}</td></tr>` : ""}</table>` : "";
+  const foot = d.status === "approved"
+    ? `<span class="sent">${glyph("human", 16, "human")}Approved ${hhmm(d.approved_at)}. Not sent: it goes out through the mine's own process.</span>`
+    : d.status === "rejected" ? `<span class="muted">Failed the checks twice. It cannot be approved; retry the agents or write it by hand.</span>`
+    : `<button class="btn primary" data-approve="${d.area}" ${d.verified ? "" : "disabled"}>Approve draft</button><span class="muted">Nothing is sent automatically.</span>`;
+  return `<section class="card draft"><div class="dh"><span class="g chip model"><svg width="18" height="18" aria-hidden="true"><use href="#g-spark"/></svg></span>
+      <div><span class="area">${AREA[d.area]}</span><br><span class="src model">${esc(MODEL[d.model] || d.model)} with tools</span></div>
+      <span class="prio ${x.priority}">${cap(x.priority)} priority</span></div>
+    <h3>${esc(x.title)}</h3><p class="body">${esc(x.body)}</p>${iv ? `<div class="chips">${iv}</div>` : ""}${lines}
+    ${checksHTML(d)}<div class="df">${foot}</div></section>`;
+}
+function agentsHTML(b) {
+  const h = b.handoffs;
+  const head = `<div class="section"><h2>Area agents</h2><p>An orchestrator decided who needs to hear about this box. Every draft is checked by code. Nothing is sent.</p></div>`;
+  if (!h) return `${head}<section class="card agents-working"><div><b>The agents have not run for this box.</b></div><button class="btn" id="agents-retry" style="margin-left:auto">Run the agents</button></section>`;
+  const routes = h.routing ? Object.fromEntries(h.routing.routes.map((r) => [r.area, r])) : {};
+  const routeTiles = AREA_ORDER.map((a) => { const r = routes[a];
+    return `<div class="route ${r && r.applies ? "on" : ""}"><div class="rh">${AREA[a]}<span class="rtag">${!r ? "…" : r.applies ? "Applies" : "Not needed"}</span></div><p>${r ? esc(r.reason) : "Waiting for the orchestrator."}</p></div>`; }).join("");
+  const last = h.log[h.log.length - 1];
+  const working = agentsWorking(b) ? `<section class="card agents-working" style="margin-bottom:16px">${glyph(h.routing ? "spark" : "wonder", 22, "model work", true)}<div><b>${h.routing ? "The area agents are writing their drafts" : "The orchestrator is reading the box"}</b><small>${last ? esc(last.text.slice(0, 140)) : "Starting…"}</small></div></section>` : "";
+  const failed = h.status === "failed" ? banner(`The agents stopped: ${h.error || "unknown error"}`, '<button class="btn" id="agents-retry">Retry</button>') : "";
+  const fallback = h.orchestrator_model && h.orchestrator_model !== "muse-wonder-1.0" ? " (plan B: Muse Wonder failed)" : "";
+  const orch = `${glyph("wonder", 15, "model")}<span>${h.orchestrator_model ? `Routed by <b>${esc(MODEL[h.orchestrator_model] || h.orchestrator_model)}</b>${fallback}` : "Muse Wonder decides which areas apply"}</span>`;
+  const n = h.log.length, tools = h.log.filter((e) => e.kind === "tool").length;
+  return `${head}${failed}${working}
+    <section class="card agents"><div class="routes">${routeTiles}</div><div class="route-foot">${orch}<span class="grow"></span><span>${tools} tool call${tools === 1 ? "" : "s"}, ${n} log entries</span></div></section>
+    ${h.drafts.length ? `<div class="drafts">${h.drafts.map(draftHTML).join("")}</div>` : ""}
+    ${n ? `<details class="card dlog" ${S.open.agentLog ? "open" : ""}><summary>Decision log <small>every tool call, draft and check, in order</small><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 6 4 4 4-4"/></svg></summary>${h.log.map(eventHTML).join("")}</details>` : ""}
+    <div class="rule2">${glyph("human", 18, "human")}<div><b>Agents Rule of Two (Meta).</b> These agents read model output about the photo and private mine data (hole history, prices). They have no tool that sends or changes anything, so a person approves every draft and sends it through the mine's own channels.</div></div>`;
+}
+function bindAgents() {
+  const el = $("agents"); if (!el) return;
+  const log = el.querySelector(".dlog"); if (log) log.ontoggle = () => { S.open.agentLog = log.open; };
+  el.querySelectorAll("[data-approve]").forEach((x) => (x.onclick = async () => {
+    const area = x.dataset.approve;
+    if (!(await confirmBox(`Approve the ${AREA[area]} draft?`, "It is marked approved in CoreSight. Nothing is sent: it goes to the area through the mine's own process.", "Approve draft"))) return;
+    try { S.box = await api(`/api/boxes/${S.box.id}/drafts/${area}/approve`, {method:"POST"}); el.innerHTML = agentsHTML(S.box); bindAgents(); toast(`${AREA[area]} draft approved, not sent`); }
+    catch (e) { toast(e.message); }
+  }));
+  const retry = $("agents-retry");
+  if (retry) retry.onclick = async () => { try { S.box = await api(`/api/boxes/${S.box.id}/handoffs`, {method:"POST"}); el.innerHTML = agentsHTML(S.box); bindAgents(); clearTimeout(S.poll); S.poll = setTimeout(() => openBox(S.box.id), 1200); } catch (e) { toast(e.message); } };
 }
 
 /* plumbing */
@@ -584,7 +717,8 @@ async function openBox(id) {
     if (!S.box || S.box.id !== id) { S.drafts = {}; S.view = "pieces"; }
     S.box = box;
     if (fresh || box.status === "processing") render();
-    if (box.status === "processing") S.poll = setTimeout(() => openBox(id), 1200);
+    else if ($("agents")) { $("agents").innerHTML = agentsHTML(box); bindAgents(); }
+    if (box.status === "processing" || agentsWorking(box)) S.poll = setTimeout(() => openBox(id), 1200);
     else loadLists();
   } catch (e) { S.box = null; renderBar(); $("page").innerHTML = `<div class="empty">${banner(e.message, '<a class="btn" href="#/">Go home</a>')}</div>`; }
 }
@@ -707,6 +841,7 @@ function renderBox() {
   $("page").innerHTML = `${S.error ? banner(S.error) : ""}
     <section class="hero"><div class="grow"><h1>${esc(b.hole_id)}, box ${esc(b.box_number)}</h1><p>${esc(sm.text)}</p></div>
       ${sm.toCheck && b.status === "ready" ? `<button class="check" id="to-check"><b>${sm.toCheck}</b>breaks to check</button>` : ""}</section>
+    ${b.status === "approved" ? `<div id="agents">${agentsHTML(b)}</div>` : ""}
     <section class="card tray-card">
       <div class="tray view-${S.view}" id="tray"><img alt="Core tray of ${esc(b.hole_id)} box ${esc(b.box_number)}, straightened" src="/api/boxes/${b.id}/tray.jpg">${maskImgs(b)}<svg id="ov" viewBox="0 0 ${T.width} ${T.height}" preserveAspectRatio="none"></svg></div>
       <div class="tray-foot">
@@ -727,7 +862,7 @@ function renderBox() {
     ${ledgerHTML(b)}
     ${motto()}
     <p class="foot-note">Sample photo by Kallerna, Wikimedia Commons, CC BY-SA 4.0. Overlays carry the same license.</p>`;
-  drawOverlay(); placeThumb();
+  drawOverlay(); placeThumb(); bindAgents();
   $("seg").querySelectorAll("button").forEach((x) => (x.onclick = () => { S.view = x.dataset.view; $("tray").className = `tray view-${S.view}`;
     $("seg").querySelectorAll("button").forEach((y) => y.setAttribute("aria-selected", String(y === x))); placeThumb(); }));
   $("page").querySelectorAll("[data-run]").forEach((x) => (x.onclick = () => openRun(+x.dataset.run)));
@@ -896,7 +1031,8 @@ async function correct(path, method, body, message) {
 $("approve").onclick = async () => {
   const b = S.box;
   if (!(await confirmBox(`Approve ${b.hole_id}, box ${b.box_number}?`, "The log is locked and ready to export. Corrections stay in the history.", "Approve box"))) return;
-  try { S.box = await api(`/api/boxes/${b.id}/approve`, {method:"POST"}); closeDrawer(true); render(); loadLists(); toast("Box approved"); }
+  try { S.box = await api(`/api/boxes/${b.id}/approve`, {method:"POST"}); closeDrawer(true); render(); loadLists(); toast("Box approved. The area agents are reading it.");
+    if (agentsWorking(S.box)) { clearTimeout(S.poll); S.poll = setTimeout(() => openBox(b.id), 1200); } }
   catch (e) { S.error = e.message; renderBox(); }
 };
 

@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 281.8199770000065,
+ "error": null,
+ "description": {
+  "lithology": "Fine-grained mafic metavolcanic / chlorite schist-like rock. Colour is dark green-grey to grey with mottled green and purple-grey patches and a thin orange-brown oxidation rim along the bottom edge. Grain size is fine-grained, essentially aphanitic to very fine grained. Texture is massive to weakly foliated/sheared with sub-parallel dark streaking / lineation running roughly sub-vertical to the core axis. Fabric is weakly foliated / lineated with a sheared appearance.",
+  "alteration": "Chloritic alteration, moderate to strong and pervasive, giving the green-grey groundmass colour; weak to moderate local oxidation / iron staining orange-brown along margins. No strong sericitic, potassic, silicified or carbonate alteration is clearly distinguishable in the photo resolution.",
+  "mineralization": "none visible. No confidently identifiable sulfide or ore minerals can be resolved in the image; the dark band is a fine-grained rock/vein material rather than a clearly visible sulfide assemblage at this resolution.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "A prominent dark, near-black, sub-vertical to oblique vein / shear band cuts the core from top to bottom with a thin pale yellowish selvage along its margin; the feature should be checked in hand specimen for composition and for possible sulfide/carbonate content.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Thin, discontinuous pale greenish to yellowish fracture fillings / veinlets are visible throughout the core, consistent with chlorite / carbonate / secondary mineral infill; confirm in hand specimen.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.45
+ },
+ "cost_usd": 0.0
+}

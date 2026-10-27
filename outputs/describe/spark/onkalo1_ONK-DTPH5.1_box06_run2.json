@@ -1,0 +1,24 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 6.885328900001089,
+ "error": null,
+ "log": {
+  "from_m": 23.66,
+  "to_m": 26.7,
+  "rqd_pct": 96.9,
+  "tcr_pct": 100.0,
+  "natural_fractures": 10,
+  "fracture_frequency_per_m": 3.29,
+  "uncertain_breaks": 5,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Grey medium-grained migmatitic mica gneiss with gneissic banding and foliation, locally tightly folded, with irregular white quartz-feldspathic leucosome segregations",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [],
+  "confidence": 0.85
+ }
+}

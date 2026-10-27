@@ -1,0 +1,23 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 9.601174300012644,
+ "error": null,
+ "description": {
+  "lithology": "Fine-grained altered mafic volcanic rock, mottled green-grey to brassy-yellow with dark blue-grey bands, massive in the green portion to streaky-banded to foliated in the sulfide-rich portion.",
+  "alteration": "Moderate to strong chloritic alteration in the green-grey host, overprinted by strong sulfide replacement in the right half.",
+  "mineralization": "Chalcopyrite (brassy-yellow) with dark blue-grey bornite-chalcocite, semi-massive to massive streaky-banded with disseminated blebs, ~35-45 vol% overall and ~80-90 vol% in the right half.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Brassy-yellow chalcopyrite with dark blue-grey sulfides forms a semi-massive to massive streaky-banded zone over the right half of the piece with disseminated blebs in the green host on the left.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "A central gradational contact-mineralization front between green altered host on the left and sulfide-dominated rock on the right should be checked for control and assay boundaries.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.65
+ }
+}

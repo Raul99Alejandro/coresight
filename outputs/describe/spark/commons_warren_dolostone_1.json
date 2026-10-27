@@ -1,0 +1,28 @@
+{
+ "reference": "Dolostone, Knox Dolomite, Warren County core (Commons title)",
+ "seconds": 10.307313099998282,
+ "error": null,
+ "description": {
+  "lithology": "pale light grey to medium-dark grey fine-grained carbonate rock, likely limestone to marble, massive to weakly laminated with mottled to wavy irregular banded fabric, upper rows pale grey-white and massive, lower rows darker grey mottled with homogeneous sawn interior",
+  "alteration": "none visible - no distinct chloritic, sericitic, silicified, potassic or oxidised overprint resolvable; pale to dark grey tones appear primary",
+  "mineralization": "tentative trace to ~2 vol% dark metallic sulfides, likely pyrite-pyrrhotite, as isolated mm-scale disseminated specks and cm-sized blebs-nodules",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Dark metallic ~1 cm round nodule in centre of row 4 and fine dark metallic speckling on sawn cross-section in row 5 suggest trace sulfide blebs that need close check.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Distinct colour change from pale grey-white core in upper three rows to medium-dark grey mottled core in lower two rows may mark a lithological contact or facies change.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Bottom row core is longitudinally sawn exposing flat faces and top row contains short broken pieces, so verify continuity and missing intervals.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.55
+ }
+}

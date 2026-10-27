@@ -1,0 +1,30 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 463.0,
+ "error": null,
+ "description": {
+  "lithology": "The visible piece is a single fragment of drill core, ~ one half of a core diameter, with a broken / missing left margin. The rock is a metallic-looking massive sulphide / ore interval with a mottled yellow-bronze to grey-silver groundmass with greenish surface staining and dark blue-black streaks. Grain size is not resolvable at this resolution; texture appears massive to laminated / foliated with irregular dark blue-black veinlets / bands cutting the metallic groundmass. Fabric is sub-parallel streaking of the metallic material and the dark blue-black material trending roughly down-right across the fragment.",
+  "alteration": "Alteration is visible as greenish surface staining / coating over parts of the fragment, consistent with secondary copper carbonate / chloritic / oxidised staining, intensity weak to moderate and patchy. No definitive primary alteration assemblage can be confidently identified from the photo alone.",
+  "mineralization": "Visible sulphide / ore minerals are present. The dominant metallic phase is yellow-bronze to grey-silver, consistent with chalcopyrite \u00b1 pyrite, occurring as a massive to semi-massive groundmass with local veinlets / bands of dark blue-black material, likely secondary copper minerals such as azurite / malachite or a dark sulphide phase. Style is massive to semi-massive with disseminated fine dark specks and irregular veinlets / bands. Estimated volume percent of sulphide / ore material is ~70-90 % of the visible fragment.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Sulfides / ore minerals are visible throughout the fragment as a massive yellow-bronze to grey-silver groundmass with dark blue-black veinlets and green staining, covering essentially the whole piece.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "The left margin of the core piece is broken / missing with a dark void visible at the edge of the tray.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "A prominent dark blue-black vein / band cuts the core obliquely from top to bottom left of centre, with thinner dark linear veinlets extending to the right.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.35
+ },
+ "note": "seconds from the first (uncached) call",
+ "cost_usd": 0.0
+}

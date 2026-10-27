@@ -1,0 +1,36 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 11.47356533332883,
+ "error": null,
+ "cost_usd": 0.010241083333333333,
+ "log": {
+  "from_m": 23.66,
+  "to_m": 26.7,
+  "rqd_pct": 96.9,
+  "tcr_pct": 100.0,
+  "natural_fractures": 10,
+  "fracture_frequency_per_m": 3.29,
+  "uncertain_breaks": 5,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Migmatitic gneiss / banded biotite gneiss. Medium to dark grey, medium-grained where discernible, with pervasive gneissic banding and foliation and abundant irregular white to pale-grey quartz-feldspar leucosome / segregations forming patches, lenses and discontinuous veins 1-5cm wide. Fabric is well foliated to banded, locally tightly folded / ptygmatic, especially in row 2 and row 3, consistent with migmatitic paragneiss.",
+  "alteration": "none visible at this photo resolution - no distinct chloritic, sericitic, carbonate, potassic, silicified or oxidised staining is discernible; pale patches are interpreted as primary leucosome/veining, not alteration.",
+  "mineralization": "none visible - no distinguishable pyrite, chalcopyrite, pyrrhotite, sphalerite or galena as disseminations, blebs, veinlets or massive accumulations at this resolution; estimated 0 vol% visible sulfides.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Irregular light-coloured quartz-feldspar leucosome/vein network throughout all rows from ~23.66m to 26.7m forms prominent bleached-looking patches that should be checked on core to confirm they are primary leucosome/veins and not silicification.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Discrete open fractures/broken pieces are visible e.g. near the red mark in the top row and oblique break in the left third of row 3 - flagged for geotechnical check only, no count or RQD estimated.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.62
+ }
+}

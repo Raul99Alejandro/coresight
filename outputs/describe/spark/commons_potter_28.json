@@ -1,0 +1,28 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 10.82723339999211,
+ "error": null,
+ "description": {
+  "lithology": "Two intervals visible: upper dark grey to black fine-grained laminated siliceous metasediment/chert with contorted to tightly folded flow-banding, and lower 1.0 m brassy-yellow to silvery-grey and greenish fine- to medium-grained banded to massive sulfide-rich rock with relict foliation and dark siliceous bands, texture massive to semi-massive",
+  "alteration": "weak to moderate chloritic(?) greenish tint in lower mineralized slab, otherwise none visible with certainty",
+  "mineralization": "brassy-yellow chalcopyrite(?) +/- silvery-grey sulfides as banded semi-massive to massive mineralization comprising ~70-90 vol% of lower slab, with minor disseminated to blebby/stringer brassy sulfides ~3-7 vol% in upper dark unit",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Lower 1.0 m slab (98-01 696.9 m) displays semi-massive to massive brassy-yellow and silvery metallic sulfides over most of the exposed surface.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Upper dark grey-black laminated core shows tight contorted folding/flow-banding that should be checked for tectonic versus soft-sediment origin.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Sharp contrast between upper dark siliceous core and lower sulfide-rich slab at the divider should be checked as a lithology/mineralization contact.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.68
+ }
+}

@@ -8,6 +8,10 @@ __pycache__/
 data/raw/
 data/cache/
 data/reviews/
-outputs/
+# outputs/ stays private except the public metrics (no Kaggle photos or reference values)
+outputs/*
+!outputs/eval/
+!outputs/describe/
+outputs/eval/private/
 .claude/settings.local.json
 CLAUDE.local.md

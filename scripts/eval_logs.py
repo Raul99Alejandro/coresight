@@ -13,7 +13,9 @@ one photo.
   Reference: the labels measured on the photo (day 2).
 
 All SAM calls come from data/cache/. Writes outputs/eval/runs.csv and
-outputs/eval/report.md.
+outputs/eval/report.md, which are public: they hold errors only, never the
+reference values (the Kaggle logs are NC). The full rows, with references,
+go to outputs/eval/private/runs_with_refs.csv, which is not in git.
 
     .venv\\Scripts\\python scripts\\eval_logs.py
 """
@@ -39,6 +41,11 @@ ROOT = Path(__file__).resolve().parents[1]
 LABELS = ROOT / "data" / "labels"
 REFS = LABELS / "calibration" / "scale_references.json"
 OUT_DIR = ROOT / "outputs" / "eval"
+PRIVATE_DIR = OUT_DIR / "private"
+PUBLIC_FIELDS = (
+    "box", "site", "method", "from_m", "to_m", "complete",
+    "rqd_err", "tcr_err", "fractures", "uncertain", "mechanical", "ff_per_m",
+)  # fmt: skip
 
 
 def stats(errors: list[float]) -> str:
@@ -49,7 +56,7 @@ def stats(errors: list[float]) -> str:
 
 
 def main() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    PRIVATE_DIR.mkdir(parents=True, exist_ok=True)
     sites = json.loads(REFS.read_text(encoding="utf-8"))["sites"]
     client = MetaClient()
     sheets = {p.stem: p for p in (LABELS / "pieces").glob("*.json")}
@@ -99,8 +106,15 @@ def main() -> None:
                     }
                 )
 
-    with (OUT_DIR / "runs.csv").open("w", newline="", encoding="utf-8") as f:
+    for r in rows_out:
+        r["rqd_err"] = round(r["rqd"] - r["rqd_ref"], 2)
+        r["tcr_err"] = round(r["tcr"] - r["tcr_ref"], 2)
+    with (PRIVATE_DIR / "runs_with_refs.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows_out[0]))
+        writer.writeheader()
+        writer.writerows(rows_out)
+    with (OUT_DIR / "runs.csv").open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=PUBLIC_FIELDS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows_out)
 
@@ -114,20 +128,20 @@ def main() -> None:
                 for r in rows_out
                 if r["method"] == method and r["complete"] and site in (r["site"], "all")
             ]
-            rqd = [r["rqd"] - r["rqd_ref"] for r in sel]
-            tcr = [r["tcr"] - r["tcr_ref"] for r in sel]
+            rqd = [r["rqd_err"] for r in sel]
+            tcr = [r["tcr_err"] for r in sel]
             lines.append(f"| {method} | {site} | {stats(rqd)} | {stats(tcr)} |")
     lines.append("")
     best = METHODS[-1]
     worst = sorted(
         (r for r in rows_out if r["method"] == best and r["complete"]),
-        key=lambda r: -abs(r["rqd"] - r["rqd_ref"]),
+        key=lambda r: -abs(r["rqd_err"]),
     )[:5]
     lines.append(f"Largest RQD errors ({best}):")
     for r in worst:
         lines.append(
-            f"- {r['box']} {r['from_m']:.2f}-{r['to_m']:.2f} m: RQD {r['rqd']:.0f} vs"
-            f" {r['rqd_ref']:.0f}, TCR {r['tcr']:.0f} vs {r['tcr_ref']:.0f}"
+            f"- {r['box']} {r['from_m']:.2f}-{r['to_m']:.2f} m:"
+            f" RQD error {r['rqd_err']:+.0f}, TCR error {r['tcr_err']:+.0f}"
         )
     if skipped:
         lines += ["", "Not evaluated (markers do not fit the run list):"]

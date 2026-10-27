@@ -1,0 +1,36 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 246.89217946666759,
+ "error": null,
+ "log": {
+  "from_m": 23.66,
+  "to_m": 26.7,
+  "rqd_pct": 96.9,
+  "tcr_pct": 100.0,
+  "natural_fractures": 10,
+  "fracture_frequency_per_m": 3.29,
+  "uncertain_breaks": 5,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Foliated metamorphic rock, likely paragneiss / mica schist / gneiss. Colour is medium to dark grey-blue with irregular pale white to light grey patches. Grain size appears medium-grained to fine-medium, inequigranular. Texture is strongly foliated / gneissic with a wavy to locally crenulated fabric; the foliation is defined by alternating darker grey and lighter quartz-feldspar rich layers. Locally the rock shows a mottled / nebulitic appearance with diffuse white quartz / feldspar patches.",
+  "alteration": "none visible. No obvious chloritic, sericitic, silicified, potassic, carbonate or oxidised alteration can be confidently distinguished in the photo resolution.",
+  "mineralization": "none visible. No visible sulfides or ore minerals such as pyrite, chalcopyrite, pyrrhotite, sphalerite or galena can be identified in the image.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Top tray row shows a broken core piece on the left with a fresh fracture and a tapered / truncated core end on the right, indicating broken or missing core at the run start.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Third tray row shows a distinct angular fracture / break in the core on the left side of the row with offset pieces.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.6
+ },
+ "cost_usd": 0.0
+}

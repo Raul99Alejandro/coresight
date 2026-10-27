@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import httpx
@@ -145,3 +146,17 @@ def test_transcribe_retries_a_rate_limit(tmp_path):
         transport=httpx.MockTransport(lambda r: answers.pop(0)),
     )  # fmt: skip
     assert client.transcribe(b"RIFF").transcript == "ok"
+
+
+def test_respond_posts_the_body_and_caches_the_answer(tmp_path):
+    calls = []
+
+    def handler(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"output": [{"type": "function_call", "name": "x"}]})
+
+    client = MetaClient(api_key="k", cache_dir=tmp_path, transport=httpx.MockTransport(handler))
+    body = {"model": "muse-wonder-1.0", "input": [], "tools": []}
+    assert client.respond(body)["output"][0]["name"] == "x"
+    assert client.respond(dict(body))["output"][0]["name"] == "x"
+    assert calls == [body]  # the second answer came from data/cache/responses

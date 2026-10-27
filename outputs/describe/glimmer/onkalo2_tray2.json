@@ -1,0 +1,29 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes), wet",
+ "seconds": 420.2675540999917,
+ "error": null,
+ "description": {
+  "lithology": "Dark grey to black, medium-grained mafic to intermediate metamorphic rock with a strongly foliated / gneissic fabric. The groundmass is dark, fine to medium grained, with irregular to patchy lighter grey to white leucocratic intervals / lenses. The fabric is strongly foliated with a wavy to mottled appearance; the white material appears as quartz +/- feldspar segregations / lenses within the dark matrix. No definitive primary igneous texture is resolvable at photo resolution; the rock is consistent with an amphibolite / mafic gneiss with intercalated leucocratic material.",
+  "alteration": "none visible. No obvious chloritic, sericitic, silicified, potassic, carbonate or oxidised alteration can be confidently identified in the photo resolution.",
+  "mineralization": "none visible. No visible sulfides or ore minerals such as pyrite, chalcopyrite, pyrrhotite, sphalerite or galena can be discerned in the image.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Core is broken into multiple pieces along the tray with visible fractures; the top row shows a broken piece at the right end and the second row shows a broken piece at the right end, the fourth row shows a fracture near the right end and the bottom row shows a fracture near the right end.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Wooden depth markers are present at 23.66 m on the second row left, and at 26.70 m and 27.20 m on the bottom row left and right, indicating the run spans approximately 23.66 to 27.20 m.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "White to light grey quartz-rich patches / lenses are visible throughout the core, most prominent in the top row and fourth row, consistent with a lithological variation or quartz veining that should be checked in hand specimen.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.6
+ },
+ "cost_usd": 0.0
+}

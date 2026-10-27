@@ -1,0 +1,23 @@
+{
+ "reference": "Sulfidic argillite and polymetallic massive sulfide (title)",
+ "seconds": 8.861592900007963,
+ "error": null,
+ "description": {
+  "lithology": "Basalt, dark grey to black, aphanitic to fine-grained, massive to brecciated with spotted variolitic to amygdaloidal texture in lower row and irregular vein-breccia fabric in upper right",
+  "alteration": "moderate chloritic with carbonate veining, locally weak oxidized",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Irregular light grey to pinkish vein-breccia network in upper right core should be checked for vein composition and breccia origin.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Sharp irregular contact in lower row between dark spotted basalt and underlying pale green fractured breccia should be checked as possible flow contact or breccia zone.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.65
+ }
+}

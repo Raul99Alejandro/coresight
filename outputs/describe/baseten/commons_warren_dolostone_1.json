@@ -1,0 +1,24 @@
+{
+ "reference": "Dolostone, Knox Dolomite, Warren County core (Commons title)",
+ "seconds": 15.184312400000636,
+ "error": null,
+ "cost_usd": 0.01144625,
+ "description": {
+  "lithology": "5 tray rows top to bottom, in reading order, separated by brown cardboard dividers. Dominantly pale to medium and dark grey, fine- to medium-grained apparently banded to foliated rock - planar to locally contorted/wavy mm to cm scale light/dark banding and faint mottling. Grain size and exact protolith indeterminate at photo resolution; appearance is consistent with banded felsic to intermediate gneiss / metasediment - calc-silicate / layered intrusive equivalent, but definitive rock name cannot be determined from photo alone. Red orientation lines visible on core in lower rows.",
+  "alteration": "none visible - no obvious chloritic, sericitic, silicified, potassic, carbonate or oxidised alteration is distinct at this photo resolution and lighting; matrix appears fresh, light grey to dark grey, with no pervasive bleaching or staining.",
+  "mineralization": "locally visible metallic sulfides, most conspicuous in row 4 from top (second from bottom) as disseminated grains to sub-rounded blebs/nodules 0.5-2 cm with dark silvery-metallic luster, estimated locally 2-5 vol% over that interval and trace to <1-2% as fine disseminations/small spots in upper pale grey rows; sulfide species cannot be reliably distinguished from photo alone - suggestive of pyrrhotite +/- sphalerite/pyrite/galena but identification is uncertain, none visible as semi-massive or massive.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Visible metallic sulfide blebs/nodules concentrated in row 4 centred and right of centre, with two 1-2 cm blebs and scattered smaller blebs/disseminations, estimated 2-5 vol% locally, trace sulfides elsewhere.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Broken/fragmented core pieces in rows 1, 3 and 4 and longitudinally sawn half-core slabs laid beside whole core in row 5 indicating previous sampling, plus a lithologic transition from pale banded rock in upper rows to darker, more sulfide-bearing banded rock in lower rows around row 4-5.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.45
+ }
+}

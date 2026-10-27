@@ -1,0 +1,18 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes), wet",
+ "seconds": 7.537518099998124,
+ "error": null,
+ "description": {
+  "lithology": "Dark grey to black medium-grained foliated mafic gneiss, amphibole-biotite veined gneiss, with migmatitic fabric and irregular discontinuous white to light grey quartz-feldspathic leucosome lenses and veins subparallel to gneissic foliation.",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Irregular white quartz-feldspathic leucosome veins and patches occur throughout all rows and should be checked to confirm vein mineralogy and contacts.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.8
+ }
+}

@@ -23,7 +23,13 @@ La aplicación dice que Muse Code acelera el build. Hay que usarlo de verdad y d
 - Mencionarlo en el README y en el video.
 
 Registro de uso:
-- (vacío)
+- 27 oct, día 8: Muse Code 1.4.13 escribió `src/coresight/verify.py` (el verificador determinista de los borradores de los agentes de área).
+  - La especificación son los 20 tests de `tests/test_verify.py`, escritos antes por nosotros. La implementación es de Muse Code y no la editamos.
+  - Ronda 1, sesión `bbc6432a-3cb8-407d-8572-921d33527e31`: el verificador completo contra 15 tests. 28 llamadas al modelo.
+  - Ronda 2, sesión `88fc39bc-b75a-47b0-8d5f-466e68048e0a`: arreglo de ruff y 5 tests nuevos (presupuesto restante, historial del pozo, runs desde uno). 15 llamadas.
+  - Comando: `muse exec --contributor-mode off --disable-approval --json`, con sandbox.
+  - La sandbox de Windows de Muse no pudo arrancar PowerShell, así que corrimos pytest y ruff fuera de ella y le regresamos el resultado.
+  - Trazas: `docs/muse-code/verify-1.json` y `verify-2.json`. Commit: pendiente.
 
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.

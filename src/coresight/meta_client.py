@@ -4,7 +4,9 @@ Endpoints, model IDs and request shapes come from the official docs
 (https://dev.meta.ai/docs/, read 2026-10-25): sam/segmenting,
 sam/reading-segmentation, image-understanding and structured-output; voice
 from speech-to-text, api-reference/voice/transcribe and voice/schemas (read
-2026-10-26).
+2026-10-26); agents from overview (muse-wonder-1.0 takes the same requests
+as Muse Spark) and tool-calling (Responses API function tools, read
+2026-10-27).
 Confirmed against the real API by the day 1 smoke test (scripts/smoke_day1.py).
 
 SAM responses are cached on disk by a hash of model, prompt and image, so the
@@ -35,6 +37,7 @@ from coresight.schemas import GeologyDescription, ModelDescription, Transcript
 DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 SAM_MODEL_ID = "sam-3.1"
 MUSE_SPARK_MODEL_ID = "muse-spark-1.3"
+MUSE_WONDER_MODEL_ID = "muse-wonder-1.0"  # in preview (docs: overview)
 RESPONSES_PATH = "/responses"
 VOICE_MODEL_ID = "muse-voice-transcribe-1.0"
 TRANSCRIBE_PATH = "/asr/transcribe"
@@ -258,6 +261,31 @@ class MetaClient:
         return cached_description(
             self.cache_dir, self.model, prompt, image_png, lambda: self._with_retries(call)
         )
+
+    def respond(self, body: dict) -> dict:
+        """One Responses API turn with function tools (the area agents).
+
+        The agents send the whole conversation every turn (no
+        previous_response_id), so the same box asks the same questions and the
+        answers are cached by a hash of the request: a sample box is paid once.
+        """
+        key = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
+        path = self.cache_dir / "responses" / f"{key}.json" if self.cache_dir else None
+        if path and path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+
+        def call() -> str:
+            resp = self._http.post(RESPONSES_PATH, json=body)
+            if resp.status_code >= 400:
+                error = TransientAPIError if resp.status_code in RETRY_STATUS else RuntimeError
+                raise error(f"{body.get('model')} {resp.status_code}: {resp.text}")
+            return resp.text
+
+        text = self._with_retries(call)
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        return json.loads(text)
 
     def transcribe(self, wav: bytes, keywords: list[str] | None = None) -> Transcript:
         """Muse Voice Transcribe: one push-to-talk clip (mono 16-bit PCM WAV) to text.

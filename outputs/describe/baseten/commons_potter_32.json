@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 19.299030000023777,
+ "error": null,
+ "cost_usd": 0.017438,
+ "description": {
+  "lithology": "Single piece of split core viewed horizontally, split face up, label along top edge at ~696.9 m: Left third is greenish-grey to pale grey, aphanitic to fine-grained, weakly foliated/banded host with dull matte texture, likely mafic volcanic/volcaniclastic or chlorite schist protolith; right two-thirds is brassy-yellow to silvery-grey to iridescent dark navy-blue, fine- to medium-grained sulfide mosaic with massive to banded/laminated and locally veined/anastomosing fabric, protolith completely obscured - logged as massive to semi-massive sulfide ore facies with chlorite-altered wallrock fragment on left, banding/lamination trends obliquely to core axis.",
+  "alteration": "Moderate chloritic alteration visible as greenish hue/matrix in the left third host, remainder obscured by massive sulfide with no distinct sericitic, silicified, potassic, carbonate or oxidised alteration clearly visible.",
+  "mineralization": "Visible copper sulfides - brassy-yellow chalcopyrite intergrown with iridescent dark-blue bornite/covellite and silvery-grey sulfide (chalcocite/galena?) - occur as semi-massive to massive bands, laminae and veinlets dominating the right two-thirds and as disseminated blebs and stringers in the left third, estimated ~60-85 vol% sulfide in the massive zone, ~10-20 vol% on the left, ~50-70 vol% averaged over the visible piece, pyrite not distinctly separable.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Brassy-yellow and iridescent dark-blue sulfides form semi-massive to massive bands and anastomosing veinlets over the right two-thirds (~60-85 vol%) with disseminated blebs and thin stringers on the left.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Sharp transition near left-center between greenish altered host and massive sulfide suggests a lithology/ore contact and a prominent dark blue-black sulfide vein with branching stringers cuts obliquely across the center that should be checked on the full run.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.62
+ }
+}

@@ -1,0 +1,14 @@
+{
+  "example": true,
+  "notice": "EXAMPLE PRICES for the demo, not a quote from any laboratory. Replace with the mine's contracted price list.",
+  "currency": "USD",
+  "hole_assay_budget_usd": 12000,
+  "sample_length_m": 1.0,
+  "tests": [
+    {"code": "PREP", "name": "Sample preparation (crush, split, pulverize)", "unit_usd": 9.0},
+    {"code": "AU-FA", "name": "Gold by fire assay, 30 g", "unit_usd": 18.0},
+    {"code": "MULTI-ICP", "name": "Multi-element, four-acid digestion, ICP", "unit_usd": 24.0},
+    {"code": "AG-OG", "name": "Silver, ore grade", "unit_usd": 15.0},
+    {"code": "S-TOT", "name": "Total sulfur", "unit_usd": 11.0}
+  ]
+}

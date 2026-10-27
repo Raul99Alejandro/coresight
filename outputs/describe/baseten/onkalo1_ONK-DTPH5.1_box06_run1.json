@@ -1,0 +1,41 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 11.47356533332883,
+ "error": null,
+ "cost_usd": 0.010241083333333333,
+ "log": {
+  "from_m": 22.6,
+  "to_m": 23.66,
+  "rqd_pct": 92.3,
+  "tcr_pct": 100.0,
+  "natural_fractures": 2,
+  "fracture_frequency_per_m": 1.89,
+  "uncertain_breaks": 1,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Two rows show the same rock - upper row is a long continuous piece with a short detached piece in the lower row, representing one drilling run. Rock is a light grey to off-white and medium grey, medium-grained, foliated to gneissic veined gneiss / migmatitic gneiss of granitic to tonalitic composition. Heterogeneous texture with irregular leucocratic quartz-feldspar domains/patches and darker biotite-rich foliated bands defining a moderately to well developed gneissic foliation/banding at low angle to sub-parallel to the core axis. No sharp lithological contact visible in the imaged interval.",
+  "alteration": "none visible - no obvious oxidation, chloritic, sericitic, silicified or carbonate alteration distinguishable at this resolution; dark bands appear to be primary mafic foliation/biotite rather than alteration. Red line is a drill orientation mark, not geology.",
+  "mineralization": "none visible - no discernible sulfide or ore minerals such as pyrite, chalcopyrite, pyrrhotite, sphalerite or galena visible at available resolution; no disseminated, veinlet, bleb or massive style observed.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "A single sub-transverse fracture/break is visible in the upper row about 75-80% from the left, with no visible fault gouge, infill or offset at this resolution.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Irregular leucocratic quartz-feldspar patches and diffuse veinlets/neosome throughout the core give a migmatitic/veined fabric that should be checked in hand specimen to distinguish from discrete veins.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Lower row contains a short detached core fragment of the same lithology, reflecting tray layout for a single run, not a different lithology.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.7
+ }
+}

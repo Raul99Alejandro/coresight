@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 406.4514135000063,
+ "error": null,
+ "description": {
+  "lithology": "The visible core pieces are fine-grained, dark coloured, strongly foliated / laminated rocks. Top row left piece is very dark black to dark grey with a swirled / contorted laminated fabric; top row right piece is dark grey to black with a wavy, banded / foliated fabric with lighter grey laminae and minor yellow-green patches on the surface. Bottom row piece is a medium to dark grey-green rock with a strongly foliated / banded fabric; the groundmass is a mottled green-grey to silvery-grey with a fine-grained schistose texture and a sub-parallel banding that is locally disrupted by a darker blue-black to black discontinuous zone on the left side of the piece. The overall appearance is consistent with a fine-grained metasediment / metavolcanic schist / possibly banded iron formation / sulfide-bearing schist.",
+  "alteration": "Alteration is visible as a pervasive to moderate greenish discolouration on the top right piece and especially on the bottom row piece, consistent with chloritic alteration with a green to yellow-green surface staining. No strong silicification, sericitization, potassic or carbonate alteration is clearly identifiable in the photo; oxidation is not clearly visible. Intensity is moderate to pervasive on the bottom piece, weak to moderate on the top right piece.",
+  "mineralization": "No definitive sulfide mineral can be confidently identified at the photo resolution. The yellow-green patches on the top right piece and the green-grey mottling on the bottom piece are suggestive of secondary copper / iron alteration / possibly disseminated sulfides, but no clear pyrite, chalcopyrite, pyrrhotite, sphalerite or galena grains, blebs, veinlets or semi-massive to massive sulphide are unambiguously visible. Estimated volume percent cannot be reliably estimated from the image. Reported as none visible with certainty.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "The bottom row core piece shows a prominent dark blue-black to black irregular to sub-vertical zone on the left third of the piece that contrasts with the surrounding green-grey foliated groundmass; this could be a sulfide-rich band, a lithological contact or a vein and should be checked in hand specimen.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Core is presented in at least two tray rows; the top row contains two separate core pieces with a gap between them and the bottom row contains a single longer piece. The top left piece is broken / irregular on the right edge and the top right piece is broken / irregular on the bottom edge; broken or missing core geometry is visible but recovery cannot be estimated from the photo.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.45
+ },
+ "cost_usd": 0.0
+}

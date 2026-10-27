@@ -1,0 +1,36 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 230.28395669999009,
+ "error": null,
+ "log": {
+  "from_m": 17.94,
+  "to_m": 20.71,
+  "rqd_pct": 98.3,
+  "tcr_pct": 100.0,
+  "natural_fractures": 7,
+  "fracture_frequency_per_m": 2.53,
+  "uncertain_breaks": 2,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Foliated metamorphic rock, likely granitic to tonalitic gneiss / migmatite. Light grey to white with darker grey to blackish mottled / streaky banding. Medium-grained, inequigranular, with a strong foliation / gneissic fabric showing wavy to folded light and dark bands. The core is cylindrical with a red orientation line marked on the core.",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Top row right end shows broken / missing core with a dark, irregular fragment at the tray edge.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Multiple sub-vertical fractures are visible along the length of the core in all three rows.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.65
+ },
+ "cost_usd": 0.0
+}

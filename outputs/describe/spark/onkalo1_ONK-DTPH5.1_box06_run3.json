@@ -1,0 +1,30 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 6.885328900001089,
+ "error": null,
+ "log": {
+  "from_m": 26.7,
+  "to_m": 27.2,
+  "rqd_pct": 97.6,
+  "tcr_pct": 98.1,
+  "natural_fractures": 3,
+  "fracture_frequency_per_m": 6.0,
+  "uncertain_breaks": 1,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Migmatitic biotite gneiss, medium to light grey, medium-grained, foliated to nebulitic with irregular quartz-feldspar leucosome patches and streaks in darker biotite-rich palaeosome",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "A sharp diagonal fracture cuts the core about two-thirds along the run at the red orientation mark and should be checked.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.7
+ }
+}

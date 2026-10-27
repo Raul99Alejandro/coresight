@@ -232,6 +232,98 @@ def default_stages() -> list[Stage]:
     ]
 
 
+AreaKey = Literal["lab", "safety", "plant", "finance"]
+
+
+class AreaRoute(_Strict):
+    """The orchestrator's call for one area of the mine: does this box concern it, and why."""
+
+    area: AreaKey
+    applies: bool
+    reason: str = Field(min_length=1)
+    runs: list[int] = Field(default_factory=list)  # 0-based runs that triggered it
+
+
+class Routing(_Strict):
+    """What the orchestrator (Muse Wonder, plan B Muse Spark) submits for an approved box."""
+
+    routes: list[AreaRoute] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _one_per_area(self) -> Routing:
+        areas = [r.area for r in self.routes]
+        if len(set(areas)) != len(areas):
+            raise ValueError("one route per area")
+        return self
+
+
+class DraftFigure(_Strict):
+    """A number the draft quotes, tied to the run and metric it comes from."""
+
+    run: int = Field(ge=0)
+    metric: Literal["rqd_pct", "tcr_pct", "fracture_frequency_per_m", "natural_fractures"]
+    value: float
+
+
+class DraftLine(_Strict):
+    """A priced line (finance): a test code from the example table, how many samples."""
+
+    code: str = Field(min_length=1)
+    samples: int = Field(ge=1)
+    unit_usd: float = Field(ge=0)
+    total_usd: float = Field(ge=0)
+
+
+class Draft(_Strict):
+    """What an area agent submits. A draft only: nothing is sent."""
+
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+    priority: Literal["low", "normal", "high"] = "normal"
+    intervals: list[Interval] = Field(default_factory=list)
+    figures: list[DraftFigure] = Field(default_factory=list)
+    lines: list[DraftLine] = Field(default_factory=list)
+    total_usd: float | None = None
+
+
+class Check(_Strict):
+    """One deterministic check of a draft (verify.py)."""
+
+    name: str
+    ok: bool
+    detail: str = ""
+
+
+class AgentEvent(_Strict):
+    """One line of the decision log shown in the UI."""
+
+    at: datetime
+    actor: str  # "orchestrator", an area, "verifier" or "geologist"
+    kind: Literal["model", "route", "tool", "draft", "check", "retry", "error", "approve"]
+    text: str
+    model: str | None = None
+
+
+class AreaDraft(_Strict):
+    area: AreaKey
+    model: str
+    draft: Draft | None = None
+    checks: list[Check] = Field(default_factory=list)
+    verified: bool = False
+    status: Literal["working", "ready", "rejected", "failed", "approved"] = "working"
+    error: str | None = None
+    approved_at: datetime | None = None  # approved by a person; still not sent
+
+
+class Handoffs(_Strict):
+    status: Literal["working", "done", "failed"] = "working"
+    orchestrator_model: str | None = None
+    routing: Routing | None = None
+    drafts: list[AreaDraft] = Field(default_factory=list)
+    log: list[AgentEvent] = Field(default_factory=list)
+    error: str | None = None
+
+
 class BoxReview(_Strict):
     id: str = Field(min_length=1)
     hole_id: str = Field(min_length=1)
@@ -246,3 +338,4 @@ class BoxReview(_Strict):
     stages: list[Stage] = Field(default_factory=default_stages)
     mask_rows: list[int] = Field(default_factory=list)  # rows with a SAM mask image
     voice: VoiceUsage = Field(default_factory=VoiceUsage)
+    handoffs: Handoffs | None = None  # area agents, after approval (day 8)

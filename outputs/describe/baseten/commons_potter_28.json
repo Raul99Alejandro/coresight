@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 18.072359300014796,
+ "error": null,
+ "cost_usd": 0.01484,
+ "description": {
+  "lithology": "Two intervals stacked top-to-bottom in tray reading order, slabbed/sawn core surface with glare: Upper row (two fragments, labels visible as S-97-09 677.3m and truncated label above): dark grey to black, aphanitic to very fine-grained, thinly laminated to banded, foliated metasediment with ductile, convolute/flow-folded and crenulated fabric, likely carbonaceous argillite/mudstone/chert or banded iron-formation host. Lower row (single 1.0m slab, label 98-01 696.9m): pale to medium grey with extensive brassy-yellow to silvery-grey metallic overprint, fine- to medium-grained where host visible, massive to weakly banded/foliated texture with anastomosing dark blue-black mm-cm seams/laminae and patchy greenish discoloration; heavily sulfidized interval with host largely obscured, texture ranges from disseminated/veined to semi-banded, foliation wraps sulfide aggregates.",
+  "alteration": "Not definitively determinable due to sulfide overprint, sawn surface glare and label obstruction; no pervasive silicification/sericitization/potassic/carbonate clearly visible. Lower slab shows patchy greenish tint and dark seams that may suggest weak to moderate chloritic alteration (?) but could be sulfide tarnish/border, upper slabs show only metamorphic banding with none visible.",
+  "mineralization": "Upper slabs: minor trace to ~1-3% disseminated brassy-yellow sulfides as fine blebs and along laminae/fold hinges, tentatively pyrite +/- chalcopyrite/pyrrhotite. Lower slab: abundant sulfides, semi-massive to locally massive, estimated ~40-60% by area of visible surface, occurring as pervasive disseminations, blebby to streaky laminae, anastomosing patches and coarse aggregates with strong metallic luster; dominated by brassy-yellow chalcopyrite/pyrrhotite +/- pyrite with silvery-grey pyrite/sphalerite (?) and scattered dark blue grains (possible bornite/covellite), strongest in center and on right side with thin sulfide veinlets cutting dark seams.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "visible_sulfides: abundant brassy-yellow to silvery semi-massive sulfides throughout the entire lower 1.0m slab as blebs, laminae and aggregates (~40-60% est.), with trace disseminated sulfides on the two upper dark laminated fragments.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "other: dark blue-black steeply dipping seam/vein (~1-2cm wide) with branching veinlets cuts the center of the lower slab - check as possible folded chloritic band, sulfide vein, or shear; assay labels (0900/61000/1310/35.7/308, 55300/32200/1160/44.2, 147700/102000/1400/111.0/840/1.0m) obscure part of core surface; core is longitudinally slabbed/sawn with irregular broken edges and missing wood-tray context - do not use for fracture/RQD estimates.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.62
+ }
+}

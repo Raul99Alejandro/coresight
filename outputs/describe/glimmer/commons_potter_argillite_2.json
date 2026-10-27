@@ -1,0 +1,24 @@
+{
+ "reference": "Sulfidic argillite and polymetallic massive sulfide (title)",
+ "seconds": 310.2022767000017,
+ "error": null,
+ "description": {
+  "lithology": "Two rows of drill core are visible. Upper row: dark grey to black, fine-grained, massive to weakly foliated/lineated mafic volcanic rock, possibly basalt / basaltic andesite with a slickensided / striated core surface. Lower row: dark blue-grey to black fine-grained mafic volcanic rock with abundant light grey to pale green, sub-centimetre to centimetre scale irregular patches / amygdules and a few larger coalesced light grey patches at the base of the piece; the groundmass is fine-grained with a faint lineation / striation fabric. The core is in a wooden tray with a white plastic liner between the two rows.",
+  "alteration": "Weak to moderate alteration is visible. Upper row shows patchy green to yellow-green and brownish discoloration consistent with chloritic / epidotic alteration and local oxidation along the broken surface. Lower row shows pale green-grey alteration halos around the light patches and a generally chloritic / low-grade greenschist appearance. Intensity is weak to moderate, not pervasive across the whole pieces.",
+  "mineralization": "none visible. No distinct pyrite, chalcopyrite, pyrrhotite, sphalerite, galena or other ore minerals can be confidently identified in the photo resolution.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Top row shows a broken / missing core interval between two pieces with a ~1-2 cm gap and a jagged fracture surface; the right-hand top piece also displays irregular light grey to pinkish veinlets / breccia infill that should be checked in hand specimen.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Lower row core is broken into several pieces with visible fractures at left and right edges and a network of dark fine veinlets cross-cutting the light grey patches at the base of the piece; the core continuity and any vein material should be verified.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.55
+ },
+ "cost_usd": 0.0
+}

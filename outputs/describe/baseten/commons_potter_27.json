@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 19.1324151000008,
+ "error": null,
+ "cost_usd": 0.0159895,
+ "description": {
+  "lithology": "One run - 98-01 696.9 m 1.0 m per label - shown in 2 rows stacked top to bottom: Upper row = 2 slabbed pieces of light beige to pale grey and dark slate-grey, fine to fine-medium grained, strongly banded gneissic / banded quartz-feldspathic rock with 2-10 mm leucocratic and melanocratic laminae that are tightly folded, contorted and ptygmatic, foliation/banding is isoclinally folded. Lower row = ~1.0 m continuous slab of dark olive-green to dark grey, very fine to fine grained, weakly to moderately foliated chloritic mafic rock - metabasalt / chlorite schist - with penetrative planar to anastomosing foliation and faint foliation-parallel lamination, cut by a ca. 8-15 mm wide dark grey-black band/vein oblique to foliation in the left-centre.",
+  "alteration": "Upper banded interval: none visible to weak - primary banding preserved, light bands are quartzofeldspathic; no obvious chlorite/sericite/oxide. Lower interval: moderate to strong pervasive chloritic alteration imparting pervasive green colour and schistosity, with weak to moderate silicification associated with the central dark vein/band.",
+  "mineralization": "Brassy-yellow sulfides consistent with pyrite-chalcopyrite +/- pyrrhotite - tentative ID from colour only. Upper row: scattered 1-10 mm blebs and 5-20 mm clots/patches concentrated on fold hinges and band margins, ca. 2-5 vol% visible. Lower row: fine 0.5-2 mm disseminated grains throughout ca. 1 vol% plus coarser blebs/stringers along both margins of the central dark vein ca. 1-2 vol% locally. Overall visible sulfides ca. 1-3 vol% averaged over run, blebby to disseminated to veinlet selvage style. No massive/semi-massive visible.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Brassy-yellow metallic sulfide blebs and clots are visible in both upper banded pieces, mainly on upper and lower edges and fold noses, and as fine disseminations plus a 1-2 cm halo along the dark vein in the lower slab, totalling ~1-5 vol% per piece.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "A ca. 1 cm wide dark vein/band with sulfide selvage cross-cuts foliation obliquely in the lower slab ~30-40 cm from left end and the sharp change from upper light-dark folded banded felsic rock to lower pervasive green chloritic mafic rock in the same run should be checked as a lithology contact/vein structure.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.68
+ }
+}

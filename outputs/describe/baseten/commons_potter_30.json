@@ -1,0 +1,34 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 15.447744000004604,
+ "error": null,
+ "cost_usd": 0.01233125,
+ "description": {
+  "lithology": "Single slabbed interval visible, cropped close-up of one row. Dominantly fine-grained to aphanitic, foliated/banded metamorphic rock - best described as chloritic schist / altered mafic volcanic - colour heterogeneous olive-grey to medium grey and greenish-grey with patchy lighter grey and darker green domains. Fabric is weakly to moderately foliated/banded, defined by discontinuous subvertical dark green-black chloritic laminae and thin pale grey/white stringers subparallel to core axis in photo. Central sharp-bounded dark black band ~10-15 mm wide, diagonal to foliation, cuts across core with sharp planar contacts and a thin pale yellowish margin on its left side. Groundmass is very fine-grained, granular to lepidoblastic, no visible phenocrysts at this resolution.",
+  "alteration": "Chloritic moderate to strong, pervasive green colour throughout matrix and concentrated in dark bands and lenses. Weak to moderate oxidized along basal edge of core with orange-brown rust staining and along top beneath label where present. Possible weak silicification/carbonatization in light grey patches but not definitive at this resolution. None of the other alteration types can be confirmed as distinct.",
+  "mineralization": "No definitively identifiable massive sulfides at this resolution. Possible trace to 2-3% fine disseminated brassy to silvery metallic speckles scattered through grey-green matrix and as thin discontinuous pale yellow stringers/veinlets along the margin of the central black band, suggestive of fine pyrite +/- pyrrhotite/chalcopyrite, but definitive identification is limited by image resolution, glare and oxidation; otherwise none visible as unequivocal sulfides.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Possible trace to low percent fine disseminated brassy/silvery sulfides throughout the grey-green matrix and concentrated as thin pale yellow veinlets along the left margin of the central black diagonal band, identification uncertain due to resolution and surface oxidation.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Prominent sharp-bounded diagonal black band ~1-1.5 cm wide crossing the core requires geological check to determine if it is massive sulfide, magnetite, chlorite vein, or shear/fault infill.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Foliation/banding is subvertical in the image, subparallel to core axis and to the central band, indicating steep fabric relative to drilling direction that should be verified for structural orientation.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Basal edge shows pervasive orange-brown oxidation/rust and top is partially obscured by white sample label tape with blue text, both obscuring true lithology and contacts.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.45
+ }
+}

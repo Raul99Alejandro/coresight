@@ -1,0 +1,24 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 9.732049399986863,
+ "error": null,
+ "log": {
+  "from_m": 17.94,
+  "to_m": 20.71,
+  "rqd_pct": 98.3,
+  "tcr_pct": 100.0,
+  "natural_fractures": 7,
+  "fracture_frequency_per_m": 2.53,
+  "uncertain_breaks": 2,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Light grey to medium grey medium-grained foliated to gneissic granitic migmatitic gneiss with irregular diffuse whitish leucosome domains and dark grey biotite-rich bands, heterogeneous veined to patchy gneissic fabric",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [],
+  "confidence": 0.85
+ }
+}

@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 393.84589810000034,
+ "error": null,
+ "description": {
+  "lithology": "The visible core pieces are fine-grained, strongly foliated / banded metamorphic rocks. The upper row shows a light grey to pale beige and dark grey to black swirly / migmatitic banding with a fine to very fine grain size and a strongly foliated / laminated fabric. The lower row piece under the label is dark green-grey to black with a fine-grained, strongly foliated / schistose fabric with thin black bands and a sub-parallel alignment of minerals. The overall appearance is consistent with a mafic metavolcanic / chlorite schist and/or a banded iron formation / carbonaceous metasediment with a well developed foliation.",
+  "alteration": "Alteration is not confidently distinguishable at photo resolution. The dark green-grey colour of the lower piece and the greenish tint on the upper pieces is suggestive of weak to moderate chloritic alteration, but no definitive alteration assemblage can be confirmed from the image alone. None visible with certainty.",
+  "mineralization": "Possible minor sulphide is suggested by small yellow-green to brassy patches on the upper right piece and a thin yellowish streak along a black band in the lower piece. The style if present would be disseminated to blebby. Estimated volume percent is <1 % and identification of pyrite / chalcopyrite cannot be confirmed from the photo. Overall none visible with confidence.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Small brassy-yellow patches are visible on the upper right core piece and a thin yellowish mineral streak is visible along a dark band in the lower piece; identification and abundance cannot be confirmed from the image.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Core is presented in at least two tray rows; the lower row shows a single long piece with a partial piece on the far left, and the upper row shows two pieces with a gap between them, indicating possible broken / missing core or a tray break.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.35
+ },
+ "cost_usd": 0.0
+}

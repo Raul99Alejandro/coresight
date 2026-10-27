@@ -1,0 +1,24 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes), wet",
+ "seconds": 293.2835184999858,
+ "error": null,
+ "description": {
+  "lithology": "Dark grey to black, medium-grained metamorphic rock with a mottled light grey to white patchy appearance. The dark groundmass is fine to medium grained and shows a weak to moderate foliation / gneissic fabric with irregular light-coloured quartz +/- feldspar patches and discontinuous white veinlets. The core is cylindrical, NQ-size appearance, with a red orientation line marked on each piece.",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Core is broken into several pieces with visible fractures and chipped / missing ends, e.g. right end of the top piece and right end of the second piece, and a truncated left/right end on the third and fourth pieces.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Multiple discontinuous white quartz-rich patches and thin white veinlets are visible throughout the run, most prominent in the second, third and bottom pieces.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.65
+ },
+ "cost_usd": 0.0
+}

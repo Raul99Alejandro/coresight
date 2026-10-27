@@ -1,0 +1,24 @@
+{
+ "reference": "Dolostone, Knox Dolomite, Warren County core (Commons title)",
+ "seconds": 312.4349173999799,
+ "error": null,
+ "description": {
+  "lithology": "The core is dominated by a light- to medium-grey, fine- to medium-grained carbonate / marble-like rock with a mottled / faintly banded fabric. Upper three tray rows are light grey with darker grey mottling and subtle laminations / streaky fabric; the fourth and fifth tray rows show a distinct colour change to a darker grey to grey-black, finer-grained, laminated to weakly foliated rock with a more massive to banded appearance. Grain size appears fine to medium, texture is massive to faintly laminated / banded with local irregular mottling. The overall fabric is weakly layered / streaky, more pronounced in the darker lower portion.",
+  "alteration": "none visible; the rock surfaces appear fresh to slightly weathered with no obvious chloritic, sericitic, silicified, potassic, carbonate or oxidised alteration discernible at photo resolution.",
+  "mineralization": "none visible; no clearly identifiable sulfide or ore minerals such as pyrite, chalcopyrite, pyrrhotite, sphalerite or galena can be confidently recognised in the image. A single dark circular spot is present on the fourth row core piece but its nature cannot be confirmed at this resolution.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "A distinct lithology colour / fabric contact is visible between the light-grey upper rows and the darker grey to grey-black lower rows, with the change occurring around the fourth tray row from the top.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Core is broken into multiple pieces with several gaps / missing intervals, e.g., top row right end and fourth row left end, and a small labelled core piece is present in the top row.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.55
+ },
+ "cost_usd": 0.0
+}

@@ -10,8 +10,13 @@ message the geologist can act on.
 
 Settings (environment):
 - CORESIGHT_DATA_DIR: where reviewed boxes are kept (default data/reviews).
-- CORESIGHT_MAX_ANALYSES_PER_HOUR, CORESIGHT_MAX_DICTATIONS_PER_HOUR: caps for
-  the public demo, so a stranger cannot spend the API credits.
+- CORESIGHT_MAX_ANALYSES_PER_HOUR, CORESIGHT_MAX_DICTATIONS_PER_HOUR,
+  CORESIGHT_MAX_HANDOFFS_PER_HOUR: caps for the public demo, so a stranger
+  cannot spend the API credits.
+
+Approving a box starts the area agents in the background (coresight.agents);
+the page polls the box and shows the decision log and the drafts. A draft is
+approved one by one and is never sent.
 - META_API_KEY in .env, read by meta_client.
 
 The samples are public photos only (Onkalo, Wikimedia Commons, CC BY-SA 4.0);
@@ -37,7 +42,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from coresight import review
+from coresight import agents, review
 from coresight.labeling import PieceSheet, sheet_markers
 from coresight.pipeline import export_csv
 from coresight.review import Analysis, ReviewError, ReviewStore
@@ -46,6 +51,7 @@ from coresight.schemas import (
     BoxReview,
     BreakKind,
     DescriptionField,
+    Handoffs,
     Interval,
     Stage,
     TrayView,
@@ -113,6 +119,15 @@ class Job(BaseModel):
 
 Analyzer = Callable[[bytes, Job, review.Reporter], Analysis]
 Transcriber = Callable[[bytes], tuple[str, int]]
+HandoffRunner = Callable[[BoxReview, list[BoxReview], Callable[[Handoffs], None]], object]
+
+
+def meta_handoffs(box: BoxReview, history: list[BoxReview], save) -> object:
+    """The real agents: Muse Wonder and Muse Spark through meta_client, checked by verify.py."""
+    from coresight.meta_client import MetaClient
+    from coresight.verify import verify
+
+    return agents.draft_handoffs(box, history, MetaClient(), verify, save=save)
 
 
 def meta_analyzer(photo: bytes, job: Job, report: review.Reporter) -> Analysis:
@@ -232,17 +247,23 @@ def create_app(
     store: ReviewStore | None = None,
     analyzer: Analyzer = meta_analyzer,
     transcriber: Transcriber = meta_transcriber,
+    handoff_runner: HandoffRunner = meta_handoffs,
     background: bool = True,
 ) -> FastAPI:
     store = store or ReviewStore(Path(os.getenv("CORESIGHT_DATA_DIR", ROOT / "data" / "reviews")))
     analyses = RateLimit(int(os.getenv("CORESIGHT_MAX_ANALYSES_PER_HOUR", "30")))
     dictations = RateLimit(int(os.getenv("CORESIGHT_MAX_DICTATIONS_PER_HOUR", "120")))
+    handoff_runs = RateLimit(int(os.getenv("CORESIGHT_MAX_HANDOFFS_PER_HOUR", "30")))
     pool = ThreadPoolExecutor(max_workers=2)
     edit_lock = threading.Lock()
 
     for box in store.all():  # a restart interrupts any analysis in flight
         if box.status == "processing":
             box.status, box.error = "failed", "The server restarted during the analysis. Retry."
+            store.save(box)
+        if box.handoffs and box.handoffs.status == "working":
+            box.handoffs.status = "failed"
+            box.handoffs.error = "The server restarted while the agents worked. Retry."
             store.save(box)
 
     app = FastAPI(title="CoreSight review API", version="0.1.0")
@@ -400,9 +421,62 @@ def create_app(
             ),
         )
 
+    def run_handoffs(box_id: str) -> None:
+        box = store.get(box_id)
+        history = [
+            b for b in store.all()
+            if b.status == "approved" and b.hole_id == box.hole_id and b.box_number < box.box_number
+        ]  # fmt: skip
+
+        def save(handoffs: Handoffs) -> None:
+            with edit_lock:
+                current = store.get(box_id)
+                current.handoffs = handoffs.model_copy(deep=True)
+                store.save(current)
+
+        try:
+            handoff_runner(box, history, save)
+        except Exception as exc:  # never leave the page waiting on a crashed job
+            error = f"{type(exc).__name__}: {str(exc)[:200]}"
+
+            def fail(b: BoxReview) -> None:
+                b.handoffs = b.handoffs or Handoffs()
+                b.handoffs.status, b.handoffs.error = "failed", error
+
+            edit(box_id, fail)
+
+    def start_handoffs(box_id: str) -> BoxReview:
+        handoff_runs.take("agent runs")
+        box = edit(box_id, lambda b: setattr(b, "handoffs", Handoffs()))
+        if background:
+            pool.submit(run_handoffs, box_id)
+            return box
+        run_handoffs(box_id)
+        return get_box(box_id)
+
     @app.post("/api/boxes/{box_id}/approve")
     def approve(box_id: str) -> BoxReview:
-        return edit(box_id, review.approve)
+        edit(box_id, review.approve)
+        return start_handoffs(box_id)
+
+    @app.post("/api/boxes/{box_id}/handoffs", status_code=202)
+    def retry_handoffs(box_id: str) -> BoxReview:
+        box = get_box(box_id)
+        if box.status != "approved":
+            raise HTTPException(400, "Approve the box first: the agents only see approved logs.")
+        if box.handoffs and box.handoffs.status == "working":
+            raise HTTPException(409, "The agents are still working on this box.")
+        return start_handoffs(box_id)
+
+    @app.post("/api/boxes/{box_id}/drafts/{area}/approve")
+    def approve_draft(box_id: str, area: Literal["lab", "safety", "plant", "finance"]) -> BoxReview:
+        def change(b: BoxReview) -> None:
+            try:
+                agents.approve_draft(b, area)
+            except ValueError as exc:
+                raise ReviewError(str(exc)) from None
+
+        return edit(box_id, change)
 
     def csv_response(text: str, name: str) -> PlainTextResponse:
         return PlainTextResponse(

@@ -1,0 +1,23 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 12.18423260000418,
+ "error": null,
+ "description": {
+  "lithology": "Light grey to dark grey very fine-grained banded chert / siliceous exhalite with contorted swirled folding in upper pieces and dark green fine-grained foliated to banded chloritic mafic volcanic in lower row",
+  "alteration": "strong silicification in upper light banded interval and moderate to strong chloritic in lower dark green interval",
+  "mineralization": "disseminated to blebby brassy-yellow sulfides, likely chalcopyrite-pyrite, as patches and thin stringers along banding and in a dark vein, ~2-3 vol% overall locally ~5%",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Brassy-yellow disseminated grains, patches and thin stringers occur in the upper light banded core and along a dark vein in the lower dark green core, totaling a few percent.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Abrupt lithology change from upper light contorted-banded siliceous rock to lower dark green foliated chloritic rock should be checked as a contact.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.7
+ }
+}

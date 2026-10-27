@@ -1,0 +1,18 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 10.612066700006835,
+ "error": null,
+ "description": {
+  "lithology": "fine-grained grey-green mafic metavolcanic rock of basaltic composition with mottled to streaky texture and weak to moderate subvertical foliation/banding",
+  "alteration": "moderate to strong chloritic alteration throughout with weak localized oxidation giving rusty spots and thin pale veinlets",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Prominent dark diagonal band with adjacent thin pale-yellow veinlet in the centre crosscuts the foliation and should be checked as a vein or lithological contact.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.5
+ }
+}

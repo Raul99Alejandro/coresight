@@ -1,0 +1,29 @@
+{
+ "reference": "Sulfidic argillite and polymetallic massive sulfide (title)",
+ "seconds": 17.114807700010715,
+ "error": null,
+ "cost_usd": 0.01378825,
+ "description": {
+  "lithology": "One run in two tray rows, two textural domains. Upper row: dark grey to black, aphanitic to very fine-grained, massive to brecciated rock - right 2/3 is a jigsaw to irregular breccia of angular dark clasts cut by anastomosing pale pinkish-grey to pale tan vein network 1-15 mm wide, left 1/3 more massive with minor green-yellow surface stain. Lower row: dark bluish-grey, fine-grained groundmass with abundant white to pale grey subrounded to irregular spots/aggregates 1-8 mm giving spotted to variolitic/porphyritic texture, disseminated to clustered in upper 2/3 and concentrated along base where it grades into a pale greenish-grey, medium-grained, massive domain that is cut by thin black branching veinlets in a crackle-breccia style. Overall massive fabric, no bedding or foliation clearly visible, cut surface with saw marks and glare.",
+  "alteration": "Moderate to locally strong carbonate(?) veining/breccia fill as pale pinkish-grey network in upper row; localized weak oxidized to chloritic discoloration as green-yellow patch on far left of upper row; weak chloritic/carbonate discoloration in pale greenish-grey basal domain of lower row; otherwise none to weak visible.",
+  "mineralization": "none visible - no unequivocal brassy sulfide blebs or veinlets resolved; white spots in lower row are not sulfide; possible trace <1% fine yellowish disseminated specks in central upper row are inconclusive at this resolution and not counted as confirmed sulfide.",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "Pale pinkish-grey vein-breccia network in right half of upper row truncates dark host and should be checked as vein zone/breccia contact.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Irregular basal contact/breccia zone in lower row between dark spotted rock and pale greenish-grey domain with black anastomosing veinlets should be checked as lithological contact or hydrothermal breccia.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Broken core with open fracture separating blocks near centre of upper row and on left side of lower row, visible as dark gaps, should be checked for natural fracture vs handling break.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.62
+ }
+}

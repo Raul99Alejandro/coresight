@@ -35,6 +35,14 @@ warehouses or unrelated. USGS core photo releases found so far are marine sedime
 hard-rock boxes. Volume for day 2 has to come from the Kaggle and DAMAST sets (NC, evaluation only)
 or from photos taken with permission at a mine.
 
+## Finding (2026-10-27): broken core, no sulfides
+
+Day 8 search for a "dramatic" demo box (poor rock and visible sulfides): about 50 Commons candidates
+checked by eye (Drill cores, Core samples by country, Core repositories; searches in English, German,
+French and Spanish). Full boxes of broken core exist (Breiðdalsvík, Nevada Test Site U12G, the
+latter with drilled and recovered length written on each run label), but no openly licensed full box
+shows sulfides. Sulfides in a full box need a photo taken with permission at a mine.
+
 ## Images used
 
 Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).
@@ -50,6 +58,12 @@ Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).
 | `commons_potter_30.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_30_(34001032088).jpg) | James St. John | CC BY 2.0 | none |
 | `commons_potter_32.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_core_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_32_(34001038068).jpg) | James St. John | CC BY 2.0 | none |
 | `commons_potter_argillite_2.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Sulfidic_argillite_%26_polymetallic_massive_sulfide_(Middle_Tholeiitic_Unit,_Kidd-Munro_Assemblage,_Neoarchean,_2.711_to_2.719_Ga;_drill_cores_at_the_Potter_Mine,_east_of_Timmins,_Ontario,_Canada)_2_(46959105055).jpg) | James St. John | CC BY 2.0 | none |
+| `commons_breidalsvik.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Drill_Cores,_in_Drill_Core_Library_in_Brei%C3%B0dalsv%C3%ADk.jpg) | Quant8 | CC BY-SA 4.0 | none |
+| `commons_nts_u12g_1.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:CORE_SAMPLES,_NEVADA_TEST_SITE_-_DPLA_-_db76f1349ca15c6259411296fd16eef3.jpg) | U.S. Department of Energy, NNSA (Nevada Test Site) | Public domain | none |
+| `commons_nts_u12g_2.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:CORE_SAMPLES,_NEVADA_TEST_SITE_-_DPLA_-_5eb8f78b3e71b2e05f1806559ea3b012.jpg) | U.S. Department of Energy, NNSA (Nevada Test Site) | Public domain | none |
+| `commons_nts_1981.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:CORE_SAMPLES,_NEVADA_TEST_SITE_-_DPLA_-_344a80c6542b9421f65b34db561bdfcf.jpg) | U.S. Department of Energy, NNSA (Nevada Test Site) | Public domain | none |
+| `commons_diamond_core.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Diamond_Core.jpeg) | Blastcube | CC BY-SA 3.0 | none |
+| `commons_butte_broken_1.jpg` | [Commons](https://commons.wikimedia.org/wiki/File:Broken_drill_core_(Butte_Mining_District,_Montana,_USA)_1.jpg) | James St. John | CC BY 2.0 | none |
 
 The labels `ONK-DTPH5.1_box05` and `ONK-DTPH5.1_box06` (and their piece sheets) are measured on
 `commons_onkalo_1.jpg` (CC BY-SA 4.0, Kallerna). They are free to use in the demo; overlays drawn

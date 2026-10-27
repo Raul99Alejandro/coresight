@@ -1,0 +1,25 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 11.22010630001023,
+ "error": null,
+ "cost_usd": 0.00851325,
+ "log": {
+  "from_m": 17.94,
+  "to_m": 20.71,
+  "rqd_pct": 98.3,
+  "tcr_pct": 100.0,
+  "natural_fractures": 7,
+  "fracture_frequency_per_m": 2.53,
+  "uncertain_breaks": 2,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "Banded to veined gneiss (felsic gneiss/migmatitic tonalitic-granitic gneiss) throughout all three tray rows. Light grey to whitish-grey leucocratic quartz-feldspar dominated domains alternating with medium to dark grey biotite-rich melanosome bands/laminae. Medium-grained, well-foliated gneissic banded fabric with compositional layering, locally folded/ptygmatic and irregularly veined, leucosome appears coarser than melanocratic bands.",
+  "alteration": "none visible - fresh grey tones, no visible chloritic, sericitic, silicified, potassic, carbonate or oxidised staining",
+  "mineralization": "none visible - no identifiable pyrite, chalcopyrite, pyrrhotite, sphalerite or galena; dark material is biotite/amphibole fabric, not sulfides",
+  "anomalies": [],
+  "confidence": 0.72
+ }
+}

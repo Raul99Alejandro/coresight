@@ -1,0 +1,31 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 230.28395669999009,
+ "error": null,
+ "log": {
+  "from_m": 20.71,
+  "to_m": 22.6,
+  "rqd_pct": 99.9,
+  "tcr_pct": 100.0,
+  "natural_fractures": 4,
+  "fracture_frequency_per_m": 2.12,
+  "uncertain_breaks": 2,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "The core is a medium-grained, light to medium grey granitoid / tonalite with abundant whitish patches and mottled grey-green areas. Texture is inequigranular / patchy with a weakly foliated / gneissic fabric visible as irregular, diffuse lighter and darker bands wrapping around the core. Grain size appears medium, typical of a plutonic rock.",
+  "alteration": "Weak to moderate chloritic / epidotic alteration is visible as pale bluish-green to grey-green mottling and patches throughout the core; no strong pervasive alteration is clearly discernible at photo resolution.",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "A single sub-vertical fracture / break is visible in the upper core piece near the right-hand end and a second fracture is visible in the lower core piece on the left-hand side with a small offset; core appears otherwise continuous in the tray.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.55
+ },
+ "cost_usd": 0.0
+}

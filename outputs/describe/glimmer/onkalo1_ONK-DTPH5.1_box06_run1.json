@@ -1,0 +1,36 @@
+{
+ "reference": "Olkiluoto, Finland, crystalline bedrock (no published log for these boxes)",
+ "seconds": 246.89217946666759,
+ "error": null,
+ "log": {
+  "from_m": 22.6,
+  "to_m": 23.66,
+  "rqd_pct": 92.3,
+  "tcr_pct": 100.0,
+  "natural_fractures": 2,
+  "fracture_frequency_per_m": 1.89,
+  "uncertain_breaks": 1,
+  "mechanical_breaks": 0,
+  "rock_quality": "excellent",
+  "complete": true
+ },
+ "description": {
+  "lithology": "The core is a light to medium grey, white-mottled intermediate to felsic crystalline rock, medium-grained with a granitoid appearance and a locally foliated / gneissic fabric. White to pale grey patches are interpreted as quartz / feldspar-rich domains intermingled with darker grey mafic / biotite-rich domains, giving a mottled, weakly banded appearance. The fabric is subparallel to the core axis with a faintly foliated / migmatitic texture visible over the length of the run.",
+  "alteration": "none visible",
+  "mineralization": "none visible",
+  "anomalies": [
+   {
+    "type": "other",
+    "explanation": "A single sub-vertical fracture / break is visible on the upper tray row near the right-hand end of the core, with the red orientation line offset across the break.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "The run is shown in two tray rows; the upper row contains the majority of the core length and a short segment is shown in the lower left inset row, consistent with the run filling several rows in reading order.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.6
+ },
+ "cost_usd": 0.0
+}

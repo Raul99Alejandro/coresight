@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 16.428898499987554,
+ "error": null,
+ "cost_usd": 0.013237,
+ "description": {
+  "lithology": "Sawn half-core showing a fine-grained to locally medium-grained, reddish-brown to chocolate-brown and dark brown rock with a strongly banded to swirled/anastomosing foliation. Protolith is obscured by sulfide overprint, best described as a foliated metas edimentary/metavolcanic schist/gneiss or strongly deformed altered host with ductile fabric. Matrix is fine-grained massive to schistose, interlayered with coarser lenticular sulfide aggregates that define the foliation and form wavy schlieren bands. Colour is dominated by brassy-gold sulfide bands versus reddish-brown silicate matrix. No primary grain size or unmineralized texture can be confidently determined due to pervasive sulfide.",
+  "alteration": "Oxidised moderate to locally strong visible as pervasive reddish-brown to rusty iron-oxide staining of the silicate matrix and along sulfide margins; no chloritic, sericitic, carbonate, potassic or silicified alteration can be confidently identified from photo alone, otherwise none visible.",
+  "mineralization": "Abundant brassy-gold metallic sulfide consistent with chalcopyrite +/- pyrite/pyrrhotite, occurring as semi-massive to locally massive anastomosing bands, schlieren, lenses and blebs parallel to swirled foliation, estimated ~30-45 vol% overall averaging both pieces and up to ~60-70 vol% in the short left fragment, with lesser scattered dark grey-black angular blebs of uncertain mafic oxide/silicate.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Abundant brassy-gold sulfides form semi-massive to massive wavy bands and blebs throughout the entire cut face of both core pieces, ~30-45% overall and locally >60% on the left piece.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Core is broken into two pieces by a sharp transverse fracture near the left-center and displays an intensely swirled/deformed sulfide-silicate banding with entrained dark angular clasts that should be checked as a high-strain zone, sulfide vein/breccia contact or xenolith-rich interval.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.6
+ }
+}

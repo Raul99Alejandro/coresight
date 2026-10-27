@@ -1,0 +1,24 @@
+{
+ "reference": "Polymetallic massive sulfide, Potter Mine (Commons title)",
+ "seconds": 496.3646035999991,
+ "error": null,
+ "description": {
+  "lithology": "Two pieces of drill core are visible in a single tray row. The rock is fine- to very fine-grained with a massive to weakly foliated / swirly fabric. Groundmass colour is brown to reddish-brown with a yellow-greenish metallic sheen on the left piece and a brown to yellow-brown mottled appearance on the right piece. The surface shows a strong metallic luster in irregular, swirly patches that dominate the right piece and are present on the left piece. No definitive primary rock name can be confidently assigned from the photo alone; the appearance is consistent with a strongly mineralised / altered fine-grained volcaniclastic / metavolcanic rock.",
+  "alteration": "Strong to pervasive iron-oxide / limonite staining giving a brown to reddish-brown colouration over the core surface. The metallic yellow patches are consistent with sulfide mineralisation rather than a classic silicate alteration assemblage. No discrete chloritic, sericitic, potassic or carbonate alteration can be confidently distinguished from the photo; alteration is dominated by oxidation / iron staining. None visible as a separate silicate alteration type.",
+  "mineralization": "Visible sulfide / sulphide-associated metallic mineralisation present. Bright yellow to brassy metallic mineral occurs as disseminated to semi-massive, irregular swirly patches and blebs that follow the fabric. The mineralisation is abundant on the right piece and present on the left piece. Estimated volume percent is roughly 20-50 % of the exposed surface, with locally higher concentrations in the swirly bands. Mineral identity cannot be confirmed from the photo alone; the colour and luster are consistent with pyrite \u00b1 chalcopyrite.",
+  "anomalies": [
+   {
+    "type": "visible_sulfides",
+    "explanation": "Abundant bright yellow metallic sulfide is visible throughout both core pieces, forming swirly, semi-massive patches that dominate the right piece and are present on the left piece.",
+    "source": "model"
+   },
+   {
+    "type": "other",
+    "explanation": "Core is broken into two pieces with a narrow gap between them; the right piece shows a small sub-horizontal fracture near its right margin.",
+    "source": "model"
+   }
+  ],
+  "confidence": 0.35
+ },
+ "cost_usd": 0.0
+}
