@@ -24,14 +24,14 @@ Mantenimiento y operaciones quedan como visión (en el video, no en el código).
 | 1 | lun 26 oct | Kickoff, API key, smoke test de SAM 3.1 y Muse Spark con 1 foto | Hecho. `scripts/smoke_day1.py` pasa contra la API real (SAM con prompt "stone", Muse Spark valida) |
 | 2 | lun 26 oct | Dataset y RQD manual | Hecho adelantado (`158f8f5`). Kaggle en `data/raw/` y 13 etiquetas que validan con `BoxLabel` |
 | 3 | mar 27 oct | Calibración. Pedir créditos de Baseten y Modal | Error px→cm < 2% en las cajas etiquetadas; filas recortadas correctamente; solicitudes de partners enviadas |
-| 4 | mié 28 oct | Segmentación SAM 3.1 de piezas y fracturas en cm | Lista de `Piece` por fila en cm para las cajas etiquetadas; caché por hash de imagen y reintentos |
-| 5 | jue 29 oct | Motor geométrico conectado y primera evaluación | Una foto produce RQD, TCR y FF por intervalo de punta a punta; MAE preliminar en las 13 etiquetas |
+| 4 | mié 28 oct | Segmentación SAM 3.1 de piezas y fracturas en cm | Hecho adelantado (`897b4a5`, 26 oct). Lista de `Piece` por fila en cm; caché por hash de imagen y reintentos |
+| 5 | jue 29 oct | Motor geométrico conectado y primera evaluación | Hecho adelantado (`4f41134`, `a728c9d`). De punta a punta por tramo; MAE de RQD 8.6 (9.9 sin marcas del geólogo) en 39 tramos |
 | 6 | vie 30 oct | Muse Spark con descripciones y anomalías; Glimmer como segundo backend | Hecho. `pipeline.describe` da un `IntervalDescription` validado por tramo; `low_recovery` e `intense_fracturing` salen de TCR y FF (`anomalies.py`), `visible_sulfides` del modelo; Muse Spark (API) y Glimmer (llama.cpp local) con el mismo contrato; muestra en `outputs/describe/compare.md` (`scripts/describe_boxes.py`) |
-| 7 | sáb 31 oct | UI de revisión con voz, export CSV, demo desplegada | En curso (26 oct). API FastAPI (`coresight.api`) y página de revisión (`src/coresight/web/`); correcciones de roturas, piezas y descripción, escritas o dictadas con Muse Voice Transcribe, guardadas junto al valor original (`coresight.review`); RQD/TCR/FF recalculados solo por `geometry.py`; CSV del registro y de las correcciones; errores visibles. Falta: URL pública (`docs/DEPLOY.md`) |
-| 8 | dom 1 nov | Orquestador Muse Wonder y 4 agentes de área | Al aprobar una caja se generan borradores de laboratorio, seguridad, planta y finanzas, cada uno con su botón de aprobar; nada se envía solo |
-| 9 | lun 2 nov | Evaluación científica completa | Tabla en el README: MAE de RQD y TCR, Bland-Altman, ablaciones, robustez seco/mojado, calidad de descripciones, costo y tiempo por caja, casos de falla |
-| 10 | mar 3 nov | Video con HyperFrames y voz, README final | Video de 3 min o menos con capturas reales de la demo y la evaluación; README con lo hecho antes y durante el hackathon |
-| 11 | mié 4 nov | Colchón y envío | Enviado antes de las 18:00 con repo público, video y demo; post en X para el premio viral |
+| 7 | sáb 31 oct | UI de revisión con voz, export CSV, demo desplegada | Hecho adelantado (`814a154`, 27 oct). Demo en https://coresight.analizac.com. API FastAPI (`coresight.api`) y página de revisión (`src/coresight/web/`); correcciones de roturas, piezas y descripción, escritas o dictadas con Muse Voice Transcribe, guardadas junto al valor original (`coresight.review`); RQD/TCR/FF recalculados solo por `geometry.py`; CSV del registro y de las correcciones; errores visibles; despliegue en `docs/DEPLOY.md` |
+| 8 | dom 1 nov (arranca 27 oct) | Evidencia pública, muestra dramática, orquestador y 4 agentes con autonomía verificable, Muse Code | Ver "Cambios por el análisis": puntos 1 a 4 (y 5 si la API acepta prompts de punto). Al aprobar una caja, el orquestador decide qué áreas aplican y por qué; los agentes usan herramientas; un verificador determinista revisa cada borrador; registro de decisiones visible; cada borrador con su botón de aprobar; nada se envía solo |
+| 9 | lun 2 nov | Evaluación científica completa, procedencia de modelos abiertos, números de impacto | Puntos 6 a 8. Tabla en el README: cifra principal sin marcas del geólogo con intervalo de confianza, Bland-Altman, ablaciones, robustez seco/mojado, comparación con la variación entre geólogos, calidad de descripciones, costo y tiempo por caja, casos de falla con foto |
+| 10 | mar 3 nov | Video con HyperFrames y voz, README final, portada y prueba de abuso | Puntos 9, 10 y 12. Video de 3 min en inglés con subtítulos, que abre con la línea de trabajo previo y sigue el guion de `docs/ANALISIS.md` (sección 4); README con lo hecho antes y durante el hackathon |
+| 11 | mié 4 nov | Colchón y envío | Enviado antes de las 18:00 con repo público, video y demo; marcar los premios Open Weights, Agentic y Viral; borrador del post en X para que Raúl lo publique |
 
 ## Agentes de área (día 8)
 
@@ -61,7 +61,7 @@ El orquestador (Muse Wonder) decide qué agentes aplican y les pasa la caja apro
 | Sin datos reales | Imágenes públicas y etiquetar 10 cajas a mano |
 | SAM no separa fracturas finas | Detectar cortes por perfil de intensidad a lo largo del eje del núcleo |
 | Límites de la API | Caché por hash de imagen (`data/cache/`) y reintentos con backoff |
-| Falta de tiempo | Recortar en este orden: agente de finanzas, agente de planta, Glimmer, voz. Nunca el núcleo ni la evaluación |
+| Falta de tiempo | Recortar en este orden: ciclo de aprendizaje (11), SAM con clic (5), clip y post (12), agente de finanzas, agente de planta. Nunca el núcleo, la evaluación, la muestra dramática (1), la evidencia pública (2) ni los agentes verificables (4) |
 | Muse Wonder no rinde como orquestador o no está disponible por API | Orquestar con Muse Spark 1.3 y tool calling |
 | Glimmer no corre en el hardware disponible | Muse Spark Open en Baseten o Modal (también cuenta para el premio de modelos abiertos) |
 | Muse Voice Transcribe falla con español o ruido | Dictado opcional; la corrección escrita siempre funciona |
@@ -81,3 +81,25 @@ Lo que dicen la página oficial y la aplicación, y cómo cambia el plan:
 - **Modo Contributor de Muse Spark** es más barato pero Meta puede entrenar con esos datos. Solo usarlo con imágenes públicas, nunca con datos de clientes.
 - **Créditos de Meta aplicados (26 oct): $150.** Mientras se usan, Billing avisa que el contenido puede usarse para mejorar el producto. Misma regla: solo imágenes públicas, nunca fotos de una mina o de un cliente. Para datos privados, "Stop using free credits" en Billing o el modo Glimmer local.
 - **Workshops y office hours en Discord** del 27 oct al 4 nov. Llevar preguntas concretas de SAM 3.1 (prompts para fracturas) a las office hours.
+
+## Cambios por el análisis (27 oct)
+
+Adoptados de `docs/ANALISIS.md`. La nota estimada sube de 6.5 a unos 8.5.
+
+| # | Cambio | Día |
+|---|---|---|
+| 1 | Muestra dramática como primera muestra de la demo: roca mala y sulfuros visibles, de Commons con licencia libre o, mejor, una caja real de una mina de Zacatecas con permiso. Una foto privada de mina nunca pasa por los créditos gratis de Meta: se procesa con Glimmer local o con los créditos gratis apagados | 8 |
+| 2 | Evidencia pública: métricas de `outputs/eval/` y `outputs/describe/` en el repo (sin fotos del Kaggle), README sin "Early scaffold" y con Evaluation llena, `LICENSE` | 8 |
+| 3 | Muse Code de verdad en al menos un agente o el verificador, con capturas y commits listados en `APPLICATION.md` y el README | 8 |
+| 4 | Agentes con autonomía verificable: Muse Wonder decide qué áreas aplican y por qué (plan B Spark 1.3); agentes con herramientas (`geometry.py`, tabla de precios de ejemplo, historial); verificador determinista de cada borrador; registro de decisiones en la UI; citar la Agents Rule of Two. Ver Agents 101 y 102 antes de construir | 8 |
+| 5 | SAM 3.1 con prompt de punto en la revisión (clic en una pieza y se vuelve a segmentar), si la API lo acepta | 8 o colchón |
+| 6 | Manifiesto de procedencia de Glimmer y Spark Open en el repo y clip de Glimmer sin red | 9 |
+| 7 | Evaluación honesta: cifra principal sin marcas, intervalo de confianza, Bland-Altman, variación entre geólogos | 9 |
+| 8 | Números de impacto con fuente y, si se puede, 15 s de un geólogo real (Raúl consigue el contacto) | 9 |
+| 9 | Portada con imagen de una caja y encabezado de móvil arreglado | 10 |
+| 10 | Prueba de abuso (foto que no es caja, foto enorme, caja sin escala), caché precalentada y vigilancia de créditos | 10 |
+| 11 | Cerrar el ciclo: few-shot o LoRA de Glimmer con las correcciones del geólogo, medido antes y después. Solo si 1 a 10 están hechos | Colchón |
+| 12 | Clip vertical y borradores del post en X y del mensaje de Community Vote (Raúl los publica) | 10 |
+
+Lo que no cambia: la arquitectura neurosimbólica, el track Startups, las 4 áreas, los 3 backends de descripción, la revisión humana obligatoria, el diseño visual y el día 10 completo para el video.
+El video no presume `geometry.py` (es trabajo previo del 25 oct) y abre con la línea de qué era previo.
