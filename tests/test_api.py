@@ -215,6 +215,17 @@ def test_rqd_working_follows_the_corrections(tmp_path):
     assert run["measure"]["rqd_cm"] == pytest.approx(93.0)
 
 
+def test_split_a_piece_sam_merged(tmp_path):
+    c = client(tmp_path)
+    bid = upload(c).json()["id"]
+    r = c.post(f"/api/boxes/{bid}/runs/0/pieces/0/split", json={"at_cm": 5.0})
+    run = r.json()["runs"][0]
+    assert run["log"]["rqd_pct"] == pytest.approx(80.0)  # 40 cm -> 5 + 35
+    assert run["corrections"][-1]["corrected"] == "split at 5.0 cm (natural break)"
+    r = c.post(f"/api/boxes/{bid}/runs/0/pieces/0/split", json={"at_cm": 30.0})
+    assert r.status_code == 400 and "between" in r.json()["detail"]
+
+
 def test_dictation_is_counted_in_the_box_ledger(tmp_path):
     c = client(tmp_path)
     bid = upload(c).json()["id"]

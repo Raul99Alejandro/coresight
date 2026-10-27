@@ -2,7 +2,7 @@
 
 - ``analyze``: photo -> calibrate -> segment -> runs -> geometry.py -> describe,
   kept per run with every piece's place in the tray (for the overlay).
-- ``set_break`` / ``remove_piece``: piece corrections. RQD, TCR and FF are
+- ``set_break`` / ``remove_piece`` / ``split_piece``: piece corrections. RQD, TCR and FF are
   recomputed by geometry.log_interval (through runs.log_segment), never by a
   model, and the rule anomalies follow the new numbers.
 - ``set_description``: a typed or dictated change to lithology, alteration,
@@ -374,6 +374,38 @@ def remove_piece(box: BoxReview, i: int, j: int) -> RunReview:
             target=f"piece {j + 1}",
             original=f"row {p.row + 1}, {p.start_cm:.1f}-{p.end_cm:.1f} cm",
             corrected="removed",
+        )
+    )
+    return run
+
+
+MIN_SPLIT_CM = 0.5
+
+
+def split_piece(
+    box: BoxReview, i: int, j: int, at_cm: float, kind: BreakKind = "natural"
+) -> RunReview:
+    """Cut piece j of run i at ``at_cm`` (cm from the row start): a break SAM missed."""
+    run = _run(box, i)
+    if not 0 <= j < len(run.pieces):
+        raise ReviewError(f"Piece {j + 1} does not exist.")
+    p = run.pieces[j]
+    if not p.start_cm + MIN_SPLIT_CM <= at_cm <= p.end_cm - MIN_SPLIT_CM:
+        raise ReviewError(
+            f"Cut piece {j + 1} between {p.start_cm + MIN_SPLIT_CM:.1f} and"
+            f" {p.end_cm - MIN_SPLIT_CM:.1f} cm."
+        )
+    run.pieces[j : j + 1] = [
+        p.model_copy(update={"end_cm": at_cm, "break_after": kind}),
+        p.model_copy(update={"start_cm": at_cm}),
+    ]
+    _after_pieces(run)
+    run.corrections.append(
+        Correction(
+            at=_now(),
+            target=f"piece {j + 1}",
+            original=f"row {p.row + 1}, {p.start_cm:.1f}-{p.end_cm:.1f} cm",
+            corrected=f"split at {at_cm:.1f} cm ({kind} break)",
         )
     )
     return run

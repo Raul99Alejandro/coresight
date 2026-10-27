@@ -255,6 +255,12 @@ dialog::backdrop{background:rgba(14,15,18,.3);backdrop-filter:blur(3px);animatio
 .m-body > p{margin:0 0 20px;color:var(--ink-2)}
 .m-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
 dialog.small{width:min(400px,calc(100vw - 24px))}
+dialog#split{width:min(760px,calc(100vw - 24px))}
+#sp-canvas{display:block;width:100%;border-radius:12px;background:#000;cursor:crosshair;touch-action:none}
+#sp-canvas:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.sp-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;color:var(--ink-2);font-size:14px}
+.sp-read{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+.sp-row select{margin-left:8px;border:0;border-radius:8px;padding:5px 8px;background:var(--fill);font-size:14px;cursor:pointer}
 .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:16px;padding:28px;text-align:center;cursor:pointer;color:var(--ink-2);
   margin-bottom:18px;background:var(--fill);outline:1.5px dashed var(--hair-2);outline-offset:-1.5px;transition:background .2s,outline-color .2s}
 .drop:hover{background:var(--fill-2)}
@@ -472,6 +478,11 @@ button.metric:hover{background:var(--fill-2)}
 <dialog id="new-dialog" aria-labelledby="new-title"></dialog>
 <dialog id="confirm" class="small"><div class="m-body"><h2 id="c-title"></h2><p id="c-text"></p>
   <div class="m-actions"><button class="btn" id="c-no">Cancel</button><button class="btn primary" id="c-yes"></button></div></div></dialog>
+<dialog id="split" aria-labelledby="sp-title"><div class="m-body"><h2 id="sp-title">Split piece</h2>
+  <p>Click where SAM 3.1 missed a break. Drag or use the arrow keys to move it.</p>
+  <canvas id="sp-canvas" tabindex="0" aria-label="The piece, enlarged. Click to place the break."></canvas>
+  <div class="sp-row"><span class="sp-read" id="sp-read" aria-live="polite"></span><label>Break<select id="sp-kind"></select></label></div>
+  <div class="m-actions"><button class="btn" id="sp-no">Cancel</button><button class="btn primary" id="sp-yes">Split piece</button></div></div></dialog>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -993,9 +1004,9 @@ function piecesHTML(r) {
       const sel = last ? '<span class="muted">End of run</span>' : `<span class="sw" style="background:${BREAK_COLOR[p.break_after]}"></span><select data-break="${j}" aria-label="Break after piece ${j + 1}" ${locked() ? "disabled" : ""}>
         ${Object.entries(BREAK_NAME).map(([k, v]) => `<option value="${k}" ${k === p.break_after ? "selected" : ""}>${v}</option>`).join("")}</select>`;
       return `<tr class="${j === S.piece ? "hl" : ""}" data-row="${j}"><td>${j + 1}</td><td>${p.row + 1}</td><td class="num">${(p.end_cm - p.start_cm).toFixed(1)}</td><td>${sel}</td>
-        <td class="num">${locked() ? "" : `<button class="btn plain sm danger" data-remove="${j}" aria-label="Remove piece ${j + 1}">Remove</button>`}</td></tr>`;
+        <td class="num">${locked() ? "" : `<button class="btn plain sm" data-split="${j}" aria-label="Split piece ${j + 1}">Split</button><button class="btn plain sm danger" data-remove="${j}" aria-label="Remove piece ${j + 1}">Remove</button>`}</td></tr>`;
     }).join("")}</tbody></table>
-    <p class="foot-note">Remove a piece only when it is not core: a block, a chip, a label.</p>`;
+    <p class="foot-note">Split a piece where SAM 3.1 missed a break. Remove a piece only when it is not core: a block, a chip, a label.</p>`;
 }
 function bindPieces(r) {
   const sec = $("sec-pieces"); if (!sec) return;
@@ -1005,7 +1016,43 @@ function bindPieces(r) {
     if (await confirmBox(`Remove piece ${j + 1}?`, `${(p.end_cm - p.start_cm).toFixed(1)} cm in row ${p.row + 1}. The numbers are recalculated without it and the change stays in the history.`, "Remove"))
       { S.piece = null; correct(`runs/${S.run}/pieces/${j}`, "DELETE", null, "Piece removed. Numbers recalculated."); }
   }));
+  sec.querySelectorAll("[data-split]").forEach((x) => (x.onclick = () => openSplit(+x.dataset.split)));
   const hl = sec.querySelector("tr.hl"); if (hl && S.open.pieces) setTimeout(() => hl.scrollIntoView({block:"center", behavior:"smooth"}), 120);
+}
+
+/* split: the piece enlarged from the straightened tray, click where the break is */
+function openSplit(j) {
+  const b = S.box, p = b.runs[S.run].pieces[j], T = b.tray, ppc = T.px_per_cm, [y1, y2] = T.rows[p.row];
+  const d = $("split"), cv = $("sp-canvas"), kind = $("sp-kind"), img = new Image();
+  const a = Math.max(p.start_cm - 2, 0), z = Math.min(p.end_cm + 2, T.width / ppc);  // 2 cm of context each side
+  const lo = p.start_cm + .5, hi = p.end_cm - .5;
+  let at = (p.start_cm + p.end_cm) / 2;
+  $("sp-title").textContent = `Split piece ${j + 1}`;
+  kind.innerHTML = Object.entries(BREAK_NAME).map(([k, v]) => `<option value="${k}" ${k === "natural" ? "selected" : ""}>${v}</option>`).join("");
+  const draw = () => {
+    if (!img.naturalWidth || !cv.clientWidth) return;
+    const k = img.naturalWidth / T.width, w = cv.clientWidth, h = Math.min(w * (y2 - y1) / ((z - a) * ppc), 260), dpr = devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = h * dpr; cv.style.height = `${h}px`;
+    const g = cv.getContext("2d"), X = (cm) => ((cm - a) / (z - a)) * w;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.drawImage(img, a * ppc * k, y1 * k, (z - a) * ppc * k, (y2 - y1) * k, 0, 0, w, h);
+    g.fillStyle = "rgba(14,15,18,.6)"; g.fillRect(0, 0, X(p.start_cm), h); g.fillRect(X(p.end_cm), 0, w - X(p.end_cm), h);
+    g.strokeStyle = "#f0b955"; g.lineWidth = 2; g.strokeRect(X(p.start_cm) + 1, 1, X(p.end_cm) - X(p.start_cm) - 2, h - 2);
+    const css = getComputedStyle(document.documentElement).getPropertyValue(BREAK_COLOR[kind.value].slice(4, -1)).trim();
+    g.strokeStyle = css || "#fff"; g.lineWidth = 3; g.lineCap = "round";
+    g.beginPath(); g.moveTo(X(at), 4); g.lineTo(X(at), h - 4); g.stroke();
+    $("sp-read").textContent = `${(at - p.start_cm).toFixed(1)} cm + ${(p.end_cm - at).toFixed(1)} cm`;
+  };
+  const set = (cm) => { at = Math.min(hi, Math.max(lo, cm)); draw(); };
+  const cmAt = (e) => { const R = cv.getBoundingClientRect(); return a + ((e.clientX - R.left) / R.width) * (z - a); };
+  cv.onpointerdown = (e) => { cv.setPointerCapture(e.pointerId); set(cmAt(e)); };
+  cv.onpointermove = (e) => { if (e.buttons) set(cmAt(e)); };
+  cv.onkeydown = (e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); set(at + (e.key === "ArrowLeft" ? -.5 : .5)); } };
+  kind.onchange = draw;
+  $("sp-no").onclick = () => d.close();
+  $("sp-yes").onclick = () => { d.close(); S.piece = j; correct(`runs/${S.run}/pieces/${j}/split`, "POST", {at_cm:+at.toFixed(2), kind:kind.value}, "Piece split. Numbers recalculated."); };
+  img.onload = draw; img.src = `/api/boxes/${b.id}/tray.jpg`;
+  d.showModal(); requestAnimationFrame(draw);
 }
 
 function historyHTML(r) {

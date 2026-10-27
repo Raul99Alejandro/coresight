@@ -94,6 +94,34 @@ def test_remove_piece_recomputes_and_rule_anomalies_follow():
     assert run.corrections[0].corrected == "removed"
 
 
+def test_split_piece_adds_the_missed_break_and_recomputes():
+    box = make_box(make_run(PIECES))
+    run = review.split_piece(box, 0, 0, 5.0)  # 40 cm piece -> 5 + 35: only 35 counts
+    assert [(p.start_cm, p.end_cm) for p in run.pieces[:2]] == [(0, 5.0), (5.0, 40)]
+    assert run.pieces[0].break_after == "natural"
+    assert run.pieces[1].break_after == "natural"  # keeps the original break after it
+    assert run.log.rqd_pct == pytest.approx(80.0)
+    assert run.log.natural_fractures == 3
+    assert run.machine_log.rqd_pct == pytest.approx(85.0)
+    (c,) = run.corrections
+    assert (c.target, c.original) == ("piece 1", "row 1, 0.0-40.0 cm")
+    assert c.corrected == "split at 5.0 cm (natural break)"
+
+
+def test_split_keeps_the_run_end_on_the_last_part():
+    box = make_box(make_run(PIECES))
+    run = review.split_piece(box, 0, 2, 70.0, kind="mechanical")
+    assert [p.break_after for p in run.pieces[2:]] == ["mechanical", "natural"]
+    assert run.log.rqd_pct == pytest.approx(85.0)  # rejoined: still one 45 cm piece
+
+
+@pytest.mark.parametrize("at", [0.2, 39.8, 45.0])
+def test_split_must_fall_inside_the_piece(at):
+    box = make_box(make_run(PIECES))
+    with pytest.raises(ReviewError):
+        review.split_piece(box, 0, 0, at)
+
+
 def test_dictated_description_keeps_transcript_and_original():
     box = make_box(make_run(PIECES))
     run = review.set_description(

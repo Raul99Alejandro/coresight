@@ -250,6 +250,11 @@ class BreakIn(BaseModel):
     kind: BreakKind
 
 
+class SplitIn(BaseModel):
+    at_cm: float  # cm from the start of the piece's row
+    kind: BreakKind = "natural"
+
+
 class DescriptionIn(BaseModel):
     field: DescriptionField
     value: str = Field(max_length=2000)
@@ -426,6 +431,10 @@ def create_app(
     @app.delete("/api/boxes/{box_id}/runs/{i}/pieces/{j}")
     def delete_piece(box_id: str, i: int, j: int) -> BoxReview:
         return edit(box_id, lambda b: review.remove_piece(b, i, j))
+
+    @app.post("/api/boxes/{box_id}/runs/{i}/pieces/{j}/split")
+    def split_piece(box_id: str, i: int, j: int, body: SplitIn) -> BoxReview:
+        return edit(box_id, lambda b: review.split_piece(b, i, j, body.at_cm, body.kind))
 
     @app.put("/api/boxes/{box_id}/runs/{i}/description")
     def change_description(box_id: str, i: int, body: DescriptionIn) -> BoxReview:
