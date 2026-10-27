@@ -78,12 +78,24 @@ class Sample(BaseModel):
     sheet: str  # hand-measured piece sheet: the run markers (wooden blocks)
     tray_index: int
     box_length_cm: float = 100.0
+    n_rows: int = 5
     credit: str
 
 
 SAMPLES = {
     s.name: s
     for s in [
+        Sample(
+            name="nevada-u12g",
+            title="Nevada Test Site U12G-GF-GT#2, box 1 (0.0-11.2 ft)",
+            photo="data/raw/commons_nts_u12g_1.jpg",
+            label="data/labels/U12G-GF-GT2_box01.json",
+            sheet="data/labels/pieces/U12G-GF-GT2_box01.json",
+            tray_index=0,
+            box_length_cm=66.0,  # from the depths on the wax-sealed samples
+            n_rows=4,
+            credit="Photo: U.S. Department of Energy (NNSA), Wikimedia Commons, public domain",
+        ),
         Sample(
             name="onkalo-box5",
             title="Onkalo ONK-DTPH5.1, box 5 (17.94-22.60 m)",
@@ -113,6 +125,7 @@ class Job(BaseModel):
     runs: list[Interval] = Field(min_length=1, max_length=30)
     first_starts_in_box: bool
     tray_index: int = Field(ge=0, le=3)
+    n_rows: int = Field(5, ge=2, le=8)
     sample: str | None = None  # use the sample's hand-measured run markers
     context: dict = Field(default_factory=dict)
 
@@ -155,6 +168,7 @@ def meta_analyzer(photo: bytes, job: Job, report: review.Reporter) -> Analysis:
         markers=markers,
         context=job.context,
         report=report,
+        n_rows=job.n_rows,
     )
 
 
@@ -340,6 +354,7 @@ def create_app(
             runs=[Interval(from_m=r.from_m, to_m=r.to_m) for r in label.runs],
             first_starts_in_box=True,
             tray_index=s.tray_index,
+            n_rows=s.n_rows,
             sample=s.name,
             context={"hole_id": label.hole_id, "box": label.box_number},
         )

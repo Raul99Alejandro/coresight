@@ -29,7 +29,7 @@ Registro de uso:
   - Ronda 2, sesión `88fc39bc-b75a-47b0-8d5f-466e68048e0a`: arreglo de ruff y 5 tests nuevos (presupuesto restante, historial del pozo, runs desde uno). 15 llamadas.
   - Comando: `muse exec --contributor-mode off --disable-approval --json`, con sandbox.
   - La sandbox de Windows de Muse no pudo arrancar PowerShell, así que corrimos pytest y ruff fuera de ella y le regresamos el resultado.
-  - Trazas: `docs/muse-code/verify-1.json` y `verify-2.json`. Commit: pendiente.
+  - Trazas: `docs/muse-code/verify-1.json` y `verify-2.json`. Commit: `0b594f1`.
 
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.

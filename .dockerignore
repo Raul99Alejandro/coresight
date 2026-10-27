@@ -7,7 +7,10 @@
 !data/labels/ONK-DTPH5.1_box06.json
 !data/labels/pieces/ONK-DTPH5.1_box05.json
 !data/labels/pieces/ONK-DTPH5.1_box06.json
+!data/labels/U12G-GF-GT2_box01.json
+!data/labels/pieces/U12G-GF-GT2_box01.json
 !data/raw/commons_onkalo_1.jpg
+!data/raw/commons_nts_u12g_1.jpg
 !data/prices_example.json
 **/__pycache__
 **/*.egg-info

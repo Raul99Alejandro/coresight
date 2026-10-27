@@ -10,9 +10,9 @@ COPY src ./src
 # editable: the app finds data/ next to src/, as in development
 RUN pip install --no-cache-dir -e . && useradd --system --uid 10001 coresight
 
-COPY data/labels/ONK-DTPH5.1_box05.json data/labels/ONK-DTPH5.1_box06.json ./data/labels/
-COPY data/labels/pieces/ONK-DTPH5.1_box05.json data/labels/pieces/ONK-DTPH5.1_box06.json ./data/labels/pieces/
-COPY data/raw/commons_onkalo_1.jpg ./data/raw/
+COPY data/labels/ONK-DTPH5.1_box05.json data/labels/ONK-DTPH5.1_box06.json data/labels/U12G-GF-GT2_box01.json ./data/labels/
+COPY data/labels/pieces/ONK-DTPH5.1_box05.json data/labels/pieces/ONK-DTPH5.1_box06.json data/labels/pieces/U12G-GF-GT2_box01.json ./data/labels/pieces/
+COPY data/raw/commons_onkalo_1.jpg data/raw/commons_nts_u12g_1.jpg ./data/raw/
 
 RUN mkdir -p /app/data/reviews /app/data/cache && chown -R coresight /app/data
 USER coresight

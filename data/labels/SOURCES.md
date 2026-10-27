@@ -43,6 +43,13 @@ French and Spanish). Full boxes of broken core exist (Breiðdalsvík, Nevada Tes
 latter with drilled and recovered length written on each run label), but no openly licensed full box
 shows sulfides. Sulfides in a full box need a photo taken with permission at a mine.
 
+Chosen as the poor-rock demo sample: `commons_nts_u12g_1.jpg` (hole U12G-GF-GT#2, box 1, 0.0 to
+11.2 ft, 4 rows). Piece sheet `pieces/U12G-GF-GT2_box01.json` measured by hand on the straightened
+tray. Scale from the depths written on the wax-sealed samples (9.7-10.1 ft and 10.7-11.2 ft): 37.9
+px/cm, a 66 cm tray. Run 3 (10.1-15.1 ft) continues in the next box and is logged to the box end.
+The measured recovery matches the run labels: run 1 48.5% (label 2.4 of 5.0 ft), run 2 75.7% (4.0 of
+5.1 ft), run 3 97.4% (1.1 of 1.1 ft). Depths are converted from feet to metres.
+
 ## Images used
 
 Downloaded with `scripts/fetch_public_images.py` (`data/raw/` is not in git).

@@ -181,6 +181,7 @@ def analyze(
     markers: list[Position] | Callable[[Tray], list[Position]] | None = None,
     context: dict | None = None,
     report: Reporter | None = None,
+    n_rows: int = 5,
 ) -> Analysis:
     """One photo end to end, ready for review.
 
@@ -198,11 +199,11 @@ def analyze(
     t = time.perf_counter()
     report.stage("calibration", status="working")
     try:
-        trays = find_trays(image, box_length_cm, max_trays=tray_index + 1)
+        trays = find_trays(image, box_length_cm, n_rows=n_rows, max_trays=tray_index + 1)
     except CalibrationError as exc:
-        report.stage("calibration", status="failed", detail="No tray with 5 rows found")
+        report.stage("calibration", status="failed", detail=f"No tray with {n_rows} rows found")
         raise ReviewError(
-            "No core tray with 5 rows was found, so the photo has no scale. Take the photo"
+            f"No core tray with {n_rows} rows was found, so the photo has no scale. Take the photo"
             " from above with the whole tray in view, the slats visible and no strong glare."
         ) from exc
     if tray_index >= len(trays):
