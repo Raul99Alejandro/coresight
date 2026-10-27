@@ -1,0 +1,264 @@
+{
+ "about": "Provenance of the open-weight description runs. See docs/PROVENANCE.md.",
+ "muse_glimmer": {
+  "source": {
+   "hugging_face": "https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF",
+   "revision": "b44f1072cf75e918a1b82a3a17b45c4389b076e7"
+  },
+  "license": "Apache-2.0 (dev.meta.ai/docs/muse-glimmer)",
+  "served_as": "muse-glimmer",
+  "weights": [
+   {
+    "file": "mmproj-Muse-Glimmer-30B-Q4_K_M.gguf",
+    "bytes": 1400328928,
+    "sha256": "f48b452316f9b213758e8659444029b961a24a07f99a1abb2a9f88b06f7c00c6",
+    "header": {
+     "gguf_version": 3,
+     "tensors": 809,
+     "general.architecture": "clip",
+     "general.name": "Muse Glimmer Hf",
+     "general.size_label": "1.9B",
+     "general.quantization_version": 2,
+     "general.file_type": 15
+    },
+    "matches_hugging_face": true
+   },
+   {
+    "file": "Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf",
+    "bytes": 16756683904,
+    "sha256": "4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e",
+    "header": {
+     "gguf_version": 3,
+     "tensors": 731,
+     "general.architecture": "muse-glimmer",
+     "general.name": "Muse Glimmer Hf",
+     "general.size_label": "28B",
+     "general.quantization_version": 2,
+     "general.file_type": 15
+    },
+    "matches_hugging_face": true
+   }
+  ],
+  "runtime": {
+   "llama_cpp": "version: 0.7.0-dev (build 11913, commit 7aca0d2ea) built with Clang 20.1.8 for Windows x86_64",
+   "os": "Windows-11-10.0.26200-SP0"
+  },
+  "server_log": {
+   "calls": 14,
+   "prompt_tokens": 16596,
+   "generated_tokens": 8671,
+   "prompt_tokens_per_s": 105.0,
+   "generated_tokens_per_s": 1.96
+  },
+  "outputs": [
+   {
+    "item": "commons_potter_07",
+    "valid": true,
+    "seconds": 496.4,
+    "cost_usd": 0.0,
+    "output_sha256": "19bc4522820bc94a622f0ff95a4296a1dcbea5089da7de2ee356809897691e7f"
+   },
+   {
+    "item": "commons_potter_27",
+    "valid": true,
+    "seconds": 393.8,
+    "cost_usd": 0.0,
+    "output_sha256": "06b20028380e537389885f727668dc00d543c09329c4c795dd8c6514910f8559"
+   },
+   {
+    "item": "commons_potter_28",
+    "valid": true,
+    "seconds": 406.5,
+    "cost_usd": 0.0,
+    "output_sha256": "82e46d04050e9a3f49d99a5a50cc19b4df8aaffad459b62670b26290a1ac4ef2"
+   },
+   {
+    "item": "commons_potter_30",
+    "valid": true,
+    "seconds": 281.8,
+    "cost_usd": 0.0,
+    "output_sha256": "c64c93c7f3346808452d057520f6841312274c6de97917c21b8a9b6d08e12138"
+   },
+   {
+    "item": "commons_potter_32",
+    "valid": true,
+    "seconds": 463.0,
+    "cost_usd": 0.0,
+    "output_sha256": "43b92ae6bf640fda7b079536152774c649bbcea5d565679c7e2bc547bda18822"
+   },
+   {
+    "item": "commons_potter_argillite_2",
+    "valid": true,
+    "seconds": 310.2,
+    "cost_usd": 0.0,
+    "output_sha256": "8224a34bf206d67a50a0826a085b25f275e1b2e42cb80768d1ef83ab4e7d076b"
+   },
+   {
+    "item": "commons_warren_dolostone_1",
+    "valid": true,
+    "seconds": 312.4,
+    "cost_usd": 0.0,
+    "output_sha256": "0ef7c728604b911d33a6c4e9344c576ce09cf5db7b13f28ec378c7fb91c5e806"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box05_run1",
+    "valid": true,
+    "seconds": 230.3,
+    "cost_usd": 0.0,
+    "output_sha256": "78673e0c4ee6f4b5093af2057b0828e3984685d0ba2fab66c2b4084116640d67"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box05_run2",
+    "valid": true,
+    "seconds": 230.3,
+    "cost_usd": 0.0,
+    "output_sha256": "cd19f1fdf6571bababedbe11c6c00383c0063ef12e5e032cead9c113acfdd5b9"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box06_run1",
+    "valid": true,
+    "seconds": 246.9,
+    "cost_usd": 0.0,
+    "output_sha256": "704cfe2d2b9f85f1da9c651a1997b9218a32139465e587ead70c17d8fdcd4ad2"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box06_run2",
+    "valid": true,
+    "seconds": 246.9,
+    "cost_usd": 0.0,
+    "output_sha256": "a2ec7aedede9f3b4debe8817c5c2db51d3e566351017a56b3456de182792d36c"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box06_run3",
+    "valid": true,
+    "seconds": 246.9,
+    "cost_usd": 0.0,
+    "output_sha256": "42a1c060ac16ffb98e927cc45c2f6949da3dd12fbb0ac8d556a5d4dec94ecc8a"
+   },
+   {
+    "item": "onkalo2_tray1",
+    "valid": true,
+    "seconds": 293.3,
+    "cost_usd": 0.0,
+    "output_sha256": "a2fbf144065221390eb6a4146d4445515ff9d27a98584def0adaf8de6e350c4a"
+   },
+   {
+    "item": "onkalo2_tray2",
+    "valid": true,
+    "seconds": 420.3,
+    "cost_usd": 0.0,
+    "output_sha256": "b49aed9ffbd720568fdb10a90aed75cbebb5de90150e72d1a03dfca33c74bb84"
+   }
+  ]
+ },
+ "muse_spark_open": {
+  "provider": "Baseten Model APIs",
+  "license": "Muse Model License (dev.meta.ai/docs/muse-spark-open)",
+  "model_id": "meta-models/muse-spark-open-1026",
+  "endpoint": "https://inference.baseten.co/v1/chat/completions",
+  "usd_per_million_tokens": {
+   "input": 1.25,
+   "output": 4.25
+  },
+  "outputs": [
+   {
+    "item": "commons_potter_07",
+    "valid": true,
+    "seconds": 16.4,
+    "cost_usd": 0.013237,
+    "output_sha256": "c623a11b67417c7e54515730fa49c97d92d403be41e362590ac3f2e6215d29d4"
+   },
+   {
+    "item": "commons_potter_27",
+    "valid": true,
+    "seconds": 19.1,
+    "cost_usd": 0.0159895,
+    "output_sha256": "0cc7817d3624fe524cfd47cea6609ff5af6ccac3cb44eb19ac64f7f9a82775b3"
+   },
+   {
+    "item": "commons_potter_28",
+    "valid": true,
+    "seconds": 18.1,
+    "cost_usd": 0.01484,
+    "output_sha256": "8ff1ab88d454630dd9ff6655f4962389bfe599cc7f97defbefa947c12ab3c239"
+   },
+   {
+    "item": "commons_potter_30",
+    "valid": true,
+    "seconds": 15.4,
+    "cost_usd": 0.01233125,
+    "output_sha256": "6013b3bafaa1cf89db1f53c71a6d0b3a097db04588532b6a90d19398fe0e5e60"
+   },
+   {
+    "item": "commons_potter_32",
+    "valid": true,
+    "seconds": 19.3,
+    "cost_usd": 0.017438,
+    "output_sha256": "217c1f3f79f09338c719d6a2d0af57b8183d4f22c60b433077b313cfe27fd6b7"
+   },
+   {
+    "item": "commons_potter_argillite_2",
+    "valid": true,
+    "seconds": 17.1,
+    "cost_usd": 0.01378825,
+    "output_sha256": "73cc0f84eda525449ec626d90bca593728c7b166b4d7c5194284c2428b812254"
+   },
+   {
+    "item": "commons_warren_dolostone_1",
+    "valid": true,
+    "seconds": 15.2,
+    "cost_usd": 0.01144625,
+    "output_sha256": "be230bea016b470e34389786302a9e04c0a9d6e10207312760c653596d09d227"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box05_run1",
+    "valid": true,
+    "seconds": 11.2,
+    "cost_usd": 0.00851325,
+    "output_sha256": "6f0d1c5bb5f7b79ac8d9d9a50fdc850af289fc69332cc08d455fd966e7c9e947"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box05_run2",
+    "valid": true,
+    "seconds": 11.2,
+    "cost_usd": 0.00851325,
+    "output_sha256": "acd74b061b924e55f1bb10eca9dd6708ce01a25dfd4d7a3db0437d9ad211bd2c"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box06_run1",
+    "valid": true,
+    "seconds": 11.5,
+    "cost_usd": 0.010241083333333333,
+    "output_sha256": "eb292673a72429475101d4ab1b19bec3b2b7bb2e7f75dbd827926befb5110b16"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box06_run2",
+    "valid": true,
+    "seconds": 11.5,
+    "cost_usd": 0.010241083333333333,
+    "output_sha256": "514a5b3a42fc72e5ad4a2b1a40ad7ff40b08e90b86f8334cadb9133c20b3812a"
+   },
+   {
+    "item": "onkalo1_ONK-DTPH5.1_box06_run3",
+    "valid": true,
+    "seconds": 11.5,
+    "cost_usd": 0.010241083333333333,
+    "output_sha256": "4469702f71f095e83e861987c40ee0d738ce1d25cbebf40b9cc783065969e562"
+   },
+   {
+    "item": "onkalo2_tray1",
+    "valid": true,
+    "seconds": 14.8,
+    "cost_usd": 0.0133825,
+    "output_sha256": "e05129d8d933e334e10bfb5ce06db43b9371440ab9162c402e130c9c46e7f1d6"
+   },
+   {
+    "item": "onkalo2_tray2",
+    "valid": true,
+    "seconds": 15.4,
+    "cost_usd": 0.015278,
+    "output_sha256": "166f8d0549b9a7c6a97642238fdcd1f35caa209fa09682e5ffb1da3228d81a82"
+   }
+  ]
+ }
+}
