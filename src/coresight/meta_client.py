@@ -22,7 +22,8 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -118,6 +119,50 @@ def sam_masks(text: str) -> list[dict]:
             }
         )
     return out
+
+
+MAX_SAM_OBJECTS = 16  # objects per box and point prompt (docs: sam/segmenting)
+
+
+@dataclass(frozen=True)
+class SamPoint:
+    """A point prompt in pixels of the image sent; negative means "not this object"."""
+
+    x: float
+    y: float
+    positive: bool = True
+
+
+@dataclass(frozen=True)
+class SamObject:
+    """One object of a box and point prompt: our id, at most one box, then its points.
+
+    box is (x1, y1, x2, y2) in pixels of the image sent, x2 and y2 inclusive.
+    SAM answers under the same id, so each mask can be tied back to its prompt.
+    """
+
+    id: int
+    box: tuple[float, float, float, float] | None = None
+    points: tuple[SamPoint, ...] = ()
+
+
+def sam_prompt(objects: Sequence[SamObject], size: tuple[int, int]) -> str:
+    """The input_text of a SAM 3.1 box and point prompt for one image of ``size`` (w, h).
+
+    Raises ValueError when the API would refuse it. Spec: tests/test_sam_prompts.py.
+    To be built with Muse Code.
+    """
+    raise NotImplementedError
+
+
+def grid_box_to_pixels(
+    box: tuple[float, float, float, float], size: tuple[int, int]
+) -> tuple[int, int, int, int]:
+    """A Muse Spark box in the 0 to 1000 grid as an inclusive pixel box of the image sent.
+
+    Spec: tests/test_sam_prompts.py. To be built with Muse Code.
+    """
+    raise NotImplementedError
 
 
 def _output_text(response: dict) -> str:
