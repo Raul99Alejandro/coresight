@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from coresight.anomalies import rule_anomalies, with_rule_anomalies
+from coresight.baseten_client import BasetenClient, cost_usd
 from coresight.calibration import Row, Tray
 from coresight.crops import ROW_GAP_PX, run_crop, run_spans
 from coresight.glimmer_client import GlimmerClient
@@ -198,6 +199,21 @@ def spark(tmp_path, answer):
     return client, calls
 
 
+def baseten(tmp_path, answer):
+    calls = []
+
+    def handler(request):
+        calls.append((request.url.path, json.loads(request.content)))
+        message = {"role": "assistant", "reasoning_content": "Let me look.", "content": answer}
+        usage = {"prompt_tokens": 1000, "completion_tokens": 2000, "total_tokens": 3000}
+        return httpx.Response(200, json={"choices": [{"message": message}], "usage": usage})
+
+    client = BasetenClient(
+        api_key="test", cache_dir=tmp_path, transport=httpx.MockTransport(handler)
+    )
+    return client, calls
+
+
 LOCAL = "http://127.0.0.1:8080/v1"
 
 
@@ -214,7 +230,7 @@ def glimmer(tmp_path, answer):
     return client, calls
 
 
-@pytest.mark.parametrize("make", [spark, glimmer])
+@pytest.mark.parametrize("make", [spark, glimmer, baseten])
 def test_backends_return_the_same_validated_description(tmp_path, make):
     client, calls = make(tmp_path, json.dumps(MODEL_JSON))
     first = client.describe_interval(b"png", {"from_m": 1.0})
@@ -225,7 +241,7 @@ def test_backends_return_the_same_validated_description(tmp_path, make):
     assert len(list((tmp_path / "describe" / client.model).glob("*.json"))) == 1
 
 
-@pytest.mark.parametrize("make", [spark, glimmer])
+@pytest.mark.parametrize("make", [spark, glimmer, baseten])
 def test_backends_reject_invalid_answers_and_do_not_cache_them(tmp_path, make):
     client, _ = make(tmp_path, json.dumps({**MODEL_JSON, "confidence": 3}))
     with pytest.raises(ValidationError):
@@ -269,3 +285,23 @@ def test_glimmer_retries_when_the_server_is_busy(tmp_path):
     )
     assert client.describe_interval(b"png", {}) == described()
     assert waits == [5.0]
+
+
+def test_baseten_request_uses_the_keyed_model_and_skips_the_reasoning(tmp_path):
+    client, calls = baseten(tmp_path, json.dumps(MODEL_JSON))
+    assert client.describe_interval(b"png", {"hole_id": "H1"}) == described()
+    path, body = calls[0]
+    assert path == "/v1/chat/completions"
+    assert body["model"] == "meta-models/muse-spark-open-1026"
+    content = body["messages"][0]["content"]
+    assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
+    assert body["response_format"]["json_schema"]["name"] == "GeologyDescription"
+    assert "low_recovery" not in json.dumps(body["response_format"])
+
+
+def test_baseten_usage_is_recorded_and_priced(tmp_path):
+    client, _ = baseten(tmp_path, json.dumps(MODEL_JSON))
+    client.describe_interval(b"png", {})
+    client.describe_interval(b"png", {})  # cached: not paid again
+    assert len(client.usage) == 1
+    assert cost_usd(client.usage[0]) == pytest.approx((1000 * 1.25 + 2000 * 4.25) / 1e6)
