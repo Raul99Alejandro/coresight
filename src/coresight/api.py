@@ -157,6 +157,7 @@ def meta_analyzer(photo: bytes, job: Job, report: review.Reporter) -> Analysis:
 
         def markers(tray):
             return sheet_markers(sheet, tray)
+
     return review.analyze(
         photo,
         job.box_length_cm,
@@ -375,6 +376,7 @@ def create_app(
         box_length_cm: float = Form(100.0, gt=0, le=300),
         first_starts_in_box: bool = Form(True),
         tray: int = Form(1, ge=1, le=4),
+        n_rows: int = Form(5, ge=2, le=8),
     ) -> BoxReview:
         data = await photo.read(MAX_PHOTO_MB * 2**20 + 1)
         if len(data) > MAX_PHOTO_MB * 2**20:
@@ -384,6 +386,7 @@ def create_app(
             runs=parse_runs(runs),
             first_starts_in_box=first_starts_in_box,
             tray_index=tray - 1,
+            n_rows=n_rows,
             context={"hole_id": hole_id, "box": box_number},
         )
         return start(data, job, hole_id, box_number, "upload")

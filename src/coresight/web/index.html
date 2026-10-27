@@ -667,7 +667,7 @@ function toast(text) { const t = $("toast"); t.textContent = text; t.classList.a
 function confirmBox(title, text, yes) {
   return new Promise((done) => {
     const d = $("confirm"); $("c-title").textContent = title; $("c-text").textContent = text; $("c-yes").textContent = yes;
-    $("c-yes").onclick = () => { d.close(); done(true); }; $("c-no").onclick = () => { d.close(); done(false); }; d.oncancel = () => done(false);
+    $("c-yes").onclick = () => { d.close(); done(true); }; $("c-no").onclick = () => { d.close(); done(false); }; d.onclose = () => done(false);
     d.showModal();
   });
 }
@@ -716,6 +716,7 @@ async function startSample(name) {
 /* routing */
 function route() {
   clearTimeout(S.poll); S.error = null; closeDrawer(true);
+  document.querySelectorAll("dialog[open]").forEach((d) => d.close());
   const m = location.hash.match(/^#\/box\/([a-z0-9]+)/i);
   if (m) openBox(m[1]); else { S.box = null; renderHome(); }
 }
@@ -847,6 +848,12 @@ function summary(b) {
   return {toCheck, worst, edits, text: `${runs[0].from_m.toFixed(2)} to ${runs[runs.length - 1].to_m.toFixed(2)} m in ${runs.length} run${runs.length > 1 ? "s" : ""}. ${cap(worst)} rock at worst.${edits ? ` ${edits} correction${edits > 1 ? "s" : ""} so far.` : ""}`};
 }
 
+function creditNote(b) {
+  if (b.source === "upload") return "Photo uploaded for this review.";
+  const share = /CC BY-SA/.test(b.source) ? " Overlays carry the same license." : "";
+  return `${b.source.replace(/\.?$/, ".")}${share}`;
+}
+
 function renderBox() {
   const b = S.box, T = b.tray, sm = summary(b);
   $("page").innerHTML = `${S.error ? banner(S.error) : ""}
@@ -872,7 +879,7 @@ function renderBox() {
     <div class="section"><h2>Models in this box</h2><p>Who did what, how long it took and what it cost.</p></div>
     ${ledgerHTML(b)}
     ${motto()}
-    <p class="foot-note">Sample photo by Kallerna, Wikimedia Commons, CC BY-SA 4.0. Overlays carry the same license.</p>`;
+    <p class="foot-note">${esc(creditNote(b))}</p>`;
   drawOverlay(); placeThumb(); bindAgents();
   $("seg").querySelectorAll("button").forEach((x) => (x.onclick = () => { S.view = x.dataset.view; $("tray").className = `tray view-${S.view}`;
     $("seg").querySelectorAll("button").forEach((y) => y.setAttribute("aria-selected", String(y === x))); placeThumb(); }));
@@ -1077,7 +1084,7 @@ async function correct(path, method, body, message) {
 
 $("approve").onclick = async () => {
   const b = S.box;
-  if (!(await confirmBox(`Approve ${b.hole_id}, box ${b.box_number}?`, "The log is locked and ready to export. Corrections stay in the history.", "Approve box"))) return;
+  if (!(await confirmBox(`Approve ${b.hole_id}, box ${b.box_number}?`, "The log is locked and ready to export. Corrections stay in the history. Then the area agents read it and write drafts for the lab, safety, plant and finance; nothing is sent.", "Approve box"))) return;
   try { S.box = await api(`/api/boxes/${b.id}/approve`, {method:"POST"}); closeDrawer(true); render(); loadLists(); toast("Box approved. The area agents are reading it.");
     if (agentsWorking(S.box)) { clearTimeout(S.poll); S.poll = setTimeout(() => openBox(b.id), 1200); } }
   catch (e) { S.error = e.message; renderBox(); }
@@ -1137,7 +1144,7 @@ function wav(x, rate) {
 /* new box modal */
 let photo = null;
 function openNew(error = null) {
-  const d = $("new-dialog"), vals = d.open ? Object.fromEntries(["hole", "boxn", "runs", "len", "tray"].map((k) => [k, $(k).value])) : null;
+  const d = $("new-dialog"), vals = d.open ? Object.fromEntries(["hole", "boxn", "runs", "len", "tray", "nrows"].map((k) => [k, $(k).value])) : null;
   d.innerHTML = `<form class="m-body" id="new-form" novalidate>
     <h2 id="new-title">Log a new box</h2><p>One photo of a core tray, taken from above with the whole tray in view.</p>
     <label class="drop" id="drop" for="photo">${photo ? `<img alt="Selected photo" src="${URL.createObjectURL(photo)}"><b>${esc(photo.name)}</b><span>Click to choose another</span>`
@@ -1146,6 +1153,7 @@ function openNew(error = null) {
     <div class="row2"><div class="ctl"><label for="hole">Hole</label><input id="hole" placeholder="DDH-104" autocomplete="off"></div>
       <div class="ctl"><label for="boxn">Box number</label><input id="boxn" type="number" min="1" placeholder="12"></div></div>
     <div class="ctl"><label for="runs">Runs in this box, in metres</label><textarea id="runs" rows="2" placeholder="118.20-121.20, 121.20-124.20"></textarea><small>From and to of every run, in order, as written on the run blocks.</small></div>
+    <div class="row2"><div class="ctl"><label for="nrows">Rows of core</label><input id="nrows" type="number" min="2" max="8" value="5"><small>Channels across the tray.</small></div></div>
     <details class="more"><summary>${I.chev}Tray settings</summary>
       <div class="row2"><div class="ctl"><label for="len">Tray length, cm</label><input id="len" type="number" min="10" max="300" step="0.1" value="100"></div>
         <div class="ctl"><label for="tray">Tray in the photo</label><input id="tray" type="number" min="1" max="4" value="1"><small>1 is the top tray.</small></div></div>
@@ -1168,7 +1176,7 @@ async function submitNew(e) {
   if (miss.length) return openNew(`Add ${miss.join(", ")}.`);
   const f = new FormData();
   f.append("photo", photo); f.append("hole_id", $("hole").value.trim()); f.append("box_number", $("boxn").value); f.append("runs", $("runs").value);
-  f.append("box_length_cm", $("len").value || "100"); f.append("tray", $("tray").value || "1"); f.append("first_starts_in_box", $("first").checked ? "true" : "false");
+  f.append("box_length_cm", $("len").value || "100"); f.append("tray", $("tray").value || "1"); f.append("n_rows", $("nrows").value || "5"); f.append("first_starts_in_box", $("first").checked ? "true" : "false");
   $("go").disabled = true; $("go").textContent = "Uploading";
   try { const box = await api("/api/boxes", {method:"POST", body:f}); photo = null; $("new-dialog").close(); location.hash = `#/box/${box.id}`; loadLists(); }
   catch (err) { openNew(err.message); }

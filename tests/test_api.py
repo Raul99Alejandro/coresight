@@ -160,6 +160,23 @@ def test_api_failure_is_shown_and_the_box_kept(tmp_path):
     assert c.get(f"/api/boxes/{box['id']}/log.csv").status_code == 409
 
 
+def test_upload_passes_the_number_of_rows(tmp_path):
+    seen = []
+
+    def analyzer(photo, job, report):
+        seen.append(job.n_rows)
+        return fake_analyzer(photo, job, report)
+
+    c = client(tmp_path, analyzer)
+    form = {"hole_id": "DDH-1", "box_number": "3", "runs": "10-11", "n_rows": "4"}
+    files = {"photo": ("box.jpg", photo_bytes(), "image/jpeg")}
+    assert c.post("/api/boxes", files=files, data=form).status_code == 202
+    assert upload(c).status_code == 202
+    assert seen == [4, 5]
+    form["n_rows"] = "1"
+    assert c.post("/api/boxes", files=files, data=form).status_code == 422
+
+
 def test_unknown_box_is_404(tmp_path):
     assert client(tmp_path).get("/api/boxes/nothere").status_code == 404
 
