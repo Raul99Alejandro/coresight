@@ -28,9 +28,9 @@ Mantenimiento y operaciones quedan como visión (en el video, no en el código).
 | 5 | jue 29 oct | Motor geométrico conectado y primera evaluación | Hecho adelantado (`4f41134`, `a728c9d`). De punta a punta por tramo; MAE de RQD 8.6 (9.9 sin marcas del geólogo) en 39 tramos |
 | 6 | vie 30 oct | Muse Spark con descripciones y anomalías; Glimmer como segundo backend | Hecho. `pipeline.describe` da un `IntervalDescription` validado por tramo; `low_recovery` e `intense_fracturing` salen de TCR y FF (`anomalies.py`), `visible_sulfides` del modelo; Muse Spark (API) y Glimmer (llama.cpp local) con el mismo contrato; muestra en `outputs/describe/compare.md` (`scripts/describe_boxes.py`) |
 | 7 | sáb 31 oct | UI de revisión con voz, export CSV, demo desplegada | Hecho adelantado (`814a154`, 27 oct). Demo en https://coresight.analizac.com. API FastAPI (`coresight.api`) y página de revisión (`src/coresight/web/`); correcciones de roturas, piezas y descripción, escritas o dictadas con Muse Voice Transcribe, guardadas junto al valor original (`coresight.review`); RQD/TCR/FF recalculados solo por `geometry.py`; CSV del registro y de las correcciones; errores visibles; despliegue en `docs/DEPLOY.md` |
-| 8 | dom 1 nov (arranca 27 oct) | Evidencia pública, muestra dramática, orquestador y 4 agentes con autonomía verificable, Muse Code | Ver "Cambios por el análisis": puntos 1 a 4 (y 5 si la API acepta prompts de punto). Al aprobar una caja, el orquestador decide qué áreas aplican y por qué; los agentes usan herramientas; un verificador determinista revisa cada borrador; registro de decisiones visible; cada borrador con su botón de aprobar; nada se envía solo |
+| 8 | dom 1 nov (arranca 27 oct) | Evidencia pública, muestra dramática, orquestador y 4 agentes con autonomía verificable, Muse Code | Hecho adelantado (`0b594f1`, `91d05f6`, `c21a397`, 27 oct). Puntos 1 a 4 de "Cambios por el análisis": orquestador con Muse Wonder, 4 agentes con herramientas, `verify.py` escrito con Muse Code, registro de decisiones, aprobación por borrador; muestra Nevada U12G; botón para partir piezas. El punto 5 pasa a C del segundo análisis |
 | 9 | lun 2 nov | Evaluación científica completa, procedencia de modelos abiertos, números de impacto | Hecho adelantado (27 oct). Cifra principal contra el geólogo de la mina, sin marcas: MAE de RQD 11.2 [IC 95% 6.1 a 18.9] en 34 tramos; Bland-Altman, clase de Deere, ablaciones, Onkalo seca contra mojada, casos de falla con foto pública (`outputs/eval/`, `evaluation.py`); procedencia de Glimmer con hashes iguales a los de Hugging Face (`docs/PROVENANCE.md`) y guion del clip sin red (`docs/CLIP_GLIMMER.md`); números de impacto con fuente (`docs/IMPACT.md`). Pendiente: grabar el clip, revisión de Raúl de una muestra de descripciones, geólogo real |
-| 10 | mar 3 nov | Video con HyperFrames y voz, README final, portada y prueba de abuso | Puntos 9, 10 y 12. Video de 3 min en inglés con subtítulos, que abre con la línea de trabajo previo y sigue el guion de `docs/ANALISIS.md` (sección 4); README con lo hecho antes y durante el hackathon |
+| 10 | mar 3 nov | Video con HyperFrames y voz, README final, portada y prueba de abuso | Puntos 9, 10 y 12 (la portada y la prueba de abuso se adelantan a A y G del segundo análisis). Video de 3 min en inglés con subtítulos, que abre con la línea de trabajo previo y sigue el guion de `docs/ANALISIS-2.md` (sección 7); README con lo hecho antes y durante el hackathon |
 | 11 | mié 4 nov | Colchón y envío | Enviado antes de las 18:00 con repo público, video y demo; marcar los premios Open Weights, Agentic y Viral; borrador del post en X para que Raúl lo publique |
 
 ## Agentes de área (día 8)
@@ -61,7 +61,7 @@ El orquestador (Muse Wonder) decide qué agentes aplican y les pasa la caja apro
 | Sin datos reales | Imágenes públicas y etiquetar 10 cajas a mano |
 | SAM no separa fracturas finas | Detectar cortes por perfil de intensidad a lo largo del eje del núcleo |
 | Límites de la API | Caché por hash de imagen (`data/cache/`) y reintentos con backoff |
-| Falta de tiempo | Recortar en este orden: ciclo de aprendizaje (11), SAM con clic (5), clip y post (12), agente de finanzas, agente de planta. Nunca el núcleo, la evaluación, la muestra dramática (1), la evidencia pública (2) ni los agentes verificables (4) |
+| Falta de tiempo | Recortar en este orden (segundo análisis): SAM local (I), ciclo de aprendizaje (F), agente de barreno (E, dejar solo el orquestador sin reglas fijas), vista de barreno sin 3D (D). Nunca el núcleo, la evaluación, la compuerta de entrada (A), Spark localiza y SAM corta (B) ni SAM con clic (C) |
 | Muse Wonder no rinde como orquestador o no está disponible por API | Orquestar con Muse Spark 1.3 y tool calling |
 | Glimmer no corre en el hardware disponible | Muse Spark Open en Baseten o Modal (también cuenta para el premio de modelos abiertos) |
 | Muse Voice Transcribe falla con español o ruido | Dictado opcional; la corrección escrita siempre funciona |
@@ -103,3 +103,25 @@ Adoptados de `docs/ANALISIS.md`. La nota estimada sube de 6.5 a unos 8.5.
 
 Lo que no cambia: la arquitectura neurosimbólica, el track Startups, las 4 áreas, los 3 backends de descripción, la revisión humana obligatoria, el diseño visual y el día 10 completo para el video.
 El video no presume `geometry.py` (es trabajo previo del 25 oct) y abre con la línea de qué era previo.
+
+## Plan revisado por el segundo análisis (27 oct, noche)
+
+Adoptado de `docs/ANALISIS-2.md`. Nota estimada: 6.8 hoy, 8.2 a 8.6 con este plan.
+La idea: pasar de una foto a un barreno, con los modelos de Meta encadenados y corrigiéndose, y que el sistema diga "no" cuando no debe medir.
+
+| Fecha | Punto | Objetivo | Listo cuando |
+|---|---|---|---|
+| lun 27 oct, noche | A | Desplegar días 8 y 9; crédito de foto por muestra; tramos desde 1 y sin nombres de campo en los textos de agentes | La URL pública muestra Nevada y agentes |
+| mar 28 oct | A | Compuerta de entrada (confianza de calibración, confianza de SAM y `is_core_tray` de Spark validado con Pydantic), campo de filas al subir, diálogo de aprobar que no se queda abierto. Ver Agents 102 a las 10:00. Probar cajas y puntos de SAM con la API real (foto pública) | Una web, una selfie y una caja sin escala dan error claro, con test. Smoke test de SAM con caja y con punto |
+| mié 29 oct | B y C | Spark localiza filas y lo que no es núcleo, SAM corta con esas cajas; el geólogo toca la foto y SAM vuelve a cortar con punto positivo o negativo (Split queda de respaldo) | Ablación `spark+sam` en `outputs/eval`; el clic en Nevada tramo 2 corrige como hoy Split |
+| jue 30 oct | D | Vista de barreno: columna continua por profundidad y 3D simple (traza de ejemplo marcada como tal) con Onkalo 5+6 y U12G 1+3. Agregación en `geometry.py` con tests. Taller de Fireworks 10:00 | Columna y 3D en la app |
+| vie 31 oct | E | Agente de barreno con tendencias entre cajas; orquestador sin reglas fijas en el prompt; progreso legible, sin JSON | Una caja aprobada dispara una alerta de tendencia verificada |
+| sáb 1 nov | F, G, H | Ciclo de aprendizaje medido (timebox 6 h, sin LoRA), portada con imagen y recorrido de 60 s, prueba de abuso completa, caché precalentada, desplegar. Cierre de la caja real y el geólogo | Gráfica antes y después o nota honesta; portada nueva en producción |
+| dom 2 nov | | Congelar código. Ensayar 3 veces. Grabar clip de Glimmer sin red y tomas de la demo | Nada nuevo entra |
+| lun 3 nov | | Día 10: video y README final | Video de 3 min exportado |
+| mar 4 nov | | Día 11: envío antes de las 18:00 | Enviado |
+
+Muse Code en tres piezas nuevas, con tests escritos antes por nosotros y trazas en `docs/muse-code/`: la regla de la compuerta (A), el constructor de prompts de caja y punto de SAM dentro de `meta_client.py` (B y C) y la agregación por profundidad en `geometry.py` (D).
+Antes de publicar más trazas, resolver o explicar el `"model": "muse-spark-1.3-contributor"` de `docs/muse-code/verify-1.json`.
+
+No se hace: LoRA con el Kaggle NC, una traza de barreno presentada como real, fotos privadas por créditos gratis, quitar el Split manual, Muse Image u otro proveedor.
