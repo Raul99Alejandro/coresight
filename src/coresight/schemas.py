@@ -23,19 +23,53 @@ class AnomalyType(StrEnum):
     OTHER = "other"
 
 
+class AnomalySource(StrEnum):
+    RULE = "rule"  # from geometry.py numbers (coresight.anomalies)
+    MODEL = "model"  # seen by the vision model
+
+
 class Anomaly(_Strict):
     type: AnomalyType
     explanation: str = Field(min_length=1)
+    source: AnomalySource = AnomalySource.MODEL
 
 
 class GeologyDescription(_Strict):
-    """What Muse Spark writes for one interval (day 6)."""
+    """Description of one interval: what the model saw plus the rule-based anomalies."""
 
     lithology: str = Field(min_length=1)
     alteration: str
     mineralization: str
     anomalies: list[Anomaly] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
+
+
+class ModelAnomaly(_Strict):
+    # low_recovery and intense_fracturing are measured, never guessed by a model
+    type: Literal["visible_sulfides", "other"]
+    explanation: str = Field(min_length=1)
+
+
+class ModelDescription(_Strict):
+    """What a describe backend (Muse Spark or Glimmer) must return, as JSON schema."""
+
+    lithology: str = Field(min_length=1)
+    alteration: str
+    mineralization: str
+    anomalies: list[ModelAnomaly] = Field(default_factory=list)
+    confidence: float = Field(ge=0, le=1)
+
+    def to_geology(self) -> GeologyDescription:
+        return GeologyDescription(
+            lithology=self.lithology,
+            alteration=self.alteration,
+            mineralization=self.mineralization,
+            anomalies=[
+                Anomaly(type=a.type, explanation=a.explanation, source=AnomalySource.MODEL)
+                for a in self.anomalies
+            ],
+            confidence=self.confidence,
+        )
 
 
 class Interval(_Strict):
@@ -76,3 +110,10 @@ class BoxLabel(_Strict):
     box_number: int = Field(ge=1)
     image: str = Field(min_length=1)
     runs: list[LabelRun] = Field(min_length=1)
+
+
+class IntervalDescription(Interval):
+    """One run's description, as pipeline.describe returns it."""
+
+    backend: str = Field(min_length=1)  # model that wrote it, e.g. muse-spark-1.3
+    description: GeologyDescription

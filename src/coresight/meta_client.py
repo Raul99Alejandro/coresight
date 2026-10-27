@@ -27,7 +27,8 @@ import numpy as np
 from dotenv import load_dotenv
 from meta_sam_parser import CompletedOutcome, decode_mask_to_raster, image_segmentation_format
 
-from coresight.schemas import GeologyDescription
+from coresight.describe import cached_description, describe_prompt
+from coresight.schemas import GeologyDescription, ModelDescription
 
 DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 SAM_MODEL_ID = "sam-3.1"
@@ -212,18 +213,15 @@ class MetaClient:
                     chunks.append(event.get("delta", ""))
         return "".join(chunks)
 
-    def describe_interval(self, image_png: bytes, context: dict) -> GeologyDescription:
-        """Muse Spark: lithology, alteration, mineralization and anomalies.
+    model = MUSE_SPARK_MODEL_ID  # the describe backend (describe.Describer)
 
-        The raw response is validated with GeologyDescription before returning.
-        Day 6: prompt tuning and anomaly rules.
+    def describe_interval(self, image_png: bytes, context: dict) -> GeologyDescription:
+        """Muse Spark: lithology, alteration, mineralization and visible anomalies.
+
+        The answer is constrained to ModelDescription (json_schema), validated
+        and cached; rule anomalies are added later by coresight.anomalies.
         """
-        prompt = (
-            "You are a core logging geologist. Describe the drill core in this photo. "
-            "Return lithology, alteration, mineralization, anomalies (only these types: "
-            "low_recovery, intense_fracturing, visible_sulfides, other) and your confidence "
-            "from 0 to 1. Do not compute RQD. Context: " + json.dumps(context)
-        )
+        prompt = describe_prompt(context)
         body = {
             "model": MUSE_SPARK_MODEL_ID,
             "input": [
@@ -240,7 +238,7 @@ class MetaClient:
                 "format": {
                     "type": "json_schema",
                     "name": "GeologyDescription",
-                    "schema": GeologyDescription.model_json_schema(),
+                    "schema": ModelDescription.model_json_schema(),
                 }
             },
         }
@@ -252,4 +250,6 @@ class MetaClient:
                 raise error(f"Muse Spark {resp.status_code}: {resp.text}")
             return _output_text(resp.json())
 
-        return GeologyDescription.model_validate_json(self._with_retries(call))
+        return cached_description(
+            self.cache_dir, self.model, prompt, image_png, lambda: self._with_retries(call)
+        )
