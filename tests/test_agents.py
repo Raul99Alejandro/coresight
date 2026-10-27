@@ -36,7 +36,7 @@ SAFETY = {
     "title": "Ground alert",
     "body": "Fair rock, RQD 56.7%.",
     "intervals": [{"from_m": 11.0, "to_m": 12.5}],
-    "figures": [{"run": 1, "metric": "rqd_pct", "value": 56.7}],
+    "figures": [{"run": 2, "metric": "rqd_pct", "value": 56.7}],
 }
 FINANCE = {
     "title": "Assay cost",
@@ -83,7 +83,7 @@ def happy_turns():
         [call("route_box", ROUTES)],
         [call("count_samples", {"from_m": 11.0, "to_m": 12.5})],
         [call("submit_draft", LAB)],
-        [call("run_metrics", {"run": 1})],
+        [call("run_metrics", {"run": 2})],
         [call("submit_draft", SAFETY)],
         [call("lab_request", {}), call("quote", {"lines": [
             {"code": "PREP", "samples": 2}, {"code": "AU-FA", "samples": 2}]})],  # fmt: skip
@@ -103,7 +103,10 @@ def test_wonder_routes_and_each_area_drafts_with_tools(box):
     assert client.bodies[0]["model"] == MUSE_WONDER_MODEL_ID
     assert {b["model"] for b in client.bodies[2:]} == {MUSE_SPARK_MODEL_ID}
     texts = [e.text for e in h.log]
-    assert any(t.startswith("box_summary(") for t in texts)
+    assert "Read the box from geometry.py: 2 runs; the worst is run 2, RQD 56.7 %" in texts
+    assert ("Read run 2 (11.00 to 12.50 m): RQD 56.7 %, recovery 62.0 %, "
+            "1.3 fractures per metre, fair rock") in texts  # fmt: skip
+    assert not any("_pct" in t or "{" in t for t in texts)  # sentences, not field names
     assert any("Plant does not apply" in t for t in texts)
     assert len(saves) > 5  # the page sees progress while the agents work
 
@@ -205,7 +208,7 @@ def test_neither_model_routes(box):
 
 def test_toolbox_numbers_come_from_geometry(box):
     t = Toolbox(box, [], load_prices())
-    m = t.run_metrics(RunArg(run=1))
+    m = t.run_metrics(RunArg(run=2))
     assert (m["rqd_pct"], m["tcr_pct"], m["rock_quality_deere"]) == (56.7, 62.0, "fair")
     q = t.quote(QuoteArg(lines=[QuoteLine(code="PREP", samples=2),
                                 QuoteLine(code="GOLD-MAGIC", samples=1)]))  # fmt: skip

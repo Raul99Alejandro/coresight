@@ -84,7 +84,7 @@ def load_prices(path: Path = PRICES_PATH) -> Prices:
 
 
 class RunArg(BaseModel):
-    run: int = Field(ge=0, description="0-based run index in this box")
+    run: int = Field(ge=1, description="Run number in this box; 1 is the first run")
 
 
 class IntervalArg(BaseModel):
@@ -130,10 +130,10 @@ class Toolbox:
         self.box, self.history, self.prices = box, history, prices
         self.lab_draft: Draft | None = None  # handed to finance once verified
 
-    def _run(self, i: int):
-        if not 0 <= i < len(self.box.runs):
-            raise ValueError(f"run {i} does not exist; this box has {len(self.box.runs)} runs")
-        return self.box.runs[i]
+    def _run(self, n: int):
+        if not 1 <= n <= len(self.box.runs):
+            raise ValueError(f"run {n} does not exist; this box has runs 1 to {len(self.box.runs)}")
+        return self.box.runs[n - 1]
 
     def run_metrics(self, a: RunArg) -> dict:
         log = self._run(a.run).log
@@ -157,7 +157,7 @@ class Toolbox:
             d = r.description
             runs.append(
                 {
-                    **self.run_metrics(RunArg(run=i)),
+                    **self.run_metrics(RunArg(run=i + 1)),
                     "lithology": d.lithology if d else None,
                     "alteration": d.alteration if d else None,
                     "mineralization": d.mineralization if d else None,
@@ -261,8 +261,11 @@ COMMON = (
     "You work for CoreSight, a drill-core logging system at a mine. A geologist just "
     "approved the log of one core box. Every number you use must come from a tool; "
     "never compute RQD, TCR, fracture counts or prices yourself. Quote numbers exactly "
-    "as the tools return them. Write in clear, short English. You only write a draft: "
-    "nothing you write is sent until a person approves it."
+    "as the tools return them. Write in clear, short English for people at the mine: "
+    "name runs by their number (Run 1 is the first) or their depth, and write metrics as "
+    "people read them (RQD 26.7 %, recovery 53.1 %, 4.2 fractures per metre), never as "
+    "field names such as rqd_pct. You only write a draft: nothing you write is sent until "
+    "a person approves it."
 )
 
 ORCHESTRATOR = (
@@ -322,9 +325,35 @@ class Log:
         self._save()
 
 
-def _brief(value: object, limit: int = 160) -> str:
-    text = json.dumps(value, ensure_ascii=False)
-    return text if len(text) <= limit else text[: limit - 1] + "…"
+def _say(name: str, args: dict, result: object) -> str:
+    """One tool call as a sentence for the decision log, without field names."""
+    r = result if isinstance(result, dict) else {}
+    if name == "lab_request" and "note" in r:
+        return "Looked for a verified lab request: there is none yet"
+    if name == "box_summary":
+        runs = r.get("runs", [])
+        worst = min(runs, key=lambda x: x["rqd_pct"]) if runs else None
+        tail = f"; the worst is run {worst['run']}, RQD {worst['rqd_pct']} %" if worst else ""
+        return f"Read the box from geometry.py: {len(runs)} runs{tail}"
+    if name == "run_metrics":
+        return (f"Read run {r['run']} ({r['from_m']:.2f} to {r['to_m']:.2f} m): RQD "
+                f"{r['rqd_pct']} %, recovery {r['tcr_pct']} %, "
+                f"{r['fracture_frequency_per_m']} fractures per metre, "
+                f"{r['rock_quality_deere']} rock")  # fmt: skip
+    if name == "hole_history":
+        n = len(r.get("earlier_boxes", []))
+        return f"Read the hole history: {n} earlier approved box{'es' if n != 1 else ''}"
+    if name == "count_samples":
+        return (f"Counted {r['samples']} assay samples in {r['from_m']:.2f} to "
+                f"{r['to_m']:.2f} m")  # fmt: skip
+    if name == "price_list":
+        return "Read the example price table and the hole's assay budget"
+    if name == "quote":
+        return (f"Priced {len(r.get('lines', []))} test lines: ${r['total_usd']:,.2f}, "
+                f"${r['remaining_after_usd']:,.2f} left in the hole budget")  # fmt: skip
+    if name == "lab_request":
+        return "Read the verified lab request"
+    return f"Used the {name.replace('_', ' ')} tool"
 
 
 def run_agent(
@@ -365,12 +394,19 @@ def run_agent(
                     return submit.model_validate(args)
                 tool = by_name[name]
                 result = tool.run(tool.args.model_validate(args))
-                log(actor, "tool", f"{name}({_brief(args, 80)}) → {_brief(result)}", model)
+                log(actor, "tool", _say(name, args, result), model)
             except KeyError:
                 result = {"error": f"unknown tool {name}"}
             except (ValueError, ValidationError) as exc:  # bad arguments: tell the model
                 result = {"error": str(exc)[:400]}
-                log(actor, "retry", f"{name}: {str(exc)[:160]}", model)
+                why = "bad arguments" if isinstance(exc, ValidationError) else str(exc)[:120]
+                log(
+                    actor,
+                    "retry",
+                    f"The {str(name).replace('_', ' ')} tool refused the call "
+                    f"({why}); the agent tries again",
+                    model,
+                )
             history.append({"type": "function_call_output", "call_id": call["call_id"],
                             "output": json.dumps(result)})  # fmt: skip
     raise AgentError(f"{actor}: no valid {submit_name} after {MAX_TURNS} turns")
@@ -394,7 +430,8 @@ def route(client, toolbox: Toolbox, log: Log) -> tuple[Routing, str]:
             continue
         missing = set(AREAS) - {r.area for r in routing.routes}
         if missing:
-            log("orchestrator", "error", f"{model} skipped {sorted(missing)}", model)
+            names = ", ".join(AREA_NAMES[a] for a in sorted(missing))
+            log("orchestrator", "error", f"{model} left out {names}", model)
             continue
         return routing, model
     raise AgentError("Neither Muse Wonder nor Muse Spark produced a routing.")
@@ -483,4 +520,3 @@ def approve_draft(box: BoxReview, area: AreaKey) -> AreaDraft:
         text=f"{AREA_NAMES[area]} draft approved. Not sent: CoreSight has no outbound "
              "channel; the area receives it through the mine's own process."))  # fmt: skip
     return slot
-

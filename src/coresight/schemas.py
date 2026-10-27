@@ -129,6 +129,35 @@ class Transcript(BaseModel):
     turns: list[dict] = Field(default_factory=list)
 
 
+# Input gate: is this photo a core tray CoreSight can measure?
+
+GateSignal = Literal["spark", "calibration", "segmentation"]
+
+
+class TrayCheck(_Strict):
+    """Muse Spark's answer for the whole photo: is it a core tray at all?"""
+
+    is_core_tray: bool
+    what_it_shows: str = Field(min_length=1, max_length=120)  # a few words
+    confidence: float = Field(ge=0, le=1)
+
+
+class GateReason(_Strict):
+    """One signal that says the photo should not be measured."""
+
+    signal: GateSignal
+    value: float  # the confidence that failed
+    detail: str = Field(min_length=1)
+
+
+class GateResult(_Strict):
+    """gate.check_input: measure the photo (ok) or refuse it with reasons."""
+
+    ok: bool
+    reasons: list[GateReason] = Field(default_factory=list)
+    message: str = ""  # what the person reads; empty when ok
+
+
 # Review (day 7): what the geologist sees, corrects and approves.
 
 BreakKind = Literal["natural", "uncertain", "possible_mechanical", "mechanical"]
@@ -260,7 +289,9 @@ class Routing(_Strict):
 class DraftFigure(_Strict):
     """A number the draft quotes, tied to the run and metric it comes from."""
 
-    run: int = Field(ge=0)
+    # Run number, 1 is the first. ge=0 only so boxes saved before day 10 still load;
+    # verify.py refuses a run that does not exist.
+    run: int = Field(ge=0, description="Run number in this box; 1 is the first run")
     metric: Literal["rqd_pct", "tcr_pct", "fracture_frequency_per_m", "natural_fractures"]
     value: float
 
@@ -339,3 +370,4 @@ class BoxReview(_Strict):
     mask_rows: list[int] = Field(default_factory=list)  # rows with a SAM mask image
     voice: VoiceUsage = Field(default_factory=VoiceUsage)
     handoffs: Handoffs | None = None  # area agents, after approval (day 8)
+    gate: GateResult | None = None  # the input gate's last verdict (day 10)

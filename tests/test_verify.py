@@ -1,7 +1,8 @@
 """The deterministic draft check (verify.py): the spec the verifier is built against.
 
-Box DDH-1, box 3: run 0 is 10-11 m (RQD 85.0, TCR 93.0, FF 2.0, 2 fractures),
-run 1 is 11-12.5 m (RQD 56.7, TCR 62.0, FF 1.33, 2 fractures).
+Box DDH-1, box 3: run 1 is 10-11 m (RQD 85.0, TCR 93.0, FF 2.0, 2 fractures),
+run 2 is 11-12.5 m (RQD 56.7, TCR 62.0, FF 1.33, 2 fractures). Runs are numbered
+from 1, as the geologist and the agents' tools name them.
 verify() also takes the earlier approved boxes of the hole (what hole_history and quote see).
 """
 
@@ -36,8 +37,8 @@ def safety(**kw) -> Draft:
         body="Run 11.0-12.5 m is fair rock: RQD 56.7%, fracture frequency 1.33 per metre.",
         intervals=[Interval(from_m=11.0, to_m=12.5)],
         figures=[
-            DraftFigure(run=1, metric="rqd_pct", value=56.7),
-            DraftFigure(run=1, metric="fracture_frequency_per_m", value=1.33),
+            DraftFigure(run=2, metric="rqd_pct", value=56.7),
+            DraftFigure(run=2, metric="fracture_frequency_per_m", value=1.33),
         ],
     )
     fields.update(kw)
@@ -50,19 +51,45 @@ def test_a_traceable_draft_passes(box, prices):
 
 
 def test_figure_that_differs_from_geometry_fails(box, prices):
-    draft = safety(figures=[DraftFigure(run=1, metric="rqd_pct", value=45.0)])
+    draft = safety(figures=[DraftFigure(run=2, metric="rqd_pct", value=45.0)])
     checks = by_name(verify("safety", draft, box, prices))
     assert not checks["figures"].ok
-    assert "56.7" in checks["figures"].detail  # says what geometry.py has
+    # says what geometry.py has, in words a person reads: no field names
+    assert checks["figures"].detail == "Run 2 RQD is 56.7 %, the draft says 45.0 %"
+
+
+def test_figure_details_name_every_metric_in_words(box, prices):
+    draft = safety(figures=[
+        DraftFigure(run=1, metric="tcr_pct", value=50.0),
+        DraftFigure(run=1, metric="fracture_frequency_per_m", value=9.0),
+        DraftFigure(run=1, metric="natural_fractures", value=7),
+    ])  # fmt: skip
+    detail = by_name(verify("safety", draft, box, prices))["figures"].detail
+    assert detail == (
+        "Run 1 recovery is 93.0 %, the draft says 50.0 %; "
+        "Run 1 fracture frequency is 2.0 per metre, the draft says 9.0 per metre; "
+        "Run 1 natural fractures is 2, the draft says 7"
+    )
+    assert "_" not in detail
+
+
+def test_the_first_run_is_run_1(box, prices):
+    draft = safety(figures=[DraftFigure(run=1, metric="rqd_pct", value=85.0)])
+    assert by_name(verify("safety", draft, box, prices))["figures"].ok
 
 
 def test_figure_of_a_run_that_does_not_exist_fails(box, prices):
-    draft = safety(figures=[DraftFigure(run=5, metric="rqd_pct", value=56.7)])
-    assert not by_name(verify("safety", draft, box, prices))["figures"].ok
+    draft = safety(figures=[DraftFigure(run=3, metric="rqd_pct", value=56.7)])
+    checks = by_name(verify("safety", draft, box, prices))
+    assert not checks["figures"].ok
+    assert checks["figures"].detail == "Run 3 does not exist: this box has runs 1 to 2"
+    zero = safety(figures=[DraftFigure(run=0, metric="rqd_pct", value=85.0)])
+    detail = by_name(verify("safety", zero, box, prices))["figures"].detail
+    assert detail == "Run 0 does not exist: this box has runs 1 to 2"
 
 
 def test_figure_is_compared_at_the_precision_it_is_quoted(box, prices):
-    draft = safety(figures=[DraftFigure(run=1, metric="fracture_frequency_per_m", value=1.3)])
+    draft = safety(figures=[DraftFigure(run=2, metric="fracture_frequency_per_m", value=1.3)])
     assert by_name(verify("safety", draft, box, prices))["figures"].ok
 
 

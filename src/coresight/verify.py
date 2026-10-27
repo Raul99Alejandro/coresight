@@ -40,18 +40,37 @@ def _check_intervals(draft: Draft, box: BoxReview) -> Check:
     return Check(name="intervals", ok=False, detail=detail)
 
 
+_FIGURE_WORDS = {
+    "rqd_pct": ("RQD", " %"),
+    "tcr_pct": ("recovery", " %"),
+    "fracture_frequency_per_m": ("fracture frequency", " per metre"),
+    "natural_fractures": ("natural fractures", ""),
+}
+
+
+def _figure_value(metric: str, value: float) -> str:
+    if metric == "natural_fractures" and float(value).is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _check_figures(draft: Draft, box: BoxReview) -> Check:
     if not draft.figures:
         return Check(name="figures", ok=True)
     problems: list[str] = []
     for fig in draft.figures:
-        if not 0 <= fig.run < len(box.runs):
-            problems.append(f"run {fig.run} does not exist (box has {len(box.runs)} runs)")
+        if not 1 <= fig.run <= len(box.runs):
+            problems.append(
+                f"Run {fig.run} does not exist: this box has runs 1 to {len(box.runs)}"
+            )
             continue
-        expected = getattr(box.runs[fig.run].log, fig.metric)
+        expected = getattr(box.runs[fig.run - 1].log, fig.metric)
         if abs(expected - fig.value) <= _tol(_decimals_from_float(fig.value)):
             continue
-        problems.append(f"run {fig.run} {fig.metric} is {expected}, draft says {fig.value}")
+        label, unit = _FIGURE_WORDS[fig.metric]
+        want = f"{_figure_value(fig.metric, expected)}{unit}"
+        got = f"{_figure_value(fig.metric, fig.value)}{unit}"
+        problems.append(f"Run {fig.run} {label} is {want}, the draft says {got}")
     if problems:
         return Check(name="figures", ok=False, detail="; ".join(problems))
     return Check(name="figures", ok=True)
