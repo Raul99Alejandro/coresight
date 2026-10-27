@@ -1,0 +1,178 @@
+import struct
+
+import cv2
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+from test_review import PIECES, make_run
+
+from coresight.api import create_app, parse_runs
+from coresight.review import Analysis, ReviewError, ReviewStore
+from coresight.schemas import TrayView
+
+
+def photo_bytes() -> bytes:
+    ok, jpg = cv2.imencode(".jpg", np.full((600, 900, 3), 120, np.uint8))
+    return jpg.tobytes()
+
+
+def fake_analyzer(photo, job, report):
+    report.stage("calibration", status="done", progress=1, seconds=0.123)
+    report.masks(0, b"png")
+    report.crop(0, b"jpg")
+    runs = [make_run(PIECES, r.from_m, r.to_m) for r in job.runs]
+    tray = TrayView(width=900, height=600, px_per_cm=9, rows=[(0, 120)], markers=[])
+    return Analysis(tray=tray, tray_jpg=photo, runs=runs)
+
+
+def failing_analyzer(photo, job, report):
+    raise ReviewError("No core tray with 5 rows was found, so the photo has no scale.")
+
+
+def broken_analyzer(photo, job, report):
+    raise RuntimeError("SAM 503: upstream unavailable")
+
+
+def client(tmp_path, analyzer=fake_analyzer, transcriber=None) -> TestClient:
+    app = create_app(
+        store=ReviewStore(tmp_path),
+        analyzer=analyzer,
+        transcriber=transcriber or (lambda wav: ("alteración clorítica débil", 2100)),
+        background=False,
+    )
+    return TestClient(app)
+
+
+def upload(c: TestClient, runs="10-11, 11-12.5", data=None):
+    return c.post(
+        "/api/boxes",
+        files={"photo": ("box.jpg", data or photo_bytes(), "image/jpeg")},
+        data={"hole_id": "DDH-1", "box_number": "3", "runs": runs},
+    )
+
+
+def wav() -> bytes:
+    pcm = b"\0\0" * 1600
+    header = b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt "
+    header += struct.pack("<IHHIIHH", 16, 1, 1, 16000, 32000, 2, 16) + b"data"
+    return header + struct.pack("<I", len(pcm)) + pcm
+
+
+def test_upload_review_correct_approve_and_export(tmp_path):
+    c = client(tmp_path)
+    r = upload(c)
+    assert r.status_code == 202
+    box = r.json()
+    assert box["status"] == "ready" and len(box["runs"]) == 2
+    bid = box["id"]
+    assert c.get(f"/api/boxes/{bid}/tray.jpg").headers["content-type"] == "image/jpeg"
+
+    r = c.post(f"/api/boxes/{bid}/runs/0/breaks/1", json={"kind": "mechanical"})
+    assert r.json()["runs"][0]["log"]["rqd_pct"] == pytest.approx(93.0)
+    assert r.json()["runs"][0]["machine_log"]["rqd_pct"] == pytest.approx(85.0)
+    r = c.put(
+        f"/api/boxes/{bid}/runs/1/description",
+        json={"field": "alteration", "value": "weak chloritic", "source": "voice",
+              "transcript": "alteración clorítica débil"},
+    )  # fmt: skip
+    assert r.status_code == 200
+
+    log = c.get(f"/api/boxes/{bid}/log.csv")
+    assert log.headers["content-disposition"].endswith('DDH-1_box03.csv"')
+    lines = log.text.splitlines()
+    assert lines[0].startswith("hole_id,box,from_m,to_m")
+    assert len(lines) == 3 and ",93.0," in lines[1]
+    corrections = c.get(f"/api/boxes/{bid}/corrections.csv").text.splitlines()
+    assert len(corrections) == 3 and "alteración clorítica débil" in corrections[2]
+
+    assert c.post(f"/api/boxes/{bid}/approve").json()["status"] == "approved"
+    r = c.post(f"/api/boxes/{bid}/runs/0/breaks/0", json={"kind": "mechanical"})
+    assert r.status_code == 400 and "approved" in r.json()["detail"]
+
+
+def test_bad_photo_is_refused_with_a_message(tmp_path):
+    r = upload(client(tmp_path), data=b"not a photo")
+    assert r.status_code == 400
+    assert "could not be read" in r.json()["detail"]
+
+
+def test_bad_run_list_is_refused_with_a_message(tmp_path):
+    r = upload(client(tmp_path), runs="10 to 11")
+    assert r.status_code == 400
+    assert "from-to" in r.json()["detail"]
+
+
+def test_box_without_scale_fails_with_the_reason(tmp_path):
+    box = upload(client(tmp_path, failing_analyzer)).json()
+    assert box["status"] == "failed" and "no scale" in box["error"]
+
+
+def test_api_failure_is_shown_and_the_box_kept(tmp_path):
+    c = client(tmp_path, broken_analyzer)
+    box = upload(c).json()
+    assert box["status"] == "failed" and "SAM 503" in box["error"]
+    assert c.get(f"/api/boxes/{box['id']}").json()["status"] == "failed"
+    assert c.get(f"/api/boxes/{box['id']}/log.csv").status_code == 409
+
+
+def test_unknown_box_is_404(tmp_path):
+    assert client(tmp_path).get("/api/boxes/nothere").status_code == 404
+
+
+def test_transcribe_returns_text(tmp_path):
+    r = client(tmp_path).post("/api/transcribe", files={"audio": ("a.wav", wav(), "audio/wav")})
+    assert r.json() == {"transcript": "alteración clorítica débil", "duration_ms": 2100}
+
+
+def test_transcribe_refuses_non_wav_and_survives_a_failure(tmp_path):
+    c = client(tmp_path)
+    r = c.post("/api/transcribe", files={"audio": ("a.webm", b"\x1aE\xdf\xa3", "audio/webm")})
+    assert r.status_code == 400
+
+    def down(wav):
+        raise RuntimeError("Muse Voice Transcribe 500")
+
+    r = client(tmp_path, transcriber=down).post(
+        "/api/transcribe", files={"audio": ("a.wav", wav(), "audio/wav")}
+    )
+    assert r.status_code == 502 and "Type the correction" in r.json()["detail"]
+
+
+def test_demo_caps_analyses_per_hour(tmp_path, monkeypatch):
+    monkeypatch.setenv("CORESIGHT_MAX_ANALYSES_PER_HOUR", "1")
+    c = client(tmp_path)
+    assert upload(c).status_code == 202
+    assert upload(c).status_code == 429
+
+
+def test_parse_runs_checks_continuity():
+    assert [r.to_m for r in parse_runs("1-2\n2-3.5")] == [2, 3.5]
+    with pytest.raises(ReviewError, match="does not start"):
+        parse_runs("1-2, 2.5-3")
+
+
+def test_analysis_steps_and_images_are_saved_for_the_live_page(tmp_path):
+    c = client(tmp_path)
+    box = upload(c).json()
+    cal = next(s for s in box["stages"] if s["key"] == "calibration")
+    assert (cal["status"], cal["seconds"], cal["actor"]) == ("done", 0.12, "code")
+    assert box["mask_rows"] == [0]
+    assert c.get(f"/api/boxes/{box['id']}/masks/0.png").content == b"png"
+    assert c.get(f"/api/boxes/{box['id']}/runs/0/crop.jpg").content == b"jpg"
+    assert c.get(f"/api/boxes/{box['id']}/masks/3.png").status_code == 404
+
+
+def test_rqd_working_follows_the_corrections(tmp_path):
+    c = client(tmp_path)
+    bid = upload(c).json()["id"]
+    run = c.post(f"/api/boxes/{bid}/runs/0/breaks/1", json={"kind": "mechanical"}).json()["runs"][0]
+    assert run["measure"]["intact_lengths_cm"] == [40.0, 53.0]  # 8 + 45 cm rejoined
+    assert run["measure"]["rqd_cm"] == pytest.approx(93.0)
+
+
+def test_dictation_is_counted_in_the_box_ledger(tmp_path):
+    c = client(tmp_path)
+    bid = upload(c).json()["id"]
+    c.post("/api/transcribe", files={"audio": ("a.wav", wav(), "audio/wav")}, data={"box_id": bid})
+    voice = c.get(f"/api/boxes/{bid}").json()["voice"]
+    assert (voice["dictations"], voice["audio_ms"]) == (1, 2100)

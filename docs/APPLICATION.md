@@ -11,7 +11,7 @@ La entrega final tiene que mostrar cada punto. Si algo se recorta, que sea consc
 | 2 | SAM 3.1 segmenta cada fila, cada pieza intacta y cada fractura | `pipeline.segment`, `meta_client.segment_row` | 4 |
 | 3 | Motor geométrico determinista: longitudes, RQD, frecuencia de fracturas, recuperación por intervalo, cada número trazable | `geometry.py` | 0 y 5 |
 | 4 | Muse Spark describe litología, alteración y mineralización con vocabulario estándar y marca anomalías (baja recuperación, fracturamiento intenso, sulfuros visibles) con explicación | `pipeline.describe`, `meta_client.describe_interval`, `schemas.GeologyDescription` | 6 |
-| 5 | UI de revisión: el geólogo corrige intervalos, las correcciones se guardan para evaluación y futuro fine-tuning, export a CSV | FastAPI (día 7) | 7 |
+| 5 | UI de revisión: el geólogo corrige intervalos, las correcciones se guardan para evaluación y futuro fine-tuning, export a CSV | `coresight.api`, `coresight.review`, `src/coresight/web/index.html` | 7 |
 | 6 | Handoffs con aprobación humana: borrador de solicitud de ensayes para el laboratorio y alerta de condición de terreno para seguridad cuando la roca es mala | `pipeline.draft_handoffs` | 8 |
 | 7 | Evaluación del RQD automático contra cajas logueadas a mano | `data/labels/`, sección Evaluation del README | 9 |
 | 8 | Muse Code acelera el desarrollo | Ver abajo | 1 a 10 |
@@ -32,7 +32,7 @@ Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que 
 |---|---|---|---|
 | 9 | Orquestador que decide qué áreas se ven afectadas por una caja aprobada | Muse Wonder | 8 |
 | 10 | 4 agentes de área con borradores y aprobación humana: laboratorio, seguridad y geotecnia, planta, finanzas | Muse Spark 1.3 con herramientas | 8 |
-| 11 | Correcciones dictadas por voz en la UI de revisión | Muse Voice Transcribe | 7 |
+| 11 | Correcciones dictadas por voz en la UI de revisión (`meta_client.transcribe`) | Muse Voice Transcribe | 7 |
 | 12 | Descripción con modelo abierto en infraestructura propia (modo sin internet en la mina) | Muse Glimmer, plan B Muse Spark Open | 6 |
 | 13 | Evaluación científica: MAE, Bland-Altman, ablaciones, robustez, costo y tiempo por caja | Todos | 5 y 9 |
 | 14 | Video con HyperFrames y voz | (herramienta de video) | 10 |

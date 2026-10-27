@@ -72,21 +72,24 @@ def _piece(start: float, end: float, kind: str) -> Piece:
     )
 
 
-def assign_runs(
-    rows: list[RowPieces],
-    markers: list[Position],
-    runs: list[Interval],
-    first_starts_in_box: bool,
-) -> list[tuple[Interval, IntervalLog, bool]]:
-    """(run, log, complete) for every run on the list, pieces split at the markers."""
-    markers = sorted(markers)
-    if len(markers) > len(runs):
-        markers = dedupe_markers(markers)
-    n, k = len(markers), len(runs)
-    if n not in (k - 1, k):
-        raise RunMismatchError(f"{n} run markers for {k} runs")
+LaidPiece = tuple[Position, Position, str]  # start, end and kind of break after
 
-    segments: list[list[tuple[float, str]]] = [[] for _ in range(n + 1)]
+
+def run_segments(
+    rows: list[RowPieces], markers: list[Position], n_runs: int
+) -> list[list[LaidPiece]]:
+    """The laid-out pieces of every run, in reading order, split at the markers.
+
+    A piece across a marker is cut there; the cut counts as a natural break.
+    """
+    markers = sorted(markers)
+    if len(markers) > n_runs:
+        markers = dedupe_markers(markers)
+    n = len(markers)
+    if n not in (n_runs - 1, n_runs):
+        raise RunMismatchError(f"{n} run markers for {n_runs} runs")
+
+    segments: list[list[LaidPiece]] = [[] for _ in range(n + 1)]
     for start, end, kind in _laid_pieces(rows):
         seg = sum(m <= start for m in markers)
         cut_inside = [m for m in markers if start < m < end]
@@ -94,20 +97,41 @@ def assign_runs(
             edges = [start, *cut_inside, end]
             for j, (lo, hi) in enumerate(zip(edges, edges[1:], strict=False)):
                 last = j == len(edges) - 2
-                segments[seg + j].append((hi.x_cm - lo.x_cm, kind if last else "natural"))
+                segments[seg + j].append((lo, hi, kind if last else "natural"))
             continue
-        segments[seg].append((end.x_cm - start.x_cm, kind))
+        segments[seg].append((start, end, kind))
+    return segments[:n_runs]
 
+
+def log_segment(laid: list[LaidPiece], run: Interval) -> IntervalLog:
+    """geometry.log_interval of one run's pieces, laid end to end from the run start."""
+    pos, pieces = 0.0, []
+    for start, end, kind in laid:
+        length = end.x_cm - start.x_cm
+        pieces.append(_piece(pos, pos + length, kind))
+        pos += length
+    return log_interval(pieces, run.from_m, run.to_m)
+
+
+def assign_runs(
+    rows: list[RowPieces],
+    markers: list[Position],
+    runs: list[Interval],
+    first_starts_in_box: bool,
+) -> list[tuple[Interval, IntervalLog, bool]]:
+    """(run, log, complete) for every run on the list, pieces split at the markers."""
+    segments = run_segments(rows, markers, len(runs))
+    n = n_markers(markers, len(runs))
     out = []
     for i, run in enumerate(runs):
-        pos, pieces = 0.0, []
-        for length, kind in segments[i]:
-            pieces.append(_piece(pos, pos + length, kind))
-            pos += length
-        log = log_interval(pieces, run.from_m, run.to_m)
         complete = i < n and (i > 0 or first_starts_in_box)
-        out.append((run, log, complete))
+        out.append((run, log_segment(segments[i], run), complete))
     return out
+
+
+def n_markers(markers: list[Position], n_runs: int) -> int:
+    """Markers that split the runs, after dropping duplicates when there are too many."""
+    return len(dedupe_markers(markers)) if len(markers) > n_runs else len(markers)
 
 
 def to_result(run: Interval, log: IntervalLog, complete: bool) -> IntervalResult:

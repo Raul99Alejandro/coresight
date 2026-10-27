@@ -110,3 +110,38 @@ def test_retries_give_up_after_max_retries(tmp_path):
     with pytest.raises(TransientAPIError):
         client.segment_row_raw(b"png", "stone")
     assert len(calls) == client.max_retries + 1
+
+
+def test_transcribe_sends_documented_multipart_and_validates_answer(tmp_path):
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["accept"] = request.headers["accept"]
+        seen["body"] = request.read()
+        return httpx.Response(
+            200,
+            json={"sessionId": "s1", "transcript": "pirita diseminada", "audioDurationMs": 1800,
+                  "turns": []},
+        )  # fmt: skip
+
+    client = MetaClient(api_key="k", cache_dir=tmp_path, transport=httpx.MockTransport(handler))
+    t = client.transcribe(b"RIFF....WAVE", keywords=["pyrite"])
+    assert t.transcript == "pirita diseminada" and t.audioDurationMs == 1800
+    assert seen["path"] == "/v1/asr/transcribe"
+    assert seen["accept"] == "application/json"
+    body = seen["body"]
+    assert b'name="request"' in body and b'"model": "muse-voice-transcribe-1.0"' in body
+    assert b'"audioEncoding": "WAV"' in body and b'"mode": "PUSH_TO_TALK"' in body
+    assert b'name="audio"; filename="dictation.wav"' in body and b"audio/wav" in body
+
+
+def test_transcribe_retries_a_rate_limit(tmp_path):
+    answers = [httpx.Response(429, text="busy"),
+               httpx.Response(200, json={"sessionId": "s", "transcript": "ok",
+                                         "audioDurationMs": 1, "turns": []})]  # fmt: skip
+    client = MetaClient(
+        api_key="k", cache_dir=tmp_path, sleep=lambda s: None,
+        transport=httpx.MockTransport(lambda r: answers.pop(0)),
+    )  # fmt: skip
+    assert client.transcribe(b"RIFF").transcript == "ok"

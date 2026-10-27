@@ -35,13 +35,12 @@ import time
 from pathlib import Path
 
 import cv2
-from eval_logs import sheet_markers
 
 from coresight.baseten_client import BasetenClient, cost_usd
 from coresight.calibration import find_trays
 from coresight.describe import Describer, png_bytes
 from coresight.glimmer_client import GlimmerClient
-from coresight.labeling import PieceSheet
+from coresight.labeling import PieceSheet, sheet_markers
 from coresight.meta_client import MetaClient
 from coresight.pipeline import build_logs, describe_photo, describe_runs, segment
 from coresight.schemas import BoxLabel

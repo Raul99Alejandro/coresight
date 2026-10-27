@@ -7,6 +7,7 @@ __pycache__/
 .ruff_cache/
 data/raw/
 data/cache/
+data/reviews/
 outputs/
 .claude/settings.local.json
 CLAUDE.local.md

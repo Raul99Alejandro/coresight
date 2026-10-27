@@ -28,10 +28,10 @@ import cv2
 import numpy as np
 
 from coresight.calibration import find_trays
-from coresight.labeling import PieceSheet
+from coresight.labeling import PieceSheet, sheet_markers
 from coresight.meta_client import MetaClient
 from coresight.pipeline import build_logs, segment
-from coresight.runs import Position, RunMismatchError
+from coresight.runs import RunMismatchError
 from coresight.schemas import BoxLabel
 from coresight.segmentation import METHODS
 
@@ -39,20 +39,6 @@ ROOT = Path(__file__).resolve().parents[1]
 LABELS = ROOT / "data" / "labels"
 REFS = LABELS / "calibration" / "scale_references.json"
 OUT_DIR = ROOT / "outputs" / "eval"
-
-
-def sheet_markers(sheet: PieceSheet, tray) -> list[Position]:
-    """Run ends of a hand-measured sheet as positions along the straightened rows."""
-    out = []
-    for row in sheet.rows:
-        y = (row.y1 + row.y2) / 2
-        for p in row.pieces:
-            if p.after != "run_end":
-                continue
-            r = tray.row_index(p.x2, row.y1, row.y2)
-            x = tray.to_straight(np.array([[p.x2, y]]))[0, 0] + 0.5 * tray.px_per_cm
-            out.append(Position(r, x / tray.px_per_cm))
-    return out
 
 
 def stats(errors: list[float]) -> str:

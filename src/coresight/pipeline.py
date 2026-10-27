@@ -3,11 +3,15 @@
 Stages still marked NotImplemented are waiting for their day in docs/PLAN.md.
 ``log_box`` runs photo -> calibrate -> segment -> runs -> geometry.py and
 returns validated IntervalResult rows; ``describe`` adds one validated
-description per run (Muse Spark or Glimmer, same contract).
+description per run (Muse Spark or Glimmer, same contract). The review of a
+box (corrections, approval) lives in coresight.review; ``export_csv`` writes
+the reviewed log.
 """
 
 from __future__ import annotations
 
+import csv
+import io
 from pathlib import Path
 
 import cv2
@@ -19,7 +23,13 @@ from coresight.crops import run_crops
 from coresight.describe import Describer, png_bytes
 from coresight.meta_client import MetaClient
 from coresight.runs import Position, assign_runs, to_result
-from coresight.schemas import GeologyDescription, Interval, IntervalDescription, IntervalResult
+from coresight.schemas import (
+    BoxReview,
+    GeologyDescription,
+    Interval,
+    IntervalDescription,
+    IntervalResult,
+)
 from coresight.segmentation import RowPieces, row_masks, run_markers, segment_row
 
 
@@ -144,12 +154,43 @@ def describe_photo(image_path: Path, describer: Describer, context: dict) -> Geo
     return describer.describe_interval(png_bytes(image), context)
 
 
-def export_csv(logs, out_path: Path) -> Path:
-    """Write the approved log to CSV for geological modelling software.
+CSV_COLUMNS = [
+    "hole_id", "box", "from_m", "to_m", "complete", "rqd_pct", "tcr_pct", "natural_fractures",
+    "fracture_frequency_per_m", "rock_quality", "uncertain_breaks", "mechanical_breaks",
+    "lithology", "alteration", "mineralization", "anomalies", "comment", "corrections",
+    "description_backend", "status",
+]  # fmt: skip
 
-    Day 7.
+
+def export_csv(box: BoxReview) -> str:
+    """The reviewed log of one box as CSV for geological modelling software.
+
+    One row per run; numbers are the corrected ones (geometry.py), and
+    ``corrections`` counts the geologist's changes to that run.
     """
-    raise NotImplementedError("day 7: review UI and CSV export")
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=CSV_COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for run in box.runs:
+        d = run.description
+        writer.writerow(
+            {
+                "hole_id": box.hole_id,
+                "box": box.box_number,
+                **run.log.model_dump(include=set(CSV_COLUMNS)),
+                "lithology": d.lithology if d else "",
+                "alteration": d.alteration if d else "",
+                "mineralization": d.mineralization if d else "",
+                "anomalies": "; ".join(f"{a.type}: {a.explanation}" for a in d.anomalies)
+                if d
+                else "",
+                "comment": run.comment,
+                "corrections": len(run.corrections),
+                "description_backend": run.description_backend or "",
+                "status": box.status,
+            }
+        )
+    return out.getvalue()
 
 
 def draft_handoffs(approved_logs):

@@ -1,0 +1,12 @@
+# Whitelist: only what the image needs. data/raw/kaggle_mining_core (NC) never enters.
+*
+!pyproject.toml
+!README.md
+!src/
+!data/labels/ONK-DTPH5.1_box05.json
+!data/labels/ONK-DTPH5.1_box06.json
+!data/labels/pieces/ONK-DTPH5.1_box05.json
+!data/labels/pieces/ONK-DTPH5.1_box06.json
+!data/raw/commons_onkalo_1.jpg
+**/__pycache__
+**/*.egg-info

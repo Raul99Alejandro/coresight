@@ -24,9 +24,12 @@ from __future__ import annotations
 import statistics
 from typing import Literal
 
+import numpy as np
 from pydantic import Field
 
+from coresight.calibration import Tray
 from coresight.geometry import IntervalLog, Piece, log_interval
+from coresight.runs import Position
 from coresight.schemas import BoxLabel, Interval, _Strict
 
 BreakKind = Literal["natural", "mechanical", "uncertain", "run_end"]
@@ -128,3 +131,17 @@ def label_from_sheet(sheet: PieceSheet) -> BoxLabel:
     return BoxLabel(
         hole_id=sheet.hole_id, box_number=sheet.box_number, image=sheet.image, runs=runs
     )
+
+
+def sheet_markers(sheet: PieceSheet, tray: Tray) -> list[Position]:
+    """Run ends of a hand-measured sheet as positions along the straightened rows."""
+    out = []
+    for row in sheet.rows:
+        y = (row.y1 + row.y2) / 2
+        for p in row.pieces:
+            if p.after != "run_end":
+                continue
+            r = tray.row_index(p.x2, row.y1, row.y2)
+            x = tray.to_straight(np.array([[p.x2, y]]))[0, 0] + 0.5 * tray.px_per_cm
+            out.append(Position(r, x / tray.px_per_cm))
+    return out

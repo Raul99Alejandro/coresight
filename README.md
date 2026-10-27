@@ -17,7 +17,7 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | 2. Segmentation: intact pieces and fractures per row | `pipeline.segment`, `meta_client` | SAM 3.1 (Meta Model API) |
 | 3. Geometry: piece lengths, RQD, fracture frequency, recovery | `geometry.py` | Deterministic Python, no LLM |
 | 4. Description: lithology, alteration, mineralization, anomaly flags | `pipeline.describe`, `meta_client` | Muse Spark, Pydantic-validated JSON |
-| 5. Review UI: geologist corrects intervals by typing or by voice, exports CSV | FastAPI app | FastAPI, Muse Voice Transcribe |
+| 5. Review: geologist corrects breaks, pieces and descriptions by typing or by voice; numbers are recalculated by the geometry engine; corrections are kept next to the original; CSV export | `api.py`, `review.py`, `web/index.html` | FastAPI, Muse Voice Transcribe |
 | 6. Area agents: an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each agent drafts, a human approves | `pipeline.draft_handoffs` | Muse Wonder (orchestrator), Muse Spark with tools |
 
 Stage 4 can also run on Muse Glimmer on the mine's own hardware (offline mode), with the same validated output.
@@ -32,6 +32,7 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 cp .env.example .env             # add your Meta Model API key
 pytest
+uvicorn coresight.api:app        # review page at http://127.0.0.1:8000
 ```
 
 ## Evaluation

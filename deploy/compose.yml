@@ -1,0 +1,19 @@
+# On the VPS: /opt/coresight/compose.yml. The key lives only in /etc/coresight.env.
+services:
+  coresight:
+    image: coresight:${IMAGE_TAG:?set IMAGE_TAG}
+    restart: unless-stopped
+    env_file: /etc/coresight.env
+    environment:
+      CORESIGHT_MAX_ANALYSES_PER_HOUR: "20"
+      CORESIGHT_MAX_DICTATIONS_PER_HOUR: "120"
+    ports:
+      - "127.0.0.1:8610:8000"  # Docker skips ufw: never publish on 0.0.0.0
+    volumes:
+      - coresight-data:/app/data/reviews
+      - coresight-cache:/app/data/cache
+    labels:
+      vps.keep: "true"
+volumes:
+  coresight-data:
+  coresight-cache:

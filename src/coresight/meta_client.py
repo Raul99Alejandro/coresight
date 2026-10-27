@@ -2,7 +2,9 @@
 
 Endpoints, model IDs and request shapes come from the official docs
 (https://dev.meta.ai/docs/, read 2026-10-25): sam/segmenting,
-sam/reading-segmentation, image-understanding and structured-output.
+sam/reading-segmentation, image-understanding and structured-output; voice
+from speech-to-text, api-reference/voice/transcribe and voice/schemas (read
+2026-10-26).
 Confirmed against the real API by the day 1 smoke test (scripts/smoke_day1.py).
 
 SAM responses are cached on disk by a hash of model, prompt and image, so the
@@ -28,12 +30,15 @@ from dotenv import load_dotenv
 from meta_sam_parser import CompletedOutcome, decode_mask_to_raster, image_segmentation_format
 
 from coresight.describe import cached_description, describe_prompt
-from coresight.schemas import GeologyDescription, ModelDescription
+from coresight.schemas import GeologyDescription, ModelDescription, Transcript
 
 DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 SAM_MODEL_ID = "sam-3.1"
 MUSE_SPARK_MODEL_ID = "muse-spark-1.3"
 RESPONSES_PATH = "/responses"
+VOICE_MODEL_ID = "muse-voice-transcribe-1.0"
+TRANSCRIBE_PATH = "/asr/transcribe"
+VOICE_LANGUAGES = ["Spanish", "English"]  # a hint, not a hard setting (docs: languageBias)
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
 RETRY_STATUS = {408, 429, 500, 502, 503, 504}
 
@@ -253,3 +258,33 @@ class MetaClient:
         return cached_description(
             self.cache_dir, self.model, prompt, image_png, lambda: self._with_retries(call)
         )
+
+    def transcribe(self, wav: bytes, keywords: list[str] | None = None) -> Transcript:
+        """Muse Voice Transcribe: one push-to-talk clip (mono 16-bit PCM WAV) to text.
+
+        Not cached: every dictation is new. 429 and 5xx are retried.
+        """
+        request = {
+            "model": VOICE_MODEL_ID,
+            "audioEncoding": "WAV",
+            "mode": "PUSH_TO_TALK",
+            "languageBias": VOICE_LANGUAGES,
+        }
+        if keywords:
+            request["keywords"] = keywords
+
+        def call() -> str:
+            resp = self._http.post(
+                TRANSCRIBE_PATH,
+                headers={"Accept": "application/json"},
+                files={
+                    "request": (None, json.dumps(request), "application/json"),
+                    "audio": ("dictation.wav", wav, "audio/wav"),
+                },
+            )
+            if resp.status_code >= 400:
+                error = TransientAPIError if resp.status_code in RETRY_STATUS else RuntimeError
+                raise error(f"Muse Voice Transcribe {resp.status_code}: {resp.text}")
+            return resp.text
+
+        return Transcript.model_validate_json(self._with_retries(call))
