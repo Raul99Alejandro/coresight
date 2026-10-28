@@ -7,6 +7,7 @@ services:
     environment:
       CORESIGHT_MAX_ANALYSES_PER_HOUR: "20"
       CORESIGHT_MAX_DICTATIONS_PER_HOUR: "120"
+      CORESIGHT_MAX_SAM_POINTS_PER_HOUR: "200"
     ports:
       - "127.0.0.1:8610:8000"  # Docker skips ufw: never publish on 0.0.0.0
     volumes:

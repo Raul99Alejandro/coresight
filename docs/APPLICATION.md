@@ -35,6 +35,9 @@ Registro de uso:
   - `src/coresight/gate.py`, la compuerta de entrada: rechaza una foto que no es caja con la confianza de calibración, la de SAM y el `is_core_tray` de Muse Spark. Especificación: 16 tests de `tests/test_gate.py`, escritos antes por nosotros. Sesión `01a17f99-8f2a-7be0-9d5a-d4e1efe7b717`, 14 llamadas. Traza: `docs/muse-code/gate-1.json`. Commit: `413093d`.
   - `src/coresight/verify.py`, ronda 3: tramos desde 1 y detalles en palabras, sin nombres de campo. Sesión `01a17f99-9b2b-7bd3-91e8-c08bf9dd5502`, 22 llamadas. Traza: `docs/muse-code/verify-3.json`. Commit: `1d1681b`.
   - La sandbox sigue sin arrancar PowerShell; corrimos pytest y ruff fuera. No editamos su código.
+- 28 oct (puntos B y C del segundo análisis): Muse Code 1.4.14, mismo método, `--model muse-spark-1.3`.
+  - `sam_prompt` y `grid_box_to_pixels` en `src/coresight/meta_client.py`: el constructor de prompts de caja y punto de SAM 3.1 y el paso de la cuadrícula 0 a 1000 de Spark a pixeles. Especificación: 22 tests de `tests/test_sam_prompts.py`, escritos antes por nosotros (commit `76b9cf1`). Sesión `01a17fc6-f402-7be3-981a-3577dbf7c4c5`, 17 llamadas. Traza: `docs/muse-code/sam-prompts-1.json`. Commit: `84b06fe`.
+  - La sandbox sigue sin PowerShell: Muse Code revisó los tests a mano y nosotros los corrimos (39 en verde, ruff limpio). Su herramienta de edición no encontraba el texto en el archivo con CRLF y lo reescribió con LF; git lo normaliza y solo cambiaron las dos funciones y tres ayudantes.
 
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.

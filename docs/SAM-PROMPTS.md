@@ -31,4 +31,26 @@ Lo que confirma:
 
 Hallazgo para B: en la fila 2 de esta misma caja, `stone` devuelve cero objetos (la respuesta vacía está en caché). Es la falla de Nevada que B ataca: Spark localiza las piezas y SAM corta con cajas.
 
-Pendiente para B y C: el constructor de prompts en `meta_client.py` (validar `w` y `h`, máximo 16 objetos, coordenadas dentro de la imagen), con tests nuestros y hecho con Muse Code, como dice `docs/ANALISIS-2.md` sección 8.
+Hecho el 28 oct: el constructor de prompts en `meta_client.py` (`sam_prompt` y `grid_box_to_pixels`), con tests nuestros (`tests/test_sam_prompts.py`) e implementación de Muse Code (traza `docs/muse-code/sam-prompts-1.json`).
+
+## B: Spark localiza, SAM corta (28 oct)
+
+`MetaClient.locate_row` pide a Muse Spark las cajas de cada objeto de la fila con la localización de https://dev.meta.ai/docs/image-understanding (cuadrícula 0 a 1000, salida estructurada `RowLocation`, validada con Pydantic). Clases: `core`, `run_block`, `card`, `waxed_sample`, `other`. `segmentation.located_masks` manda las cajas de núcleo a SAM 3.1 como prompts de caja (16 por petición) y quita de la longitud lo demás. Las muestras enceradas cuentan como núcleo: se sacaron para ensayo pero son núcleo recuperado, y así las mide nuestra etiqueta de Nevada (la cera dice 5.0' a 5.4'). La primera corrida las quitaba y el TCR de Nevada empeoró de 4.3 a 23.5 puntos de error.
+
+Lo que enseñó la API real en Nevada (fila 2, donde "stone" no devuelve nada):
+
+| Prueba | Resultado |
+|---|---|
+| Spark sobre la fila entera (2500 x 278, 9 a 1) | Las cajas se corren y llama núcleo a la tarjeta amarilla. No sirve |
+| Spark en 4 mosaicos de unos 2.5 a 1, con 15 % de traslape | Cajas sobre las piezas, tarjetas, muestras enceradas y bloque bien clasificados |
+| Unir las cajas de los mosaicos | Solo se unen las dos mitades de un objeto que corta el borde; si dos mosaicos ven el mismo objeto, queda la caja más grande. Unir todo lo que se traslapa juntaba tres piezas en una |
+| SAM con la caja de una pieza | A veces la máscara sigue hasta la pieza siguiente (caja 1788 a 2078, máscara hasta 2349). Se recorta la máscara a su caja, con 5 % de margen |
+| Resultado en la fila 2 | 5 piezas de núcleo (5.7, 8.6, 7.8, 7.6 y 3.3 cm) más las dos muestras enceradas; tarjeta y bloque fuera de la longitud |
+
+Tiempo: Spark tarda de 5 a 35 s por fila (los mosaicos van en paralelo) y SAM con cajas de 5 a 13 s. Las respuestas quedan en caché (`data/cache/locate`).
+
+## C: SAM con un toque en la revisión (28 oct)
+
+`review.sam_point_mask` manda a SAM 3.1 la fila tocada con los puntos del geólogo (`<|point;...|>`, el negativo con `-`) y mide la pieza con las columnas de la máscara, no con su caja. `review.sam_piece` hace de esa máscara una pieza del tramo: las roturas dentro desaparecen y sus bordes se vuelven roturas (se pegan a una rotura existente si quedan a menos de 1 cm). `geometry.py` recalcula. La corrección queda con fuente `sam-point` en el historial y en `corrections.csv`.
+
+Prueba con la API real en Nevada, tramo 2, fila 2: "stone" deja una pieza de 27 cm (38.8 a 66.0). Tres toques dan 38.8 a 47.2, 47.2 a 55.2 y 55.2 a 62.7 cm, en 2.5 a 4.8 s cada uno, los mismos bordes que Spark y SAM encontraron en B. El RQD del tramo baja de 38.6 a 21.1 (nuestra etiqueta: 15.9), como con Split, que se queda de respaldo.

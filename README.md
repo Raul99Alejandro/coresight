@@ -14,10 +14,10 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | Stage | Module | Technology |
 |---|---|---|
 | 1. Calibration: box edges, scale markers, px to cm, row split | `pipeline.calibrate` | OpenCV |
-| 2. Segmentation: intact pieces and fractures per row | `pipeline.segment`, `meta_client` | SAM 3.1 (Meta Model API) |
+| 2. Segmentation: intact pieces and fractures per row; where "stone" finds nothing, Muse Spark boxes the core and SAM cuts it with those boxes | `pipeline.segment`, `segmentation.located_masks`, `meta_client` | SAM 3.1 and Muse Spark grounding (Meta Model API) |
 | 3. Geometry: piece lengths, RQD, fracture frequency, recovery | `geometry.py` | Deterministic Python, no LLM |
 | 4. Description: lithology, alteration, mineralization, anomaly flags | `pipeline.describe`, `meta_client` | Muse Spark, Pydantic-validated JSON |
-| 5. Review: geologist corrects breaks, pieces and descriptions by typing or by voice; numbers are recalculated by the geometry engine; corrections are kept next to the original; CSV export | `api.py`, `review.py`, `web/index.html` | FastAPI, Muse Voice Transcribe |
+| 5. Review: geologist corrects breaks, pieces and descriptions by typing, by voice or by tapping the photo (SAM 3.1 point prompts); numbers are recalculated by the geometry engine; corrections are kept next to the original; CSV export | `api.py`, `review.py`, `web/index.html` | FastAPI, Muse Voice Transcribe, SAM 3.1 |
 | 6. Area agents: an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each agent drafts, a human approves | `pipeline.draft_handoffs` | Muse Wonder (orchestrator), Muse Spark with tools |
 
 Stage 4 can also run on Muse Glimmer on the mine's own hardware (offline mode), with the same validated output.
@@ -61,13 +61,23 @@ Ablation, same 34 runs:
 
 The intervals overlap: with 11 boxes, no step of the ablation is a proven gain on its own.
 
+Spark localizes, SAM cuts (point B). Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing.
+
+| Method | Mine geologist, 34 runs: RQD MAE [95% CI] | Our labels, Nevada (3 runs): RQD MAE | Our labels, Onkalo dry (5 runs) |
+|---|---|---|---|
+| `sam+fill+profile` ("stone") | 11.2 [6.1, 18.9] | 23.6 | 1.1 |
+| `spark+sam+fill+profile` (Spark's boxes on every row) | 12.0 [6.7, 19.9] | 1.2 | 1.6 |
+| `fallback+sam+fill+profile` (Spark only where "stone" finds nothing) | 11.2 [6.1, 18.9] | 15.9 | 1.1 |
+
+Paired by run, Spark's boxes on every row change the Kaggle RQD error by +0.7 points [-1.1, +2.9]: no gain against the independent reference. On Nevada they fix the photo "stone" cannot read, but we tuned the tiling on that photo and labelled it ourselves, so it is not an independent result. **Decision: `fallback+sam+fill+profile` is the method of the demo**: identical to "stone" where it works (all 34 Kaggle runs), Spark and SAM together where it fails, and one Spark call per tile only for those rows. Full tables in [`outputs/eval/report.md`](outputs/eval/report.md).
+
 Public boxes, labelled by us on the same photo (small, not an independent result):
 
 | Boxes | Runs | RQD MAE | What it shows |
 |---|---|---|---|
 | Onkalo, dry (2 boxes) | 5 | 1.1 | Sound crystalline rock is easy |
 | Onkalo, the same boxes wet | 5 | 12.3 | Wet dark core: SAM splits one intact piece into many (photo below) |
-| Nevada U12G (1 box) | 3 | 23.6 | Broken core, with run cards and wax-sealed samples in the tray |
+| Nevada U12G (1 box) | 3 | 23.6 (15.9 with `fallback+`, 1.2 with Spark on every row) | Broken core, with run cards and wax-sealed samples in the tray; "stone" finds nothing in row 2 |
 
 Failure cases, public photos only, with the breaks CoreSight found drawn on the tray: [`failures/ONK-DTPH5.1_box05_wet.jpg`](outputs/eval/failures/ONK-DTPH5.1_box05_wet.jpg) (RQD error -49 on one wet run) and [`failures/U12G-GF-GT2_box01.jpg`](outputs/eval/failures/U12G-GF-GT2_box01.jpg).
 The worst Kaggle runs (errors down to -49) are listed by depth in the report, without photos.
@@ -114,13 +124,14 @@ Not built before kickoff: calibration, SAM segmentation of rows into pieces, wir
 
 ## Built with Muse Code
 
-Three pieces were written by Muse Code 1.4.13 against tests we wrote first. We did not edit its code.
+Four pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
   - Round 2 (session `88fc39bc-b75a-47b0-8d5f-466e68048e0a`): a ruff fix and 5 new tests (budget left after earlier boxes, numbers from the hole history, runs named from one).
   - Round 3 (session `01a17f99-9b2b-7bd3-91e8-c08bf9dd5502`): runs numbered from 1 and failed checks explained in words.
 - `src/coresight/gate.py`, the input gate that refuses a photo that is not a core tray before anything is measured (session `01a17f99-8f2a-7be0-9d5a-d4e1efe7b717`). Spec: `tests/test_gate.py`.
+- `sam_prompt` and `grid_box_to_pixels` in `src/coresight/meta_client.py`, the builder of SAM 3.1 box and point prompts: our boxes and the geologist's taps become `<|box;...|>` and `<|point;...|>` tokens, with `w` and `h` of the image sent, at most 16 objects and whole pixels inside the image; Muse Spark's 0 to 1000 grid becomes an inclusive pixel box (session `01a17fc6-f402-7be3-981a-3577dbf7c4c5`). Spec: `tests/test_sam_prompts.py`, from the examples of the SAM docs and our smoke test.
 - Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`.
 - Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
 - Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
@@ -129,6 +140,8 @@ Three pieces were written by Muse Code 1.4.13 against tests we wrote first. We d
 ## Status
 
 Before measuring anything, an input gate checks three signals: how clearly calibration found the tray slats, Muse Spark's look at the whole photo (`is_core_tray`, validated with Pydantic) and the SAM 3.1 confidence. A screenshot, a selfie or core without a tray is refused with a clear message instead of getting an RQD.
+
+The models work together. Where SAM 3.1 finds nothing with the phrase "stone", Muse Spark boxes the core pieces of the row and SAM cuts them with those boxes. In the review, the geologist taps a piece on the photo: the tap goes to SAM 3.1 as a point prompt (a second tap marked "Not the piece" is a negative point), the piece is measured on the mask SAM returns, `geometry.py` recomputes the run, and the correction is kept with the source `sam-point` in the history and the CSV. It takes 3 to 4 s per tap; Split by hand stays as the fallback.
 
 Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
 In progress: the area agents (stage 6): orchestrator, four drafting agents and the verifier are built and tested with a simulated API. Day-by-day plan in `docs/PLAN.md`.
