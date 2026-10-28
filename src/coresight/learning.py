@@ -17,6 +17,7 @@ The rules are the docstring of tests/test_learning.py.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
@@ -46,23 +47,131 @@ class Fold:
     mae_fitted: float
 
 
+_TOL = 1e-9
+
+
+def _dist(a: Candidate, b: Candidate) -> float:
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _runs_by_box(errors: Sequence[RunError]) -> dict[str, list[RunKey]]:
+    grouped: dict[str, set[RunKey]] = {}
+    for e in errors:
+        grouped.setdefault(e.box, set()).add((e.box, e.run))
+    return {box: sorted(runs) for box, runs in grouped.items()}
+
+
+def _abs_error(
+    lookup: dict[tuple[RunKey, Candidate], float], run: RunKey, cand: Candidate
+) -> float:
+    try:
+        err = lookup[(run, cand)]
+    except KeyError:
+        raise ValueError(f"missing error for {cand} on {run}") from None
+    if not math.isfinite(err):
+        raise ValueError(f"non-finite error for {cand} on {run}")
+    return abs(err)
+
+
 def mae_of(errors: Sequence[RunError], candidate: Candidate, runs: Iterable[RunKey]) -> float:
     """Mean |error| of ``candidate`` over ``runs``; ValueError if a run is missing or none."""
-    raise NotImplementedError
+    wanted = list(runs)
+    if not wanted:
+        raise ValueError("no runs")
+    found: dict[RunKey, float] = {}
+    for e in errors:
+        if e.candidate == candidate:
+            found[(e.box, e.run)] = e.error
+    total = 0.0
+    for r in wanted:
+        if r not in found:
+            raise ValueError(f"missing error for {candidate} on {r}")
+        err = found[r]
+        if not math.isfinite(err):
+            raise ValueError(f"non-finite error for {candidate} on {r}")
+        total += abs(err)
+    return total / len(wanted)
 
 
 def fit(errors: Sequence[RunError], runs: Iterable[RunKey] | None, default: Candidate) -> Candidate:
     """The candidate with the lowest MAE over ``runs`` (every run when None)."""
-    raise NotImplementedError
+    train = sorted({(e.box, e.run) for e in errors}) if runs is None else list(runs)
+    if not train:
+        return default
+    by_cand: dict[Candidate, dict[RunKey, float]] = {}
+    for e in errors:
+        by_cand.setdefault(e.candidate, {})[(e.box, e.run)] = e.error
+    need = set(train)
+    eligible = [c for c, per_run in by_cand.items() if need <= per_run.keys()]
+    if not eligible:
+        return default
+    maes: dict[Candidate, float] = {}
+    for c in eligible:
+        per_run = by_cand[c]
+        total = 0.0
+        for r in train:
+            err = per_run[r]
+            if not math.isfinite(err):
+                raise ValueError(f"non-finite error for {c} on {r}")
+            total += abs(err)
+        maes[c] = total / len(train)
+    best = min(maes.values())
+    tied = [c for c, m in maes.items() if abs(m - best) <= _TOL]
+    if len(tied) == 1:
+        return tied[0]
+    dists = {c: _dist(c, default) for c in tied}
+    nearest = min(dists.values())
+    closest = [c for c in tied if abs(dists[c] - nearest) <= _TOL]
+    if len(closest) == 1:
+        return closest[0]
+    return min(closest)
 
 
 def leave_one_box_out(errors: Sequence[RunError], default: Candidate) -> list[Fold]:
     """One fold per box, in sorted order: fit on the other boxes, score the held-out one."""
-    raise NotImplementedError
+    grouped = _runs_by_box(errors)
+    boxes = sorted(grouped)
+    if len(boxes) < 2:
+        return []
+    folds: list[Fold] = []
+    for held in boxes:
+        train = [r for b in boxes if b != held for r in grouped[b]]
+        test = grouped[held]
+        fitted = fit(errors, train, default)
+        folds.append(
+            Fold(
+                held_out=held,
+                fitted=fitted,
+                train_runs=len(train),
+                test_runs=len(test),
+                mae_default=mae_of(errors, default, test),
+                mae_fitted=mae_of(errors, fitted, test),
+            )
+        )
+    return folds
 
 
 def learning_curve(
     errors: Sequence[RunError], default: Candidate
 ) -> list[tuple[int, float, float]]:
     """(n corrected runs, pooled held-out MAE with the default, pooled MAE after n)."""
-    raise NotImplementedError
+    grouped = _runs_by_box(errors)
+    boxes = sorted(grouped)
+    if len(boxes) < 2:
+        return []
+    trains = {b: sorted(r for other in boxes if other != b for r in grouped[other]) for b in boxes}
+    max_n = max(len(trains[b]) for b in boxes)
+    lookup = {((e.box, e.run), e.candidate): e.error for e in errors}
+    total_runs = sum(len(grouped[b]) for b in boxes)
+    pooled_default = (
+        sum(_abs_error(lookup, r, default) for b in boxes for r in grouped[b]) / total_runs
+    )
+    curve: list[tuple[int, float, float]] = []
+    for n in range(max_n + 1):
+        pooled = 0.0
+        for b in boxes:
+            fitted = fit(errors, trains[b][:n], default)
+            for r in grouped[b]:
+                pooled += _abs_error(lookup, r, fitted)
+        curve.append((n, pooled_default, pooled / total_runs))
+    return curve
