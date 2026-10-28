@@ -149,3 +149,89 @@ def rock_quality_class(rqd: float) -> str:
     if rqd < 90:
         return "good"
     return "excellent"
+
+
+# --- Drill hole: boxes joined by depth (point D) -----------------------------
+#
+# A hole is the approved boxes of one drill hole laid end to end by depth. Box
+# runs give their pieces in metres from the collar (``DepthPiece``). Recovered
+# core is laid from the top of each run, as ``log_interval`` assumes.
+
+DEPTH_TOL_M = 0.01  # gaps and overlaps up to 1 cm are rounding, not a problem
+
+
+@dataclass(frozen=True)
+class DepthPiece:
+    from_m: float
+    to_m: float
+    mechanical_break_after: bool = False
+    uncertain_break_after: bool = False
+
+    def __post_init__(self) -> None:
+        if not (math.isfinite(self.from_m) and math.isfinite(self.to_m)):
+            raise ValueError("piece depths must be finite numbers")
+        if self.to_m <= self.from_m:
+            raise ValueError(
+                f"piece to_m ({self.to_m}) must be greater than from_m ({self.from_m})"
+            )
+
+
+@dataclass(frozen=True)
+class BoxRun:
+    """One run, or the part of a run, as logged in one box."""
+
+    box: int
+    from_m: float
+    to_m: float
+    pieces: tuple[DepthPiece, ...]
+    complete: bool = True  # False: the run continues in the previous or next box
+
+
+@dataclass(frozen=True)
+class DepthIssue:
+    kind: str  # "gap" (no box covers it) or "overlap" (two boxes claim it)
+    from_m: float
+    to_m: float
+    box_before: int
+    box_after: int
+
+
+@dataclass(frozen=True)
+class WeakZone:
+    """Consecutive fixed intervals with RQD below the zone threshold."""
+
+    from_m: float
+    to_m: float
+    rqd_pct: float  # length weighted over the zone
+    min_rqd_pct: float
+    intervals: int
+
+
+@dataclass(frozen=True)
+class HoleLog:
+    boxes: tuple[tuple[int, float, float], ...]  # (box, from_m, to_m), by depth
+    issues: tuple[DepthIssue, ...]
+    runs: tuple[IntervalLog, ...]
+    intervals: tuple[IntervalLog, ...]
+    zones: tuple[WeakZone, ...]
+
+
+def pieces_at_depth(pieces: Iterable[Piece], from_m: float, to_m: float) -> list[DepthPiece]:
+    """Run pieces (cm from the run start) as depths in metres, cut at ``to_m``.
+
+    To be built with Muse Code.
+    """
+    raise NotImplementedError
+
+
+def log_hole(
+    runs: Iterable[BoxRun],
+    step_m: float = 1.0,
+    zone_max_rqd: float = 50.0,
+    zone_min_intervals: int = 2,
+) -> HoleLog:
+    """Join the runs of a hole's boxes by depth and log it by run and by fixed interval.
+
+    To be built with Muse Code.
+    """
+    raise NotImplementedError
