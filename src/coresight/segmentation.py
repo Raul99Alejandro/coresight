@@ -47,6 +47,7 @@ from coresight.geometry import Piece
 from coresight.meta_client import (
     DEFAULT_CACHE_DIR,
     MAX_SAM_OBJECTS,
+    SAM_MODEL_ID,
     MetaClient,
     SamObject,
     grid_box_to_pixels,
@@ -323,6 +324,8 @@ def row_masks(
     if cache_dir is not None:
         path = Path(cache_dir) / "sam_masks" / f"{sam_cache_key(png, prompt)}.npz"
         if path.exists():
+            if hasattr(client, "cache_hit"):  # the credit watch counts it (MetaClient)
+                client.cache_hit(SAM_MODEL_ID)
             with np.load(path) as data:
                 return [
                     {

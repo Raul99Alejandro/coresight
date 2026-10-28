@@ -413,7 +413,8 @@ class MetaClient:
         seconds = round(time.perf_counter() - t0, 2) if t0 else None
         self.usage.add(model, status=response.status_code, seconds=seconds, **tokens)
 
-    def _hit(self, model: str) -> None:
+    def cache_hit(self, model: str) -> None:
+        """An answer read from the cache instead of the API (also SAM's decoded masks)."""
         if self.usage is not None:
             self.usage.add(model, cached=True)
 
@@ -438,7 +439,7 @@ class MetaClient:
         if self.cache_dir is not None:
             path = Path(self.cache_dir) / "sam" / f"{sam_cache_key(image_png, prompt)}.txt"
             if path.exists():
-                self._hit(SAM_MODEL_ID)
+                self.cache_hit(SAM_MODEL_ID)
                 return path.read_text(encoding="utf-8")
         text = self._with_retries(lambda: self._sam_request(image_png, prompt))
         if path is not None:
@@ -524,7 +525,7 @@ class MetaClient:
 
         description = cached_description(self.cache_dir, self.model, prompt, image_png, fetch)
         if not fetched:
-            self._hit(MUSE_SPARK_MODEL_ID)
+            self.cache_hit(MUSE_SPARK_MODEL_ID)
         return description
 
     def check_tray(self, image_png: bytes) -> TrayCheck:
@@ -538,7 +539,7 @@ class MetaClient:
         ).hexdigest()
         path = self.cache_dir / "tray_check" / f"{name}.json" if self.cache_dir else None
         if path and path.exists():
-            self._hit(MUSE_SPARK_MODEL_ID)
+            self.cache_hit(MUSE_SPARK_MODEL_ID)
             return TrayCheck.model_validate_json(path.read_text(encoding="utf-8"))
         body = {
             "model": MUSE_SPARK_MODEL_ID,
@@ -586,7 +587,7 @@ class MetaClient:
         ).hexdigest()
         path = self.cache_dir / "locate" / f"{name}.json" if self.cache_dir else None
         if path and path.exists():
-            self._hit(MUSE_SPARK_MODEL_ID)
+            self.cache_hit(MUSE_SPARK_MODEL_ID)
             return RowLocation.model_validate_json(path.read_text(encoding="utf-8"))
         body = {
             "model": MUSE_SPARK_MODEL_ID,
@@ -632,7 +633,7 @@ class MetaClient:
         key = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
         path = self.cache_dir / "responses" / f"{key}.json" if self.cache_dir else None
         if path and path.exists():
-            self._hit(body.get("model", "unknown"))
+            self.cache_hit(body.get("model", "unknown"))
             return json.loads(path.read_text(encoding="utf-8"))
 
         def call() -> str:
