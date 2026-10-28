@@ -15,8 +15,9 @@ La imagen solo lleva fotos públicas (Onkalo, Commons, CC BY-SA 4.0; Nevada U12G
 1. DNS: registro A `coresight` -> IP del VPS en hPanel (analizac.com no tiene wildcard).
 2. En el VPS, Raúl crea `/etc/coresight.env` con `META_API_KEY=...` y `chmod 600`.
 3. `/opt/coresight/compose.yml` = `deploy/compose.yml`.
-4. Vigilancia de créditos (punto G): `/etc/coresight-ops.env` con `CORESIGHT_OPS_TOKEN=...` (modo 600). Sin ese archivo `/ops` y `/api/ops/usage` responden 404.
-5. nginx: `deploy/nginx-coresight.conf` en `sites-available`, enlace en `sites-enabled`, `nginx -t`, `systemctl reload nginx`, luego `certbot --nginx -d coresight.analizac.com`.
+4. Cookie del visitante (puntos 1 y 2 del tercer análisis): en `/etc/coresight.env` agregar `CORESIGHT_SESSION_SECRET=` con 64 caracteres al azar (`openssl rand -hex 32`). Firma la cookie `cs_visitor` que dice de quién es cada caja. Si falta, el servidor genera uno al arrancar y cada reinicio solo olvida de quién eran las cajas subidas.
+5. Vigilancia de créditos (punto G): `/etc/coresight-ops.env` con `CORESIGHT_OPS_TOKEN=...` (modo 600). Sin ese archivo `/ops` y `/api/ops/usage` responden 404.
+6. nginx: `deploy/nginx-coresight.conf` en `sites-available`, enlace en `sites-enabled`, `nginx -t`, `systemctl reload nginx`, luego `certbot --nginx -d coresight.analizac.com`.
 
 ## Cada versión (Bash en la PC)
 En PowerShell 5.1, `docker save | ssh` corrompe el tar ("invalid tar header"): se guarda a un archivo y se copia con `scp`.
@@ -37,4 +38,5 @@ curl https://coresight.analizac.com/api/health
 - Por visitante (la IP que ve nginx en `X-Real-IP`): 5 análisis en 10 minutos (`CORESIGHT_MAX_ANALYSES_PER_VISITOR`). Las muestras ya están en caché: tienen su propio tope de 200 por hora y no gastan el de las fotos subidas.
 - La compuerta lee el tamaño de la foto del encabezado antes de decodificarla: más de 8000 px por lado, más de 20 MB, GIF, PDF, TIFF, HEIC o un archivo dañado se rechazan con un mensaje claro (`tests/test_abuse.py`).
 - `https://coresight.analizac.com/ops` (solo nosotros, con el token): llamadas reales, respuestas de la caché, errores, 429 y tokens por modelo en la última hora, 24 h y desde el inicio, y lo que queda de cada tope. Lo escribe `meta_client.py` en `usage.jsonl` del volumen de caché, sin prompts ni imágenes.
+- Cada navegador ve solo sus cajas (cookie firmada `cs_visitor`, HttpOnly, SameSite=Lax, Secure detrás de https): la lista "Boxes", las imágenes y toda ruta de una caja ajena responden 404. La portada, el recorrido y el barreno público usan cajas fijadas (`pinned`), de solo lectura para todos (403 al corregir o aprobar); "Try a sample box" crea una copia del visitante. Al primer arranque sin cajas fijadas, el servidor fija las muestras que la portada ya mostraba (`pin_legacy_samples`). Para fijar otra: `curl -X POST -H "X-Ops-Token: ..." https://coresight.analizac.com/api/ops/pin/{id}` (`?pinned=false` la suelta). `/api/ops/usage` lista las fijadas.
 - Las cajas revisadas viven en el volumen `coresight-data`; la caché de SAM y Muse Spark en `coresight-cache`, así una muestra ya analizada no se vuelve a pagar.

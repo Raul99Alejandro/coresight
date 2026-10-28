@@ -7,7 +7,9 @@ Spark answer is in the cache volume and a sample opens in seconds without
 paying again; then the tour's refused screenshot. It reports, per sample, how
 many model calls were live and how many came from the cache: a second run must
 show 0 live calls. Last, it checks /api/showcase: the home page and the tour
-need a Nevada box 3, an approved box whose agents finished and its hole.
+need a Nevada box 3, an approved box whose agents finished and its hole, all
+pinned (read-only for every visitor). The sample boxes this script opens are its
+own copies (one cookie for the whole run): nobody else sees them.
 The agents are never started here (approving is the geologist's step).
 """
 
@@ -47,9 +49,13 @@ def main(base: str) -> int:
     show = http.get("/api/showcase").raise_for_status().json()
     print(f"showcase           {show}")
     missing = [k for k, v in show.items() if not v]
+    for key in ("box", "agents_box"):
+        if show.get(key) and not http.get(f"/api/boxes/{show[key]}").json().get("pinned"):
+            missing.append(f"{key} pinned")
     if missing:
         print(f"Missing for the home page and the tour: {', '.join(missing)}. Approve a"
-              " Nevada box 3 (after box 1) in the app, as a geologist would, then rerun.")
+              " Nevada box 3 (after box 1) in the app, as a geologist would, pin it with"
+              " POST /api/ops/pin/{id} and the ops token, then rerun.")
     return 0 if ok and not missing else 1
 
 

@@ -147,6 +147,10 @@ a{color:inherit;text-decoration:none}
 .banner b{font-weight:600}
 .banner p{margin:2px 0 0;color:var(--ink-2)}
 .banner .btn{margin-left:auto}
+/* a pinned sample (points 1 and 2): the same for every visitor, so nobody changes it */
+.ro-note{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--ink);margin-bottom:24px;font-size:14.5px}
+.ro-note b{font-weight:600}
+.ro-note span{flex:1;min-width:220px;color:var(--ink-2)}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 
 /* empty and working states */
@@ -818,6 +822,7 @@ function draftHTML(d) {
   const foot = d.status === "approved"
     ? `<span class="sent">${glyph("human", 16, "human")}Approved ${hhmm(d.approved_at)}${d.approved_over_checks ? " although it failed verification" : ""}. Not sent: it goes out through the mine's own process.</span>`
     : d.status === "rejected" ? `<span class="muted">Failed the checks twice. It cannot be approved; retry the agents or write it by hand.</span>`
+    : S.box && S.box.pinned ? `<span class="muted">Read-only sample. Approve drafts in your own copy; nothing is sent automatically.</span>`
     : d.status === "needs_review" ? `<button class="btn" data-override="${d.area}">Approve anyway</button><span class="muted">Read why it failed first. Nothing is sent automatically.</span>`
     : `<button class="btn primary" data-approve="${d.area}" ${d.verified ? "" : "disabled"}>Approve draft</button><span class="muted">Nothing is sent automatically.</span>`;
   const review = d.status === "needs_review" || (d.status === "approved" && d.approved_over_checks) ? `<div class="review"><b>Needs review.</b> ${esc(d.escalation || "")}</div>` : "";
@@ -1121,7 +1126,7 @@ function renderBar() {
   $("pill").hidden = !b;
   if (b) { $("pill").className = `pill ${b.status}`; $("pill").innerHTML = (b.status === "processing" ? glyph("sam", 16, "model work") : "") + STATUS[b.status]; }
   const hasLog = b && (b.status === "ready" || b.status === "approved");
-  $("export").hidden = !hasLog; $("approve").hidden = !(b && b.status === "ready");
+  $("export").hidden = !hasLog; $("approve").hidden = !(b && b.status === "ready" && !b.pinned);
 }
 
 function render() {
@@ -1319,12 +1324,19 @@ function creditNote(b) {
   return `${b.source.replace(/\.?$/, ".")}${share}`;
 }
 
+function sampleOf(b) { return S.samples.find((s) => b.source.startsWith(s.title)); }
+function readOnlyNote(b) {
+  if (!b.pinned) return "";
+  const s = sampleOf(b);
+  return `<div class="ro-note"><b>Read-only sample.</b><span>Every visitor sees this box as it is, so nobody can correct or approve it. Open your own copy to do both: only you will see it.</span>${s ? `<button class="btn sm" data-sample="${esc(s.name)}">Open my own copy</button>` : ""}</div>`;
+}
+
 function renderBox() {
   const b = S.box, T = b.tray, sm = summary(b);
-  $("page").innerHTML = `${S.error ? banner(S.error) : ""}
+  $("page").innerHTML = `${S.error ? banner(S.error) : ""}${readOnlyNote(b)}
     <section class="hero"><div class="grow"><h1>${esc(b.hole_id)}, box ${esc(b.box_number)}</h1><p>${esc(sm.text)}</p></div>
       ${S.holes.some((x) => x.hole_id === b.hole_id) ? `<a class="btn" href="#/hole/${encodeURIComponent(b.hole_id)}">See the whole hole</a>` : ""}
-      ${sm.toCheck && b.status === "ready" ? `<button class="check" id="to-check"><b>${sm.toCheck}</b>breaks to check</button>` : ""}</section>
+      ${sm.toCheck && b.status === "ready" && !b.pinned ? `<button class="check" id="to-check"><b>${sm.toCheck}</b>breaks to check</button>` : ""}</section>
     ${b.status === "approved" ? `<div id="agents">${agentsHTML(b)}</div>` : ""}
     <section class="card tray-card">
       <div class="tray view-${S.view}" id="tray"><img alt="Core tray of ${esc(b.hole_id)} box ${esc(b.box_number)}, straightened" src="/api/boxes/${b.id}/tray.jpg">${maskImgs(b)}<svg id="ov" viewBox="0 0 ${T.width} ${T.height}" preserveAspectRatio="none"></svg></div>

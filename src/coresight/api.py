@@ -27,6 +27,16 @@ GET /api/holes/{hole_id} joins the approved boxes of one drill hole by depth
 - CORESIGHT_OPS_TOKEN: opens GET /api/ops/usage and the /ops page (the credit
   watch: calls, cache hits, tokens and 429s per model, what is left of each cap).
   Unset, both answer 404.
+- CORESIGHT_SESSION_SECRET: signs the visitor cookie. Unset, a random one is made
+  at start, so a restart only forgets who owned which box.
+
+Every box belongs to the browser that made it (a signed, HttpOnly cookie): an
+upload, a sample copy from "Try a sample box", the tour's refused screenshot.
+Only that browser lists it, opens it or its images, corrects or approves it;
+anybody else gets 404, so a stranger cannot even tell it exists. The home page,
+the tour and the public hole use pinned boxes: read-only samples nobody can
+change (403), picked once from the samples approved before visitors had owners
+(pin_legacy_samples) or by us with POST /api/ops/pin/{id}.
 - META_API_KEY in .env, read by meta_client.
 
 The samples are public photos only (Onkalo, CC BY-SA 4.0, and Nevada Test Site,
@@ -38,9 +48,11 @@ from __future__ import annotations
 
 import base64
 import csv
+import hashlib
 import hmac
 import io
 import os
+import secrets
 import threading
 import time
 import uuid
@@ -152,6 +164,57 @@ SAMPLES = {
 
 SHOWCASE = "nevada-u12g-box3"  # the dramatic sample: poor rock, wax, cards (home and tour)
 NOT_A_BOX = ROOT / "data" / "demo" / "not_a_core_box.jpg"  # ours: the icon sheet of the page
+VISITOR_COOKIE = "cs_visitor"
+VISITOR_DAYS = 30
+NO_BOX = "This box does not exist (or was removed)."
+READ_ONLY = ("This sample is read-only: everybody sees it. Use Try a sample box for your own"
+             " copy to correct and approve.")  # fmt: skip
+
+
+def sign_visitor(secret: bytes, visitor: str) -> str:
+    return f"{visitor}.{hmac.new(secret, visitor.encode(), hashlib.sha256).hexdigest()[:32]}"
+
+
+def read_visitor(secret: bytes, cookie: str | None) -> str | None:
+    """The visitor id in a cookie we signed, or None (missing, forged, or an old secret)."""
+    visitor = (cookie or "").partition(".")[0]
+    if not visitor.isalnum() or not hmac.compare_digest(sign_visitor(secret, visitor), cookie):
+        return None
+    return visitor
+
+
+def pin_legacy_samples(store: ReviewStore) -> list[str]:
+    """Pin, once, what the home page, the tour and the holes showed before boxes had owners.
+
+    Only sample boxes nobody owns: the newest showcase box with pieces, the newest
+    approved one whose agents finished (one with a hole finding first) and, per hole,
+    the approved box of each number that the hole log used. Uploads are never pinned.
+    """
+    boxes = store.all()
+    if any(b.pinned for b in boxes):
+        return []
+    samples = [b for b in boxes
+               if b.owner is None and b.source != "upload" and b.status != "failed"]  # fmt: skip
+    title = SAMPLES[SHOWCASE].title
+    chosen = {}
+    shown = [b for b in samples if b.source.startswith(title) and b.runs]
+    if shown:
+        chosen[shown[0].id] = shown[0]
+    finished = [b for b in samples if b.status == "approved" and b.handoffs
+                and b.handoffs.status == "done"]  # fmt: skip
+    finished.sort(key=lambda b: bool(b.handoffs.hole and b.handoffs.hole.finding), reverse=True)
+    agents_box = finished[0] if finished else None
+    for hole_id in sorted({b.hole_id for b in samples}):
+        for b in hole.logged_boxes(samples, hole_id):
+            if not (agents_box and b.hole_id == agents_box.hole_id
+                    and b.box_number == agents_box.box_number):  # fmt: skip
+                chosen[b.id] = b
+    if agents_box:
+        chosen[agents_box.id] = agents_box
+    for b in chosen.values():
+        b.pinned = True
+        store.save(b)
+    return list(chosen)
 
 
 class Job(BaseModel):
@@ -400,6 +463,7 @@ def create_app(
     visitors = VisitorLimit(int(os.getenv("CORESIGHT_MAX_ANALYSES_PER_VISITOR", "5")))
     pool = ThreadPoolExecutor(max_workers=2)
     edit_lock = threading.Lock()
+    secret = (os.getenv("CORESIGHT_SESSION_SECRET") or secrets.token_hex(32)).encode()
 
     for box in store.all():  # a restart interrupts any analysis in flight
         if box.status == "processing":
@@ -409,8 +473,31 @@ def create_app(
             box.handoffs.status = "failed"
             box.handoffs.error = "The server restarted while the agents worked. Retry."
             store.save(box)
+    pin_legacy_samples(store)
 
     app = FastAPI(title="CoreSight review API", version="0.1.0")
+
+    @app.middleware("http")
+    async def visitor_cookie(request: Request, call_next):
+        """Who owns the boxes: a random id per browser, signed so it cannot be made up."""
+        visitor = read_visitor(secret, request.cookies.get(VISITOR_COOKIE))
+        fresh = visitor is None
+        request.state.visitor = visitor or uuid.uuid4().hex
+        response = await call_next(request)
+        if fresh:
+            https = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+            response.set_cookie(
+                VISITOR_COOKIE, sign_visitor(secret, request.state.visitor),
+                max_age=VISITOR_DAYS * 86400, httponly=True, samesite="lax", secure=https,
+            )  # fmt: skip
+        return response
+
+    def visible(box: BoxReview, visitor: str) -> bool:
+        return box.pinned or (box.owner is not None and box.owner == visitor)
+
+    def seen_by(visitor: str) -> list[BoxReview]:
+        """The boxes one visitor may see: the pinned samples and their own."""
+        return [b for b in store.all() if visible(b, visitor)]
 
     @app.exception_handler(ReviewError)
     async def review_error(_: Request, exc: ReviewError) -> JSONResponse:
@@ -436,9 +523,15 @@ def create_app(
         store.save(box)
 
     def start(
-        photo: bytes, job: Job, hole_id: str, box_number: int, source: str, visitor: str | None
+        photo: bytes,
+        job: Job,
+        hole_id: str,
+        box_number: int,
+        source: str,
+        visitor: str | None,
+        owner: str,
     ) -> BoxReview:
-        """``visitor`` None: a sample (cached answers, its own larger cap)."""
+        """``visitor`` None: a sample (cached answers, its own cap). ``owner``: the cookie's id."""
         review.decode_photo(photo)  # a bad photo fails now, not in the background
         if visitor is None:
             sample_runs.take("sample analyses")
@@ -452,6 +545,7 @@ def create_app(
             source=source,
             status="processing",
             created_at=datetime.now(UTC),
+            owner=owner,
         )
         store.save(box)
         if background:
@@ -461,15 +555,29 @@ def create_app(
             box = store.get(box.id)
         return box
 
-    def get_box(box_id: str) -> BoxReview:
+    def get_box(box_id: str, request: Request | None = None) -> BoxReview:
+        """``request``: the box must be pinned or the visitor's own; 404 otherwise, never 403."""
         try:
-            return store.get(box_id)
+            box = store.get(box_id)
         except KeyError:
-            raise HTTPException(404, "This box does not exist (or was removed).") from None
+            raise HTTPException(404, NO_BOX) from None
+        if request is not None and not visible(box, request.state.visitor):
+            raise HTTPException(404, NO_BOX)
+        return box
 
-    def edit(box_id: str, change: Callable[[BoxReview], object]) -> BoxReview:
+    def own_box(box_id: str, request: Request) -> BoxReview:
+        """A box the visitor may change: their own, never a pinned sample."""
+        box = get_box(box_id, request)
+        if box.pinned:
+            raise HTTPException(403, READ_ONLY)
+        return box
+
+    def edit(
+        box_id: str, change: Callable[[BoxReview], object], request: Request | None = None
+    ) -> BoxReview:
+        """``request`` None: the server's own jobs (analysis, agents), no owner to check."""
         with edit_lock:
-            box = get_box(box_id)
+            box = own_box(box_id, request) if request is not None else get_box(box_id)
             change(box)
             store.save(box)
             return box
@@ -493,7 +601,30 @@ def create_app(
             "limits": {k: {"per_hour": v.limit, "left": v.left()} for k, v in caps.items()},
             "boxes": dict(Counter(b.status for b in boxes)),
             "uploads": sum(b.source == "upload" for b in boxes),
+            "pinned": [b.id for b in boxes if b.pinned],
         }
+
+    @app.post("/api/ops/pin/{box_id}")
+    def ops_pin(
+        box_id: str, pinned: bool = True, x_ops_token: Annotated[str | None, Header()] = None
+    ) -> dict:
+        """Pin a sample box for everybody (home, tour, public hole), or unpin it: us only."""
+        token = os.getenv("CORESIGHT_OPS_TOKEN")
+        if not token:
+            raise HTTPException(404, "Not Found")
+        if not x_ops_token or not hmac.compare_digest(x_ops_token.encode(), token.encode()):
+            raise HTTPException(403, "Wrong token.")
+        box = get_box(box_id)
+        if box.source == "upload":
+            raise HTTPException(400, "An upload is never pinned: it is a visitor's photo.")
+
+        def change(b: BoxReview) -> None:
+            b.pinned = pinned
+            if pinned:
+                b.owner = None  # nobody's: read-only for everybody
+
+        edit(box.id, change)
+        return {"id": box.id, "pinned": pinned}
 
     @app.get("/ops")
     def ops_page() -> FileResponse:
@@ -503,12 +634,14 @@ def create_app(
     def showcase() -> dict:
         """What the home page and the 60-second tour show: real boxes, never made up.
 
-        box: the newest box of the showcase sample with pieces (any status but failed);
-        agents_box: the newest approved sample box whose agents finished, one with a hole
+        Only pinned boxes, the same for every visitor whatever they approve:
+        box: the newest pinned box of the showcase sample with pieces (any status but failed);
+        agents_box: the newest pinned approved box whose agents finished, one with a hole
         finding first; hole_id: its hole. Uploads are never shown to other visitors.
         """
         title = SAMPLES[SHOWCASE].title
-        samples = [b for b in store.all() if b.source != "upload" and b.status != "failed"]
+        samples = [b for b in store.all()
+                   if b.pinned and b.source != "upload" and b.status != "failed"]  # fmt: skip
         mine = [b for b in samples if b.source.startswith(title) and b.runs]
         finished = [b for b in samples if b.status == "approved" and b.handoffs
                     and b.handoffs.status == "done"]  # fmt: skip
@@ -521,12 +654,13 @@ def create_app(
         }
 
     @app.post("/api/tour/not-a-box", status_code=202)
-    def tour_not_a_box() -> BoxReview:
+    def tour_not_a_box(request: Request) -> BoxReview:
         """The tour's first step: CoreSight refuses a screenshot, live (calibration, no model)."""
         job = Job(box_length_cm=100, runs=[Interval(from_m=1, to_m=2)], first_starts_in_box=True,
                   tray_index=0)  # fmt: skip
         source = "Tour: a screenshot of CoreSight's own icon sheet, not a core box"
-        return start(NOT_A_BOX.read_bytes(), job, "NOT-A-CORE-BOX", 1, source, None)
+        visitor = request.state.visitor
+        return start(NOT_A_BOX.read_bytes(), job, "NOT-A-CORE-BOX", 1, source, None, visitor)
 
     @app.get("/api/health")
     def health() -> dict:
@@ -541,7 +675,8 @@ def create_app(
         ]
 
     @app.post("/api/samples/{name}", status_code=202)
-    def analyze_sample(name: str) -> BoxReview:
+    def analyze_sample(name: str, request: Request) -> BoxReview:
+        """The visitor's own copy of a sample, from the cache: theirs to correct and approve."""
         s = SAMPLES.get(name)
         if s is None or not (ROOT / s.photo).exists():
             raise HTTPException(404, "Unknown sample.")
@@ -556,7 +691,8 @@ def create_app(
             context={"hole_id": label.hole_id, "box": label.box_number},
         )
         photo = (ROOT / s.photo).read_bytes()
-        return start(photo, job, label.hole_id, label.box_number, f"{s.title}. {s.credit}", None)
+        source, visitor = f"{s.title}. {s.credit}", request.state.visitor
+        return start(photo, job, label.hole_id, label.box_number, source, None, visitor)
 
     @app.post("/api/boxes", status_code=202)
     async def analyze_upload(
@@ -581,79 +717,85 @@ def create_app(
             n_rows=n_rows,
             context={"hole_id": hole_id, "box": box_number},
         )
-        examples = review.fewshot_examples(store.all(), hole_id)  # point F: few-shot, no training
+        # point F: few-shot, no training; only boxes this visitor may see
+        examples = review.fewshot_examples(seen_by(request.state.visitor), hole_id)
         if examples:
             job.context[EXAMPLES_KEY] = examples
         # nginx sets X-Real-IP to the address it saw (X-Forwarded-For can be forged)
         visitor = request.headers.get("x-real-ip") or (request.client and request.client.host)
         visitor = visitor or "unknown"
-        return start(data, job, hole_id, box_number, "upload", visitor)
+        return start(data, job, hole_id, box_number, "upload", visitor, request.state.visitor)
 
     @app.get("/api/boxes")
-    def list_boxes() -> list[dict]:
+    def list_boxes(request: Request) -> list[dict]:
+        """The visitor's own boxes, never anybody else's (the samples are on the home page)."""
         return [
             {"id": b.id, "hole_id": b.hole_id, "box_number": b.box_number, "status": b.status}
             for b in store.all()
+            if b.owner is not None and b.owner == request.state.visitor and not b.pinned
         ]
 
     @app.get("/api/holes")
-    def list_holes() -> list[dict]:
-        """Holes with at least one approved box."""
-        return hole.hole_summaries(store.all())
+    def list_holes(request: Request) -> list[dict]:
+        """Holes with at least one approved box: pinned ones and the visitor's own."""
+        return hole.hole_summaries(seen_by(request.state.visitor))
 
     @app.get("/api/holes/{hole_id}")
-    def read_hole(hole_id: str) -> HoleView:
-        """The approved boxes of one hole joined by depth (geometry.log_hole)."""
-        view = hole.hole_view(store.all(), hole_id)
+    def read_hole(hole_id: str, request: Request) -> HoleView:
+        """The approved boxes of one hole joined by depth (geometry.log_hole).
+
+        The pinned boxes for everybody; a visitor's own approvals only for them.
+        """
+        view = hole.hole_view(seen_by(request.state.visitor), hole_id)
         if not view.boxes:
             raise HTTPException(404, "No box of this hole.")
         return view
 
     @app.get("/api/boxes/{box_id}")
-    def read_box(box_id: str) -> BoxReview:
-        return get_box(box_id)
+    def read_box(box_id: str, request: Request) -> BoxReview:
+        return get_box(box_id, request)
 
     @app.get("/api/boxes/{box_id}/tray.jpg")
-    def tray_image(box_id: str) -> FileResponse:
-        get_box(box_id)
+    def tray_image(box_id: str, request: Request) -> FileResponse:
+        get_box(box_id, request)
         path = store.tray_path(box_id)
         if not path.exists():
             raise HTTPException(404, "The tray image is not ready.")
         return FileResponse(path, media_type="image/jpeg")
 
-    def box_file(box_id: str, name: str, media_type: str) -> FileResponse:
-        get_box(box_id)
+    def box_file(box_id: str, name: str, media_type: str, request: Request) -> FileResponse:
+        get_box(box_id, request)
         path = store.file_path(box_id, name)
         if not path.exists():
             raise HTTPException(404, "This image is not ready.")
         return FileResponse(path, media_type=media_type)
 
     @app.get("/api/boxes/{box_id}/masks/{row}.png")
-    def mask_image(box_id: str, row: int) -> FileResponse:
+    def mask_image(box_id: str, row: int, request: Request) -> FileResponse:
         """What SAM 3.1 returned for one row of the tray, drawn as coloured masks."""
-        return box_file(box_id, f"masks{row}.png", "image/png")
+        return box_file(box_id, f"masks{row}.png", "image/png", request)
 
     @app.get("/api/boxes/{box_id}/runs/{i}/crop.jpg")
-    def run_image(box_id: str, i: int) -> FileResponse:
+    def run_image(box_id: str, i: int, request: Request) -> FileResponse:
         """The picture of one run that the describe model saw."""
-        return box_file(box_id, f"run{i}.jpg", "image/jpeg")
+        return box_file(box_id, f"run{i}.jpg", "image/jpeg", request)
 
     @app.post("/api/boxes/{box_id}/runs/{i}/breaks/{j}")
-    def change_break(box_id: str, i: int, j: int, body: BreakIn) -> BoxReview:
-        return edit(box_id, lambda b: review.set_break(b, i, j, body.kind))
+    def change_break(box_id: str, i: int, j: int, body: BreakIn, request: Request) -> BoxReview:
+        return edit(box_id, lambda b: review.set_break(b, i, j, body.kind), request)
 
     @app.delete("/api/boxes/{box_id}/runs/{i}/pieces/{j}")
-    def delete_piece(box_id: str, i: int, j: int) -> BoxReview:
-        return edit(box_id, lambda b: review.remove_piece(b, i, j))
+    def delete_piece(box_id: str, i: int, j: int, request: Request) -> BoxReview:
+        return edit(box_id, lambda b: review.remove_piece(b, i, j), request)
 
     @app.post("/api/boxes/{box_id}/runs/{i}/pieces/{j}/split")
-    def split_piece(box_id: str, i: int, j: int, body: SplitIn) -> BoxReview:
-        return edit(box_id, lambda b: review.split_piece(b, i, j, body.at_cm, body.kind))
+    def split_piece(box_id: str, i: int, j: int, body: SplitIn, request: Request) -> BoxReview:
+        return edit(box_id, lambda b: review.split_piece(b, i, j, body.at_cm, body.kind), request)
 
     @app.post("/api/boxes/{box_id}/runs/{i}/sam-point")
-    def sam_point(box_id: str, i: int, body: SamPointIn) -> SamPointOut:
+    def sam_point(box_id: str, i: int, body: SamPointIn, request: Request) -> SamPointOut:
         """SAM 3.1 cuts the piece under the geologist's points; geometry.py recomputes."""
-        box = get_box(box_id)
+        box = own_box(box_id, request)
         review.sam_piece_ready(box, i)
         image = cv2.imread(str(store.tray_path(box_id)))
         if image is None or box.tray is None:
@@ -665,6 +807,7 @@ def create_app(
         box = edit(
             box_id,
             lambda b: changed.append(review.sam_piece(b, i, cut, len(points), body.refine)[1]),
+            request,
         )
         return SamPointOut(
             box=box,
@@ -678,19 +821,23 @@ def create_app(
         )
 
     @app.put("/api/boxes/{box_id}/runs/{i}/description")
-    def change_description(box_id: str, i: int, body: DescriptionIn) -> BoxReview:
+    def change_description(
+        box_id: str, i: int, body: DescriptionIn, request: Request
+    ) -> BoxReview:
         return edit(
             box_id,
             lambda b: review.set_description(
                 b, i, body.field, body.value, body.source, body.transcript
             ),
+            request,
         )
 
     def run_handoffs(box_id: str) -> None:
         box = store.get(box_id)
         history = [
             b for b in store.all()
-            if b.status == "approved" and b.hole_id == box.hole_id and b.box_number < box.box_number
+            if (b.pinned or b.owner == box.owner) and b.status == "approved"
+            and b.hole_id == box.hole_id and b.box_number < box.box_number
         ]  # fmt: skip
 
         def save(handoffs: Handoffs) -> None:
@@ -710,9 +857,9 @@ def create_app(
 
             edit(box_id, fail)
 
-    def start_handoffs(box_id: str) -> BoxReview:
+    def start_handoffs(box_id: str, request: Request) -> BoxReview:
         handoff_runs.take("agent runs")
-        box = edit(box_id, lambda b: setattr(b, "handoffs", Handoffs()))
+        box = edit(box_id, lambda b: setattr(b, "handoffs", Handoffs()), request)
         if background:
             pool.submit(run_handoffs, box_id)
             return box
@@ -720,23 +867,24 @@ def create_app(
         return get_box(box_id)
 
     @app.post("/api/boxes/{box_id}/approve")
-    def approve(box_id: str) -> BoxReview:
-        edit(box_id, review.approve)
-        return start_handoffs(box_id)
+    def approve(box_id: str, request: Request) -> BoxReview:
+        edit(box_id, review.approve, request)
+        return start_handoffs(box_id, request)
 
     @app.post("/api/boxes/{box_id}/handoffs", status_code=202)
-    def retry_handoffs(box_id: str) -> BoxReview:
-        box = get_box(box_id)
+    def retry_handoffs(box_id: str, request: Request) -> BoxReview:
+        box = own_box(box_id, request)
         if box.status != "approved":
             raise HTTPException(400, "Approve the box first: the agents only see approved logs.")
         if box.handoffs and box.handoffs.status == "working":
             raise HTTPException(409, "The agents are still working on this box.")
-        return start_handoffs(box_id)
+        return start_handoffs(box_id, request)
 
     @app.post("/api/boxes/{box_id}/drafts/{area}/approve")
     def approve_draft(
         box_id: str,
         area: Literal["lab", "safety", "plant", "finance"],
+        request: Request,
         body: DraftApproval | None = None,
     ) -> BoxReview:
         override = bool(body and body.override)
@@ -747,7 +895,7 @@ def create_app(
             except ValueError as exc:
                 raise ReviewError(str(exc)) from None
 
-        return edit(box_id, change)
+        return edit(box_id, change, request)
 
     def csv_response(text: str, name: str) -> PlainTextResponse:
         return PlainTextResponse(
@@ -757,16 +905,16 @@ def create_app(
         )
 
     @app.get("/api/boxes/{box_id}/log.csv")
-    def log_csv(box_id: str) -> PlainTextResponse:
-        box = get_box(box_id)
+    def log_csv(box_id: str, request: Request) -> PlainTextResponse:
+        box = get_box(box_id, request)
         if box.status not in ("ready", "approved"):
             raise HTTPException(409, "The box has no log yet.")
         return csv_response(export_csv(box), f"{box.hole_id}_box{box.box_number:02d}.csv")
 
     @app.get("/api/boxes/{box_id}/corrections.csv")
-    def corrections_csv(box_id: str) -> PlainTextResponse:
+    def corrections_csv(box_id: str, request: Request) -> PlainTextResponse:
         """Every correction next to the value it replaced, for the evaluation."""
-        box = get_box(box_id)
+        box = get_box(box_id, request)
         out = io.StringIO()
         w = csv.writer(out, lineterminator="\n")
         w.writerow(["hole_id", "box", "from_m", "to_m", "at", "target", "original",
@@ -782,7 +930,9 @@ def create_app(
 
     @app.post("/api/transcribe")
     async def transcribe(
-        audio: Annotated[UploadFile, File()], box_id: Annotated[str | None, Form()] = None
+        request: Request,
+        audio: Annotated[UploadFile, File()],
+        box_id: Annotated[str | None, Form()] = None,
     ) -> dict:
         wav = await audio.read(MAX_AUDIO_MB * 2**20 + 1)
         if len(wav) > MAX_AUDIO_MB * 2**20:
@@ -808,7 +958,7 @@ def create_app(
                 )  # fmt: skip
 
             try:
-                edit(box_id, count)
+                edit(box_id, count, request)
             except HTTPException:
                 pass
         return {"transcript": text, "duration_ms": ms}

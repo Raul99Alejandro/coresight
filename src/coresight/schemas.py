@@ -497,6 +497,8 @@ class BoxReview(_Strict):
     voice: VoiceUsage = Field(default_factory=VoiceUsage)
     handoffs: Handoffs | None = None  # area agents, after approval (day 8)
     gate: GateResult | None = None  # the input gate's last verdict (day 10)
+    owner: str | None = None  # the browser that made it (api.VISITOR_COOKIE); None: nobody's
+    pinned: bool = False  # a read-only sample everybody sees (home, tour, public hole)
 
 # --- Drill hole view (point D) ------------------------------------------------
 
