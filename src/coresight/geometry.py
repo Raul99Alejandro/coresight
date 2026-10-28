@@ -174,6 +174,8 @@ class DepthPiece:
             raise ValueError(
                 f"piece to_m ({self.to_m}) must be greater than from_m ({self.from_m})"
             )
+        if self.mechanical_break_after and self.uncertain_break_after:
+            raise ValueError("a break cannot be both mechanical and uncertain")
 
 
 @dataclass(frozen=True)

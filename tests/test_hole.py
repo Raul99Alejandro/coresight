@@ -17,8 +17,12 @@ A hole is the approved boxes of one drill hole laid end to end by depth.
     inside another is an overlap, never a gap.
   - In an overlap the earlier box wins: the later box's runs and pieces are cut to start
     where the earlier coverage ends, and a run left empty is dropped. It never raises.
-  - Runs of the same box must not overlap (more than ``DEPTH_TOL_M``): ``ValueError``
-    that names the box. The same run given twice is such an overlap.
+  - Runs of the same box must not overlap by more than ``DEPTH_TOL_M``: ``ValueError``
+    that names the box. The same run given twice is such an overlap. An overlap of up to
+    ``DEPTH_TOL_M`` (rounding) is cut like one between boxes: the earlier run wins.
+  - A gap between runs of the same box is a ``gap`` issue too (``box_before`` and
+    ``box_after`` are that box). The depth the boxes cover is the union of their runs,
+    so a gap inside a box has no interval either.
   - ``runs``: one ``IntervalLog`` per run, by depth. Parts of one run split between two
     boxes (``complete=False`` on both, different boxes, contiguous within
     ``DEPTH_TOL_M``) are joined into one run from the first part's ``from_m`` to the
@@ -32,10 +36,13 @@ A hole is the approved boxes of one drill hole laid end to end by depth.
     - RQD: the intact pieces of each run (after mechanical breaks are rejoined, never
       across a run end) are cut at the interval bounds; parts of 10 cm or more count. A
       piece that crosses an interval boundary is cut there; the cut is not a fracture.
+      The part of an intact piece in an interval is the core of its pieces in it: lost
+      core between two rejoined pieces is never core, as in ``log_interval``.
     - TCR: recovered core inside the interval / interval length.
     - Fractures: every natural or uncertain break that its run log counts is counted in
-      exactly one interval, the one that contains its depth; a break exactly on an
-      interval boundary goes to the interval above. A run end is never a fracture. So
+      exactly one interval, the one that contains its depth; a break on an interval
+      boundary (within floating point error, as with ``3 * 0.3``) goes to the interval
+      above. A run end is never a fracture. So
       over intervals that cover the runs, fractures and uncertain breaks add up to the
       runs' totals. Fracture frequency = fractures / interval length.
     - RQD and TCR come from ``log_interval`` on the cut intact pieces; the fracture counts
@@ -90,6 +97,11 @@ def two_onkalo_boxes():
 
 
 # --- pieces_at_depth ---------------------------------------------------------
+
+
+def test_depth_piece_cannot_be_mechanical_and_uncertain():
+    with pytest.raises(ValueError):
+        DepthPiece(0.0, 1.0, mechanical_break_after=True, uncertain_break_after=True)
 
 
 def test_pieces_at_depth_converts_cm_to_metres_and_keeps_flags():
@@ -160,6 +172,21 @@ def test_one_tolerance_rule_for_gaps_joins_and_zones():
     assert [i.kind for i in hole.issues] == ["gap"]
     assert len(hole.runs) == 4  # not joined across the gap
     assert spans(hole.zones) == near([(0.0, 2.0), (2.0 + gap, 4.0)])
+
+
+def test_runs_of_one_box_that_overlap_by_rounding_are_cut():
+    hole = log_hole([run(1, 0.0, 1.0, [100]), run(1, 0.995, 1.995, [100])])
+    assert spans(hole.runs) == near([(0.0, 1.0), (1.0, 1.995)])
+    assert sum(r.recovered_cm for r in hole.runs) == pytest.approx(199.5)
+    assert sum(i.recovered_cm for i in hole.intervals) == pytest.approx(199.5)
+    assert hole.issues == ()
+
+
+def test_gap_between_runs_of_one_box_has_no_interval():
+    hole = log_hole([run(1, 0.0, 1.0, [100]), run(1, 2.0, 3.0, [100])])
+    assert hole.issues == (DepthIssue("gap", 1.0, 2.0, 1, 1),)
+    assert spans(hole.intervals) == near([(0.0, 1.0), (2.0, 3.0)])
+    assert hole.zones == ()
 
 
 def test_runs_of_one_box_that_overlap_raise():
@@ -308,6 +335,20 @@ def test_mechanical_break_on_a_boundary_is_not_a_fracture():
     hole = log_hole([BoxRun(1, 0.0, 2.0, pieces)])
     assert [i.natural_fractures for i in hole.intervals] == [0, 0]
     assert [i.rqd_pct for i in hole.intervals] == pytest.approx([100.0, 100.0])
+
+
+def test_break_on_a_floating_point_boundary_goes_to_the_interval_above():
+    # 3 * 0.3 is 0.8999999999999999 in floating point; the break is at 0.9 m
+    hole = log_hole([run(1, 0.0, 1.2, [90, 30])], step_m=0.3)
+    assert [i.natural_fractures for i in hole.intervals] == [0, 0, 1, 0]
+
+
+def test_lost_core_between_rejoined_pieces_is_not_core():
+    pieces = (DepthPiece(0.0, 0.5, mechanical_break_after=True), DepthPiece(0.6, 1.0))
+    hole = log_hole([BoxRun(1, 0.0, 1.0, pieces)])
+    (r,), (i,) = hole.runs, hole.intervals
+    assert (r.rqd_pct, r.tcr_pct) == pytest.approx((90.0, 90.0))
+    assert (i.rqd_pct, i.tcr_pct, i.recovered_cm) == pytest.approx((90.0, 90.0, 90.0))
 
 
 def test_run_end_inside_an_interval_is_not_a_fracture():
