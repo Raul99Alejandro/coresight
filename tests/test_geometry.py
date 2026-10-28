@@ -103,3 +103,15 @@ def test_deere_classes(rqd, expected):
 def test_invalid_rqd_raises(rqd):
     with pytest.raises(ValueError):
         rock_quality_class(rqd)
+
+
+def test_combined_rqd_weights_each_run_by_its_length():
+    from coresight.geometry import combined_rqd
+
+    # 1.5 m at 20 % and 0.5 m at 100 %: 0.3 + 0.5 m intact of 2 m
+    assert combined_rqd([(0.0, 1.5, 20.0), (1.5, 2.0, 100.0)]) == pytest.approx(40.0)
+    assert combined_rqd([(5.0, 6.0, 33.3)]) == pytest.approx(33.3)
+    with pytest.raises(ValueError):
+        combined_rqd([])
+    with pytest.raises(ValueError):
+        combined_rqd([(2.0, 1.0, 50.0)])

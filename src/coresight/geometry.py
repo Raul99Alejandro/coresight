@@ -151,6 +151,21 @@ def rock_quality_class(rqd: float) -> str:
     return "excellent"
 
 
+def combined_rqd(runs: Iterable[tuple[float, float, float]]) -> float:
+    """RQD of several runs taken together, from ``(from_m, to_m, rqd_pct)`` of each.
+
+    Each run's intact length >= 10 cm is its RQD times its length, so the runs
+    together have the summed intact length over the summed length (Deere).
+    """
+    runs = list(runs)
+    length = sum(to - fr for fr, to, _ in runs)
+    if not runs or length <= _EPS:
+        raise ValueError("combined_rqd needs at least one run with length")
+    if any(to - fr <= 0 or not 0 <= rqd <= 100 + _EPS for fr, to, rqd in runs):
+        raise ValueError("each run needs to_m > from_m and an RQD between 0 and 100")
+    return sum((to - fr) * rqd for fr, to, rqd in runs) / length
+
+
 # --- Drill hole: boxes joined by depth (point D) -----------------------------
 #
 # A hole is the approved boxes of one drill hole laid end to end by depth. Box

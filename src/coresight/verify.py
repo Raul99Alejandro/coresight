@@ -6,7 +6,16 @@ import math
 import re
 
 from coresight.agents import Prices, Toolbox
-from coresight.schemas import AreaKey, BoxReview, Check, Draft
+from coresight.schemas import (
+    AreaKey,
+    BoxReview,
+    Check,
+    Draft,
+    HoleFinding,
+    HoleTrend,
+    Routing,
+    RoutingSignals,
+)
 
 _NUMBER = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
 _EPS = 1e-9
@@ -176,3 +185,21 @@ def verify(area: AreaKey, draft: Draft, box: BoxReview, prices: Prices,
         _check_numbers(draft, box, prices, history),
         _check_prices(area, draft, prices),
     ]
+
+
+# --- Milestones before the area agents write (point E) ------------------------
+
+
+def check_finding(
+    finding: HoleFinding,
+    trends: list[HoleTrend],
+    box: BoxReview,
+    history: list[BoxReview] = (),
+) -> list[Check]:
+    """The hole agent's finding against the trends code found. To be built with Muse Code."""
+    raise NotImplementedError
+
+
+def check_routing(routing: Routing, signals: RoutingSignals) -> list[Check]:
+    """The orchestrator's routing against what code knows of the box. To be built with Muse Code."""
+    raise NotImplementedError

@@ -291,6 +291,65 @@ def default_stages() -> list[Stage]:
 
 AreaKey = Literal["lab", "safety", "plant", "finance"]
 
+# --- Hole agent and two-layer verification (point E) ---------------------------
+
+TrendKind = Literal["rqd_drop", "weak_zone", "lithology_change", "sulfides_appear",
+                    "sulfides_gone"]  # fmt: skip
+HoleAction = Literal["oriented_core", "warn_geotech", "sample_contact", "none"]
+
+
+class HoleTrend(_Strict):
+    """A change along the hole found by code (hole.hole_trends); numbers from geometry.py."""
+
+    kind: TrendKind
+    from_m: float = Field(ge=0)
+    to_m: float = Field(ge=0)
+    boxes: list[int]
+    summary: str  # one sentence, numbers written as people read them
+    rqd_before_pct: float | None = None  # rqd_drop: the box above, all runs together
+    rqd_after_pct: float | None = None  # rqd_drop: this box
+    rqd_pct: float | None = None  # weak_zone: the zone together
+    min_rqd_pct: float | None = None  # weak_zone: its worst interval
+    before: str | None = None  # lithology or sulfides above
+    after: str | None = None  # lithology or sulfides in this box
+
+
+class RoutingSignals(_Strict):
+    """What code knows about an approved box before the orchestrator routes it."""
+
+    min_rqd_pct: float = Field(ge=0, le=100)  # worst run of the box
+    min_tcr_pct: float = Field(ge=0, le=100)
+    sulfides: bool  # the reviewed description shows sulfides
+    lab_evidence: bool  # any mineralization, alteration or veins described
+    earlier_boxes: int = Field(ge=0)  # approved boxes of the hole above this one
+    trends: list[HoleTrend] = Field(default_factory=list)
+
+
+class HoleFinding(_Strict):
+    """What the hole agent submits: the trends it confirms and one proposed action."""
+
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+    trends: list[TrendKind] = Field(default_factory=list)  # kinds hole_trends returned
+    action: HoleAction
+    action_reason: str = Field(min_length=1)
+
+
+class JudgedClaim(_Strict):
+    claim: str = Field(min_length=1)
+    supported: bool
+    evidence: str = Field(min_length=1)  # where the record backs it, or what is missing
+
+
+class JudgeVerdict(_Strict):
+    """Muse Spark as a judge: every text claim of a draft against the approved record."""
+
+    claims: list[JudgedClaim] = Field(min_length=1)
+
+    @property
+    def ok(self) -> bool:
+        return all(c.supported for c in self.claims)
+
 
 class AreaRoute(_Strict):
     """The orchestrator's call for one area of the mine: does this box concern it, and why."""
@@ -358,9 +417,20 @@ class AgentEvent(_Strict):
 
     at: datetime
     actor: str  # "orchestrator", an area, "verifier" or "geologist"
-    kind: Literal["model", "route", "tool", "draft", "check", "retry", "error", "approve"]
+    kind: Literal["model", "route", "tool", "draft", "check", "retry", "error", "approve",
+                  "finding", "judge", "escalate", "cost"]
     text: str
     model: str | None = None
+
+
+class Effort(_Strict):
+    """What a verified result cost: shown in the decision log as a sentence."""
+
+    attempts: int = 0  # submissions, at most three
+    turns: int = 0  # model turns, the judge's included
+    work_s: float = 0.0  # the agent writing
+    check_s: float = 0.0  # verify.py or the routing check
+    judge_s: float = 0.0  # Muse Spark as a judge
 
 
 class AreaDraft(_Strict):
@@ -368,16 +438,44 @@ class AreaDraft(_Strict):
     model: str
     draft: Draft | None = None
     checks: list[Check] = Field(default_factory=list)
+    judge: JudgeVerdict | None = None  # only after every check passed
     verified: bool = False
-    status: Literal["working", "ready", "rejected", "failed", "approved"] = "working"
+    # needs_review: three attempts failed; the person sees why and decides
+    status: Literal["working", "ready", "rejected", "needs_review", "failed", "approved"] = (
+        "working"
+    )
+    escalation: str | None = None  # why it needs review
+    effort: Effort = Field(default_factory=Effort)
     error: str | None = None
     approved_at: datetime | None = None  # approved by a person; still not sent
+    approved_over_checks: bool = False  # the person approved it although it failed
+
+
+class HoleReport(_Strict):
+    """The hole agent's turn: code finds the trends, the agent reads them and proposes."""
+
+    model: str
+    trends: list[HoleTrend] = Field(default_factory=list)
+    finding: HoleFinding | None = None
+    checks: list[Check] = Field(default_factory=list)
+    judge: JudgeVerdict | None = None
+    verified: bool = False
+    status: Literal["working", "ready", "needs_review", "failed"] = "working"
+    escalation: str | None = None
+    effort: Effort = Field(default_factory=Effort)
+    error: str | None = None
 
 
 class Handoffs(_Strict):
     status: Literal["working", "done", "failed"] = "working"
+    hole: HoleReport | None = None  # point E: the hole agent runs first
+    signals: RoutingSignals | None = None
     orchestrator_model: str | None = None
     routing: Routing | None = None
+    routing_checks: list[Check] = Field(default_factory=list)  # verify.check_routing
+    routing_verified: bool | None = None  # None: routed before point E
+    routing_effort: Effort = Field(default_factory=Effort)
+    escalation: str | None = None  # the routing failed three times: a person decides
     drafts: list[AreaDraft] = Field(default_factory=list)
     log: list[AgentEvent] = Field(default_factory=list)
     error: str | None = None

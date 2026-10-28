@@ -10,6 +10,7 @@ Recovered core is laid from the top of each run, as the box log does
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from coresight.geometry import (
@@ -17,6 +18,7 @@ from coresight.geometry import (
     BoxRun,
     IntervalLog,
     Piece,
+    combined_rqd,
     log_hole,
     pieces_at_depth,
     rock_quality_class,
@@ -28,8 +30,10 @@ from coresight.schemas import (
     HoleInterval,
     HoleIssue,
     HoleTrace,
+    HoleTrend,
     HoleView,
     HoleZone,
+    RoutingSignals,
     RunReview,
 )
 
@@ -241,3 +245,167 @@ def depth_history(view: HoleView) -> dict:
         ),
         "source": "geometry.log_hole (deterministic), from the approved boxes",
     }
+
+
+# --- Trends between boxes (point E) -------------------------------------------
+#
+# The hole agent reads these; it never finds a trend by itself. Every number comes
+# from geometry.py (the box logs, combined_rqd and log_hole's weak zones). Rock
+# names and sulfides are read from the geologist-approved descriptions with a
+# fixed vocabulary, so the same record always gives the same trends.
+
+RQD_DROP_PCT = 15.0  # points of RQD lost from the box above to this one
+
+# Rock nouns, matched as whole words; the first one in the text names the rock.
+ROCKS = (
+    "amphibolite", "andesite", "basalt", "breccia", "chert", "conglomerate", "dacite",
+    "diorite", "dolomite", "gabbro", "gneiss", "granite", "granodiorite", "hornfels",
+    "ignimbrite", "limestone", "marble", "migmatite", "mudstone", "pegmatite",
+    "porphyry", "quartzite", "rhyolite", "sandstone", "schist", "shale", "siltstone",
+    "skarn", "slate", "tuff",
+)  # fmt: skip
+SULFIDES = (
+    "sulfide", "sulphide", "pyrite", "chalcopyrite", "sphalerite", "galena",
+    "arsenopyrite", "pyrrhotite", "bornite", "chalcocite", "molybdenite", "stibnite",
+    "cinnabar",
+)  # fmt: skip
+_ROCK = re.compile(r"\b(" + "|".join(ROCKS) + r")s?\b", re.IGNORECASE)
+_SULFIDE = re.compile(r"\b(" + "|".join(SULFIDES) + r")s?\b", re.IGNORECASE)
+_NEGATION = re.compile(r"\b(no|none|not|without|absent|nil)\b", re.IGNORECASE)
+_NOTHING = re.compile(r"^\s*(none|no|nil|not|n/?a)\b", re.IGNORECASE)
+
+
+def rock_name(lithology: str | None) -> str | None:
+    """The rock a description names first, from ROCKS; None if it names none."""
+    m = _ROCK.search(lithology or "")
+    return m.group(1).lower() if m else None
+
+
+def _sulfides_in(text: str) -> bool:
+    # a clause that names a sulfide without denying it ("no visible pyrite" does not)
+    return any(
+        _SULFIDE.search(c) and not _NEGATION.search(c) for c in re.split(r"[.;,]", text)
+    )
+
+
+def has_sulfides(run: RunReview) -> bool:
+    d = run.description
+    if d is None:
+        return False
+    if any(a.type == AnomalyType.VISIBLE_SULFIDES for a in d.anomalies):
+        return True
+    return _sulfides_in(d.mineralization)
+
+
+def _described(text: str | None) -> bool:
+    return bool(text and text.strip()) and not _NOTHING.match(text)
+
+
+def _lithology(run: RunReview) -> str | None:
+    return run.description.lithology if run.description else None
+
+
+def box_rqd(box: BoxReview) -> float:
+    """RQD of the whole box, every run together (geometry.combined_rqd)."""
+    return combined_rqd((r.log.from_m, r.log.to_m, r.log.rqd_pct) for r in box.runs)
+
+
+def boxes_above(boxes: Iterable[BoxReview], box: BoxReview) -> list[BoxReview]:
+    """Approved boxes of the same hole that end above ``box`` starts, top first."""
+    top = box.runs[0].from_m
+    return [
+        b
+        for b in logged_boxes(boxes, box.hole_id)
+        if b.box_number != box.box_number and b.runs[-1].to_m <= top + DEPTH_TOL_M
+    ]
+
+
+def _span(box: BoxReview) -> str:
+    return f"box {box.box_number} ({box.runs[0].from_m:.2f} to {box.runs[-1].to_m:.2f} m)"
+
+
+def hole_trends(boxes: Iterable[BoxReview], box: BoxReview) -> list[HoleTrend]:
+    """Changes along the hole that reach ``box``.
+
+    An RQD drop from the box above, weak zones of the hole log that touch the box, a
+    change of rock at the contact with the box above, and sulfides that appear or end.
+    ``boxes`` are the other boxes of the hole; only approved ones count.
+    """
+    boxes = [b for b in boxes if b.id != box.id]
+    if not box.runs:
+        return []
+    top, bottom = box.runs[0].from_m, box.runs[-1].to_m
+    trends: list[HoleTrend] = []
+    above = max(boxes_above(boxes, box), key=lambda b: b.runs[-1].to_m, default=None)
+    if above is not None:
+        before, after = round(box_rqd(above), 1), round(box_rqd(box), 1)
+        if before - after >= RQD_DROP_PCT:
+            trends.append(HoleTrend(
+                kind="rqd_drop", from_m=above.runs[0].from_m, to_m=bottom,
+                boxes=[above.box_number, box.box_number],
+                summary=f"RQD falls from {before} % in {_span(above)} to {after} % in "
+                        f"{_span(box)}",
+                rqd_before_pct=before, rqd_after_pct=after,
+            ))  # fmt: skip
+    view = hole_view([*boxes, box], box.hole_id)
+    for z in view.zones:
+        if z.to_m <= top + DEPTH_TOL_M or z.from_m >= bottom - DEPTH_TOL_M:
+            continue
+        nums = sorted({n for i in view.intervals if z.from_m - DEPTH_TOL_M <= i.from_m
+                       and i.to_m <= z.to_m + DEPTH_TOL_M for n in i.boxes})  # fmt: skip
+        which = "box" if len(nums) == 1 else "boxes"
+        trends.append(HoleTrend(
+            kind="weak_zone", from_m=z.from_m, to_m=z.to_m, boxes=nums,
+            summary=f"Poor rock from {z.from_m:.2f} to {z.to_m:.2f} m ({which} "
+                    f"{' and '.join(str(n) for n in nums)}): RQD {z.rqd_pct} % together, "
+                    f"{z.min_rqd_pct} % in the worst interval",
+            rqd_pct=z.rqd_pct, min_rqd_pct=z.min_rqd_pct,
+        ))  # fmt: skip
+    if above is None:
+        return trends
+    rock_above = rock_name(_lithology(above.runs[-1]))
+    rock_here = rock_name(_lithology(box.runs[0]))
+    if rock_above and rock_here and rock_above != rock_here:
+        trends.append(HoleTrend(
+            kind="lithology_change", from_m=above.runs[-1].from_m, to_m=box.runs[0].to_m,
+            boxes=[above.box_number, box.box_number],
+            summary=f"Rock changes from {rock_above} at the bottom of {_span(above)} to "
+                    f"{rock_here} at the top of {_span(box)}",
+            before=rock_above, after=rock_here,
+        ))  # fmt: skip
+    had, has = any(map(has_sulfides, above.runs)), any(map(has_sulfides, box.runs))
+    if had != has:
+        trends.append(HoleTrend(
+            kind="sulfides_appear" if has else "sulfides_gone",
+            from_m=above.runs[0].from_m, to_m=bottom,
+            boxes=[above.box_number, box.box_number],
+            summary=(f"Sulfides appear in {_span(box)}; {_span(above)} showed none" if has
+                     else f"Sulfides end: {_span(above)} showed them, {_span(box)} shows none"),
+            before="sulfides" if had else "none", after="sulfides" if has else "none",
+        ))  # fmt: skip
+    return trends
+
+
+def routing_signals(
+    boxes: Iterable[BoxReview], box: BoxReview, trends: list[HoleTrend]
+) -> RoutingSignals:
+    """What the routing check holds the orchestrator to (verify.check_routing)."""
+    boxes = [b for b in boxes if b.id != box.id]
+    sulfides = any(map(has_sulfides, box.runs))
+    evidence = sulfides or any(
+        r.description
+        and (
+            _described(r.description.alteration)
+            or _described(r.description.mineralization)
+            or re.search(r"\bvein", r.description.lithology, re.IGNORECASE)
+        )
+        for r in box.runs
+    )
+    return RoutingSignals(
+        min_rqd_pct=round(min(min(r.log.rqd_pct for r in box.runs), 100.0), 1),
+        min_tcr_pct=round(min(min(r.log.tcr_pct for r in box.runs), 100.0), 1),
+        sulfides=sulfides,
+        lab_evidence=bool(evidence),
+        earlier_boxes=len(boxes_above(boxes, box)),
+        trends=trends,
+    )
