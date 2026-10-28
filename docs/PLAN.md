@@ -126,3 +126,19 @@ Desde D (28 oct), cada pieza de Muse Code pasa además por una segunda sesión d
 Antes de publicar más trazas, resolver o explicar el `"model": "muse-spark-1.3-contributor"` de `docs/muse-code/verify-1.json`.
 
 No se hace: LoRA con el Kaggle NC, una traza de barreno presentada como real, fotos privadas por créditos gratis, quitar el Split manual, Muse Image u otro proveedor.
+
+## Plan del tercer análisis (28 oct, noche)
+
+Adoptado de `docs/ANALISIS-3.md`. A a G hechos y en producción. Nota estimada: 7.8 hoy, 8.4 a 8.7 con este plan.
+Lo que falta ya no es alcance: es producción y pulido.
+
+| Fecha | Puntos | Objetivo | Listo cuando |
+|---|---|---|---|
+| mié 29 oct | 1 y 2 | Subidas por visitante (cookie firmada dueña de cada caja; lista e imágenes solo para el dueño). Muestras de solo lectura: el recorrido y el barreno fijados por id, y "Try a sample box" crea una copia del visitante. Retirar de la vista pública las cajas de prueba del jurado | Desde dos navegadores, uno no ve las cajas del otro; aprobar una muestra no cambia el recorrido ni el barreno |
+| jue 30 oct | 3, 5 y 7 | Agentes más rápidos (juez en paralelo, prompt caching, aviso de tiempo con el paso actual); clase `empty` en la localización de Spark para compartimentos sin núcleo, contada como no recuperada; acciones de los borradores desde una lista cerrada, nunca "stop drilling", revisado por `verify.py` y el juez | Agentes en menos de 2 min en la caja del recorrido; NTS 1981 sin piezas en la fila vacía; ningún borrador dice "stop drilling" |
+| vie 31 oct | 6 | Barreno 3D con las tiras reales de la foto sobre el cilindro y selector de barreno (U12G y Onkalo) | La toma final del video muestra la foto real sobre el cilindro |
+| sáb 1 nov | 4, 8 | Pulido (tarjeta del recorrido, conteos de piezas, decimales, chips), prueba de abuso otra vez, `prewarm_demo.py` sin llamadas en vivo, desplegar. Plan B de 4: una línea en la página y en el video que explica cuándo corren laboratorio y finanzas. Cierre de H | Una pasada como juez sin hallazgos nuevos |
+| dom 2 nov | | Congelar. Ensayo y tomas crudas | |
+
+Orden de recorte: 6, 5, 8. Nunca 1 y 2.
+Video: seguir `docs/ANALISIS-3.md` sección 6. Abrir con el rechazo y cerrar con el barreno; partir los agentes con un corte ("about two minutes later"); no decir que Spark mejora a SAM en general.
