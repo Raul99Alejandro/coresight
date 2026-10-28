@@ -236,3 +236,112 @@ def test_a_real_screenshot_is_refused_by_calibration_without_spark():
     with pytest.raises(ReviewError, match="no scale to measure in cm"):
         review.analyze(png, 100.0, [Interval(from_m=1, to_m=2)], True, client, None)
     assert client.sam_calls == 0
+
+
+# SAM with a click (point C)
+
+
+def cut(start_cm, end_cm, row=0) -> review.PointMask:
+    return review.PointMask(row, start_cm, end_cm, 0.95, b"png", 3.4)
+
+
+def spans(run):
+    return [(p.row, p.start_cm, p.end_cm, p.break_after) for p in run.pieces]
+
+
+def test_a_tap_where_a_break_is_missing_splits_the_piece_at_the_mask():
+    box = make_box(make_run(PIECES))
+    run, changed = review.sam_piece(box, 0, cut(50, 70.4), 1)
+    assert changed
+    assert spans(run)[2:] == [(0, 50, 70.4, "natural"), (0, 70.4, 95, "natural")]
+    assert run.log.natural_fractures == 3
+    c = run.corrections[-1]
+    assert c.source == "sam-point" and c.target == "row 1, 50.0-70.4 cm"
+    assert c.original == "1 piece: 50.0-95.0 cm"
+    assert c.corrected == "one piece 50.0-70.4 cm from the SAM 3.1 mask (1 point)"
+    assert [p.end_cm for p in c.pieces_before] == [40, 48, 95]
+
+
+def test_a_tap_where_a_break_is_extra_joins_the_pieces_the_mask_covers():
+    box = make_box(make_run(PIECES))
+    run, changed = review.sam_piece(box, 0, cut(0.4, 47.6), 2)
+    assert changed
+    # both mask ends are within 1 cm of the row's breaks, so they snap to them
+    assert spans(run) == [(0, 0, 48, "natural"), (0, 50, 95, "natural")]
+    assert run.log.rqd_pct > run.machine_log.rqd_pct
+    assert run.corrections[-1].original == "2 pieces: 0.0-40.0, 40.0-48.0 cm"
+
+
+def test_a_piece_sam_finds_in_an_empty_stretch_is_added():
+    box = make_box(make_run([(0, 0, 40, "natural"), (0, 60, 95, "natural")]))
+    run, _ = review.sam_piece(box, 0, cut(42, 57), 1)
+    assert spans(run)[1] == (0, 42, 57, "natural")
+    assert run.corrections[-1].original == "0 pieces"
+
+
+def test_the_run_end_stays_on_the_piece_that_reaches_it():
+    box = make_box(make_run([(0, 0, 40, "natural"), (0, 40, 95, "uncertain")]))
+    run, _ = review.sam_piece(box, 0, cut(0, 95.3), 1)
+    assert spans(run) == [(0, 0, 95, "uncertain")]
+
+
+def test_a_mask_that_agrees_with_the_pieces_is_not_a_correction():
+    box = make_box(make_run(PIECES))
+    run, changed = review.sam_piece(box, 0, cut(50.3, 94.6), 1)
+    assert not changed and run.corrections == []
+
+
+def test_a_refining_tap_replaces_the_last_sam_correction():
+    box = make_box(make_run(PIECES))
+    review.sam_piece(box, 0, cut(0.4, 70), 1)  # spilled over two breaks
+    run, changed = review.sam_piece(box, 0, cut(0.4, 39.7), 2, refine=True)
+    assert changed  # back as it was, so the spilled correction is gone
+    assert spans(run) == [(0, p[1], p[2], p[3]) for p in PIECES]
+    assert run.corrections == [] and run.log == run.machine_log
+
+
+def test_the_mask_is_clipped_to_the_run_it_was_tapped_in():
+    first = make_run([(0, 0, 40, "natural")], 10.0, 10.4)
+    second = make_run([(0, 42, 95, "natural")], 10.4, 11.0)
+    box = make_box(first, second)
+    run, _ = review.sam_piece(box, 1, cut(30, 70), 1)
+    assert spans(run) == [(0, 40, 70, "natural"), (0, 70, 95, "natural")]
+    box.tray.markers = [(0, 41.0)]  # the run block between the two runs
+    run, _ = review.sam_piece(box, 1, cut(30, 70), 1, refine=True)
+    assert spans(run)[0] == (0, 42, 70, "natural")  # the block, snapped to the piece start
+    with pytest.raises(ReviewError, match="not in run 1"):
+        review.sam_piece(box, 0, cut(50, 90), 1)
+
+
+def test_sam_point_mask_measures_the_mask_not_its_box(monkeypatch):
+    view = TrayView(width=1000, height=200, px_per_cm=10, rows=[(0, 100), (100, 200)], markers=[])
+    image = np.full((200, 1000, 3), 128, np.uint8)
+    seen = {}
+
+    def fake_row_masks(client, crop, cache_dir, prompt):
+        seen["prompt"], seen["shape"] = prompt, crop.shape
+        m = np.zeros((90, 500), dtype=bool)
+        m[20:70, 100:400] = True  # the piece: x 200-500 of the row
+        m[45:47, 400:500] = True  # a thin spill the box would include
+        return [{"id": 1, "bounds": (100, 5, 600, 95), "confidence": 0.95, "mask": m}]
+
+    monkeypatch.setattr(review, "row_masks", fake_row_masks)
+    pm = review.sam_point_mask(object(), image, view, [(300, 150, True), (700.6, 160, False)])
+    assert seen["prompt"] == (
+        "<0f>1<|point;x=300;y=50;w=1000;h=100|>-<|point;x=700;y=60;w=1000;h=100|>"
+    )
+    assert seen["shape"][:2] == (100, 1000)
+    assert pm.row == 1 and (pm.start_cm, pm.end_cm) == (20.0, 50.0)
+    assert pm.confidence == 0.95 and pm.overlay.startswith(b"\x89PNG")
+
+
+def test_sam_point_mask_wants_a_positive_first_point_in_one_row(monkeypatch):
+    view = TrayView(width=1000, height=200, px_per_cm=10, rows=[(0, 100), (100, 200)], markers=[])
+    image = np.zeros((200, 1000, 3), np.uint8)
+    monkeypatch.setattr(review, "row_masks", lambda *a: [])
+    with pytest.raises(ReviewError, match="first point"):
+        review.sam_point_mask(object(), image, view, [(10, 10, False)])
+    with pytest.raises(ReviewError, match="same row"):
+        review.sam_point_mask(object(), image, view, [(10, 10, True), (10, 150, False)])
+    with pytest.raises(ReviewError, match="no piece"):
+        review.sam_point_mask(object(), image, view, [(10, 10, True)])

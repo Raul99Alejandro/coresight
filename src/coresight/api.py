@@ -11,8 +11,12 @@ message the geologist can act on.
 Settings (environment):
 - CORESIGHT_DATA_DIR: where reviewed boxes are kept (default data/reviews).
 - CORESIGHT_MAX_ANALYSES_PER_HOUR, CORESIGHT_MAX_DICTATIONS_PER_HOUR,
-  CORESIGHT_MAX_HANDOFFS_PER_HOUR: caps for the public demo, so a stranger
-  cannot spend the API credits.
+  CORESIGHT_MAX_HANDOFFS_PER_HOUR, CORESIGHT_MAX_SAM_POINTS_PER_HOUR: caps for
+  the public demo, so a stranger cannot spend the API credits.
+
+A tap on the photo (POST /api/boxes/{id}/runs/{i}/sam-point) sends the
+geologist's points to SAM 3.1 for that row and makes the piece it cuts one
+piece of the run (review.sam_point_mask and review.sam_piece).
 
 Approving a box starts the area agents in the background (coresight.agents);
 the page polls the box and shows the decision log and the drafts. A draft is
@@ -25,6 +29,7 @@ the Kaggle set (NC) is never served here.
 
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import os
@@ -38,6 +43,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
+import cv2
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
@@ -174,6 +180,16 @@ def meta_analyzer(photo: bytes, job: Job, report: review.Reporter) -> Analysis:
     )
 
 
+def meta_sam_client():
+    """SAM 3.1 through meta_client, for the taps on the photo."""
+    from coresight.meta_client import MetaClient
+
+    try:
+        return MetaClient()
+    except RuntimeError as exc:
+        raise ReviewError("The server has no Meta Model API key configured.") from exc
+
+
 def meta_transcriber(wav: bytes) -> tuple[str, int]:
     from coresight.meta_client import MetaClient
 
@@ -261,6 +277,28 @@ class SplitIn(BaseModel):
     kind: BreakKind = "natural"
 
 
+class PointIn(BaseModel):
+    x: float  # px of the straightened tray (tray.jpg)
+    y: float
+    positive: bool = True  # False: "this is not the piece"
+
+
+class SamPointIn(BaseModel):
+    points: list[PointIn] = Field(min_length=1, max_length=review.MAX_POINTS)
+    refine: bool = False  # the same piece again: replaces the last SAM correction
+
+
+class SamPointOut(BaseModel):
+    box: BoxReview
+    changed: bool
+    row: int
+    start_cm: float
+    end_cm: float
+    confidence: float | None
+    seconds: float
+    mask: str  # data URL of the mask over the row, as masks/{row}.png
+
+
 class DescriptionIn(BaseModel):
     field: DescriptionField
     value: str = Field(max_length=2000)
@@ -274,11 +312,13 @@ def create_app(
     transcriber: Transcriber = meta_transcriber,
     handoff_runner: HandoffRunner = meta_handoffs,
     background: bool = True,
+    sam_client: Callable[[], object] = meta_sam_client,
 ) -> FastAPI:
     store = store or ReviewStore(Path(os.getenv("CORESIGHT_DATA_DIR", ROOT / "data" / "reviews")))
     analyses = RateLimit(int(os.getenv("CORESIGHT_MAX_ANALYSES_PER_HOUR", "30")))
     dictations = RateLimit(int(os.getenv("CORESIGHT_MAX_DICTATIONS_PER_HOUR", "120")))
     handoff_runs = RateLimit(int(os.getenv("CORESIGHT_MAX_HANDOFFS_PER_HOUR", "30")))
+    sam_points = RateLimit(int(os.getenv("CORESIGHT_MAX_SAM_POINTS_PER_HOUR", "300")))
     pool = ThreadPoolExecutor(max_workers=2)
     edit_lock = threading.Lock()
 
@@ -443,6 +483,33 @@ def create_app(
     @app.post("/api/boxes/{box_id}/runs/{i}/pieces/{j}/split")
     def split_piece(box_id: str, i: int, j: int, body: SplitIn) -> BoxReview:
         return edit(box_id, lambda b: review.split_piece(b, i, j, body.at_cm, body.kind))
+
+    @app.post("/api/boxes/{box_id}/runs/{i}/sam-point")
+    def sam_point(box_id: str, i: int, body: SamPointIn) -> SamPointOut:
+        """SAM 3.1 cuts the piece under the geologist's points; geometry.py recomputes."""
+        box = get_box(box_id)
+        review.sam_piece_ready(box, i)
+        image = cv2.imread(str(store.tray_path(box_id)))
+        if image is None or box.tray is None:
+            raise ReviewError("The tray image is not ready.")
+        sam_points.take("taps on the photo")
+        points = [(p.x, p.y, p.positive) for p in body.points]
+        cut = review.sam_point_mask(sam_client(), image, box.tray, points)  # 3 to 4 s, unlocked
+        changed = []
+        box = edit(
+            box_id,
+            lambda b: changed.append(review.sam_piece(b, i, cut, len(points), body.refine)[1]),
+        )
+        return SamPointOut(
+            box=box,
+            changed=changed[0],
+            row=cut.row,
+            start_cm=round(cut.start_cm, 2),
+            end_cm=round(cut.end_cm, 2),
+            confidence=cut.confidence,
+            seconds=cut.seconds,
+            mask="data:image/png;base64," + base64.b64encode(cut.overlay).decode("ascii"),
+        )
 
     @app.put("/api/boxes/{box_id}/runs/{i}/description")
     def change_description(box_id: str, i: int, body: DescriptionIn) -> BoxReview:

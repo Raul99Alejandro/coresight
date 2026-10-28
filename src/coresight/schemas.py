@@ -158,6 +158,32 @@ class GateResult(_Strict):
     message: str = ""  # what the person reads; empty when ok
 
 
+# Localization (point B): Muse Spark marks what is core in a row, SAM 3.1 cuts it.
+
+LocatedKind = Literal["core", "run_block", "card", "waxed_sample", "other"]
+
+
+class LocatedObject(_Strict):
+    """One thing Muse Spark found in a row crop, as a box in its 0 to 1000 grid.
+
+    (0, 0) is the top left of the crop and (1000, 1000) its bottom right; the
+    model may answer slightly out of range, so a little slack is allowed and
+    meta_client.grid_box_to_pixels clamps.
+    """
+
+    kind: LocatedKind
+    x_min: int = Field(ge=-50, le=1050)
+    y_min: int = Field(ge=-50, le=1050)
+    x_max: int = Field(ge=-50, le=1050)
+    y_max: int = Field(ge=-50, le=1050)
+
+
+class RowLocation(_Strict):
+    """Muse Spark's answer for one row: every core piece and everything that is not core."""
+
+    objects: list[LocatedObject] = Field(max_length=80)
+
+
 # Review (day 7): what the geologist sees, corrects and approves.
 
 BreakKind = Literal["natural", "uncertain", "possible_mechanical", "mechanical"]
@@ -186,8 +212,10 @@ class Correction(_Strict):
     target: str  # "break 3", "piece 2" or a description field
     original: str
     corrected: str
-    source: Literal["typed", "voice"] = "typed"
+    source: Literal["typed", "voice", "sam-point"] = "typed"
     transcript: str | None = None  # what Muse Voice Transcribe heard, before any edit
+    # sam-point: the run's pieces before the click, so a refining click can replace it
+    pieces_before: list[ReviewPiece] | None = None
 
 
 class Measure(_Strict):

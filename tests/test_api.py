@@ -262,3 +262,58 @@ def test_a_refused_photo_keeps_the_gate_verdict(tmp_path):
     box = upload(client(tmp_path, refusing)).json()
     assert box["status"] == "failed" and box["error"] == "No tray slats were found."
     assert box["gate"]["reasons"][0]["signal"] == "calibration"
+
+
+def test_a_tap_on_the_photo_lets_sam_cut_the_piece(tmp_path, monkeypatch):
+    from coresight import review
+
+    calls = []
+
+    def fake_row_masks(sam, crop, cache_dir, prompt):
+        calls.append(prompt)
+        m = np.zeros(crop.shape[:2], dtype=bool)
+        m[20:100, 450:634] = True  # 50.0 to 70.4 cm at 9 px per cm
+        return [{"id": 1, "bounds": (0, 0, crop.shape[1], crop.shape[0]), "confidence": 0.95,
+                 "mask": m}]  # fmt: skip
+
+    monkeypatch.setattr(review, "row_masks", fake_row_masks)
+    app = create_app(
+        store=ReviewStore(tmp_path), analyzer=fake_analyzer, handoff_runner=fake_handoffs,
+        background=False, sam_client=lambda: object(),
+    )  # fmt: skip
+    c = TestClient(app)
+    bid = upload(c, runs="10-11").json()["id"]
+    r = c.post(f"/api/boxes/{bid}/runs/0/sam-point", json={"points": [{"x": 540, "y": 60}]})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["changed"] and out["row"] == 0
+    assert (out["start_cm"], out["end_cm"]) == (50.0, 70.44)
+    assert out["mask"].startswith("data:image/png;base64,")
+    assert calls == ["<0f>1<|point;x=540;y=60;w=900;h=120|>"]
+    run = out["box"]["runs"][0]
+    assert run["corrections"][-1]["source"] == "sam-point"
+    assert run["log"]["natural_fractures"] == run["machine_log"]["natural_fractures"] + 1
+    corrections = c.get(f"/api/boxes/{bid}/corrections.csv").text.splitlines()
+    assert corrections[-1].endswith(",sam-point,")
+
+    # a negative point refines the same piece: the first correction is replaced
+    pts = [{"x": 540, "y": 60}, {"x": 620, "y": 60, "positive": False}]
+    r = c.post(f"/api/boxes/{bid}/runs/0/sam-point", json={"points": pts, "refine": True})
+    assert len(r.json()["box"]["runs"][0]["corrections"]) == 1
+    assert calls[-1].endswith("-<|point;x=620;y=60;w=900;h=120|>")
+
+
+def test_a_tap_needs_a_positive_point_first_and_a_box_under_review(tmp_path, monkeypatch):
+    from coresight import review
+
+    monkeypatch.setattr(review, "row_masks", lambda *a: pytest.fail("SAM must not be called"))
+    app = create_app(
+        store=ReviewStore(tmp_path), analyzer=fake_analyzer, handoff_runner=fake_handoffs,
+        background=False, sam_client=lambda: object(),
+    )  # fmt: skip
+    c = TestClient(app)
+    bid = upload(c, runs="10-11").json()["id"]
+    bad = {"points": [{"x": 540, "y": 60, "positive": False}]}
+    r = c.post(f"/api/boxes/{bid}/runs/0/sam-point", json=bad)
+    assert r.status_code == 400 and "first point" in r.json()["detail"]
+    assert c.post(f"/api/boxes/{bid}/runs/5/sam-point", json=bad).status_code == 400

@@ -56,7 +56,7 @@ from coresight.meta_client import MetaClient
 from coresight.pipeline import build_logs, segment
 from coresight.runs import RunMismatchError
 from coresight.schemas import BoxLabel
-from coresight.segmentation import METHODS, RowPieces
+from coresight.segmentation import FALLBACK_METHODS, METHODS, SPARK_METHODS, RowPieces
 
 ROOT = Path(__file__).resolve().parents[1]
 LABELS = ROOT / "data" / "labels"
@@ -69,6 +69,9 @@ PUBLIC_FIELDS = (
 )  # fmt: skip
 ERRS = ("rqd_err", "tcr_err")
 HEADLINE = "sam+fill+profile"  # no help from the geologist's paint marks
+ALL_METHODS = METHODS + SPARK_METHODS + FALLBACK_METHODS
+# point B: Spark localizes, SAM cuts, against the same layers on "stone" (paired by run)
+PAIRS = [("spark+sam", "sam"), ("spark+" + HEADLINE, HEADLINE), ("fallback+" + HEADLINE, HEADLINE)]
 POOLED = ("kaggle", "onkalo", "nevada")  # onkalo-wet repeats onkalo boxes
 PUBLIC_SITES = ("onkalo", "nevada", "onkalo-wet")
 KAGGLE_BOX_CM = 104.0  # set from held-out photos, see scale_references.json
@@ -205,7 +208,7 @@ def main() -> None:
         tray = find_trays(
             image, box.box_length_cm, n_rows=box.n_rows, max_trays=box.tray_index + 1
         )[box.tray_index]
-        for method in METHODS:
+        for method in ALL_METHODS:
             start = time.perf_counter()
             pieces, markers = segment(image, tray, client, method)
             if method == METHODS[0]:
@@ -271,7 +274,7 @@ def main() -> None:
         "| Method | Site | RQD MAE [95% CI], bias | TCR MAE [95% CI], bias |",
         "|---|---|---|---|",
     ]
-    for method in METHODS:
+    for method in ALL_METHODS:
         for site, sites in (
             ("kaggle", ("kaggle",)),
             ("onkalo", ("onkalo",)),
@@ -282,6 +285,41 @@ def main() -> None:
             lines.append(
                 f"| {method} | {site} | {ci_cell(sel, 'rqd_err')} | {ci_cell(sel, 'tcr_err')} |"
             )
+
+    lines += [
+        "",
+        "## Spark localizes, SAM cuts (point B)",
+        "",
+        "`spark+` methods: Muse Spark boxes every core piece and what is not core (run blocks,"
+        " cards) in tiles of each row; the core boxes go to SAM 3.1 as box prompts and the rest"
+        " is taken out of the length. Wax-sealed samples count as core (taken for testing, still"
+        " recovered), as in our labels. `fallback+`: \"stone\" first, Spark's"
+        " boxes only for a row where \"stone\" finds nothing. Same layers after that.",
+        "",
+        "Paired by run: mean of |error with Spark| - |error without|, in points, with a 95%"
+        " cluster bootstrap by box. Below zero means Spark's boxes help.",
+        "",
+        "| Methods | Site | RQD [95% CI] | TCR [95% CI] | n |",
+        "|---|---|---|---|---|",
+    ]
+    for new, old in PAIRS:
+        for site, sites in (("kaggle", ("kaggle",)), ("public", ("onkalo", "nevada")),
+                            ("all", POOLED)):  # fmt: skip
+            before = {(r["box"], r["from_m"]): r for r in select(rows_out, old, sites)}
+            pairs = [(r, before[(r["box"], r["from_m"])]) for r in select(rows_out, new, sites)
+                     if (r["box"], r["from_m"]) in before]  # fmt: skip
+            if not pairs:
+                continue
+            cells = []
+            for key in ERRS:
+                diff = [abs(a[key]) - abs(b[key]) for a, b in pairs]
+                groups = [a["box"] for a, _ in pairs]
+                if len(set(groups)) == 1:
+                    cells.append(f"{bias(diff):+.1f} [one box]")
+                    continue
+                ci = cluster_bootstrap(diff, groups, stat=bias)
+                cells.append(f"{ci.value:+.1f} [{ci.low:+.1f}, {ci.high:+.1f}]")
+            lines.append(f"| {new} vs {old} | {site} | {cells[0]} | {cells[1]} | {len(pairs)} |")
 
     head_k = select(rows_out, HEADLINE, ("kaggle",))
     head_all = select(rows_out, HEADLINE, POOLED)
@@ -332,7 +370,7 @@ def main() -> None:
         "| Method | Run | RQD error dry | RQD error wet | TCR error dry | TCR error wet |",
         "|---|---|---|---|---|---|",
     ]
-    for method in METHODS:
+    for method in ALL_METHODS:
         dry = {(r["box"], r["from_m"]): r for r in select(rows_out, method, ("onkalo",))}
         wet = {
             (r["box"].removesuffix("_wet"), r["from_m"]): r

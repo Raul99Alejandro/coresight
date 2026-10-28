@@ -29,7 +29,15 @@ from coresight.schemas import (
     IntervalDescription,
     IntervalResult,
 )
-from coresight.segmentation import RowPieces, row_masks, run_markers, segment_row
+from coresight.segmentation import (
+    FALLBACK,
+    SPARK,
+    RowPieces,
+    located_masks,
+    row_masks,
+    run_markers,
+    segment_row,
+)
 
 
 def calibrate(image_path: Path, box_length_cm: float, n_rows: int = 5) -> list[Tray]:
@@ -47,12 +55,28 @@ def calibrate(image_path: Path, box_length_cm: float, n_rows: int = 5) -> list[T
 def segment(
     image: np.ndarray, tray: Tray, client: MetaClient, method: str = "sam+fill+profile"
 ) -> tuple[list[RowPieces], list[Position]]:
-    """Pieces of every row of a tray (SAM 3.1 + rules) and the run markers found."""
+    """Pieces of every row of a tray (SAM 3.1 + rules) and the run markers found.
+
+    A ``spark+`` method prompts SAM with Muse Spark's boxes instead of "stone";
+    a ``fallback+`` method does so only for a row where "stone" finds nothing.
+    """
     rows, markers = [], []
     for i, crop in enumerate(tray.row_crops(image)):
-        rows.append(segment_row(crop, row_masks(client, crop), tray.px_per_cm, method))
+        masks, not_core, _ = row_prompts(client, crop, method)
+        rows.append(segment_row(crop, masks, tray.px_per_cm, method, not_core))
         markers += [Position(i, x / tray.px_per_cm) for x in run_markers(crop, tray.px_per_cm)]
     return rows, markers
+
+
+def row_prompts(
+    client: MetaClient, crop: np.ndarray, method: str
+) -> tuple[list[dict], list[tuple[float, float]], bool]:
+    """SAM masks of one row for ``method``, the x spans that are not core, and whether
+    Muse Spark localized the row (``spark+`` always, ``fallback+`` when "stone" found nothing)."""
+    masks = [] if method.startswith(SPARK) else row_masks(client, crop)
+    if method.startswith(SPARK) or (method.startswith(FALLBACK) and not masks):
+        return *located_masks(client, crop), True
+    return masks, [], False
 
 
 def build_logs(

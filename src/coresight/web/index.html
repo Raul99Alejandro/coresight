@@ -261,6 +261,14 @@ dialog::backdrop{background:rgba(14,15,18,.3);backdrop-filter:blur(3px);animatio
 .m-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
 dialog.small{width:min(400px,calc(100vw - 24px))}
 dialog#split{width:min(760px,calc(100vw - 24px))}
+dialog#tap{width:min(900px,calc(100vw - 24px))}
+.tp-stage{position:relative}
+#tp-canvas{display:block;width:100%;border-radius:12px;background:#000;cursor:crosshair;touch-action:none}
+#tp-canvas:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.tp-busy{position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:12px;background:rgba(14,15,18,.45);color:#fff;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s}
+.tp-busy.on{opacity:1}
+.tp-busy .ring{width:22px;height:22px;margin:0;border-width:2.5px;border-color:rgba(255,255,255,.3);border-top-color:#fff}
+.tp-busy .scanline{position:absolute;top:0;bottom:0;width:30%;background:linear-gradient(90deg,transparent,rgba(200,175,255,.45),transparent);animation:sweep 1.4s var(--ease-out) infinite}
 #sp-canvas{display:block;width:100%;border-radius:12px;background:#000;cursor:crosshair;touch-action:none}
 #sp-canvas:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .sp-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;color:var(--ink-2);font-size:14px}
@@ -488,6 +496,13 @@ button.metric:hover{background:var(--fill-2)}
   <canvas id="sp-canvas" tabindex="0" aria-label="The piece, enlarged. Click to place the break."></canvas>
   <div class="sp-row"><span class="sp-read" id="sp-read" aria-live="polite"></span><label>Break<select id="sp-kind"></select></label></div>
   <div class="m-actions"><button class="btn" id="sp-no">Cancel</button><button class="btn primary" id="sp-yes">Split piece</button></div></div></dialog>
+<dialog id="tap" aria-labelledby="tp-title"><div class="m-body"><h2 id="tp-title">Tap with SAM 3.1</h2>
+  <p>Tap a piece. SAM 3.1 cuts it again and the run is measured on its mask: a missed break appears, an extra one goes. Tap the next piece the same way. If a mask spills over, choose "Not the piece" and tap there.</p>
+  <div class="tp-stage"><canvas id="tp-canvas" tabindex="0" aria-label="The row, enlarged. Tap a piece for SAM 3.1."></canvas>
+    <div class="tp-busy" id="tp-busy" aria-hidden="true"><span class="scanline"></span><span class="ring"></span><span id="tp-busy-text">SAM 3.1 is cutting this row</span></div></div>
+  <div class="sp-row"><div class="seg" id="tp-mode" role="tablist" aria-label="Point"><span class="thumb"></span><button role="tab" data-pos="1" aria-selected="true">On the piece</button><button role="tab" data-pos="0" aria-selected="false">Not the piece</button></div>
+    <span class="sp-read" id="tp-read" aria-live="polite"></span></div>
+  <div class="m-actions"><button class="btn primary" id="tp-done">Done</button></div></div></dialog>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -1028,9 +1043,9 @@ function piecesHTML(r) {
       const sel = last ? '<span class="muted">End of run</span>' : `<span class="sw" style="background:${BREAK_COLOR[p.break_after]}"></span><select data-break="${j}" aria-label="Break after piece ${j + 1}" ${locked() ? "disabled" : ""}>
         ${Object.entries(BREAK_NAME).map(([k, v]) => `<option value="${k}" ${k === p.break_after ? "selected" : ""}>${v}</option>`).join("")}</select>`;
       return `<tr class="${j === S.piece ? "hl" : ""}" data-row="${j}"><td>${j + 1}</td><td>${p.row + 1}</td><td class="num">${(p.end_cm - p.start_cm).toFixed(1)}</td><td>${sel}</td>
-        <td class="num">${locked() ? "" : `<button class="btn plain sm" data-split="${j}" aria-label="Split piece ${j + 1}">Split</button><button class="btn plain sm danger" data-remove="${j}" aria-label="Remove piece ${j + 1}">Remove</button>`}</td></tr>`;
+        <td class="num">${locked() ? "" : `<button class="btn plain sm" data-tap="${j}" aria-label="Tap piece ${j + 1} with SAM 3.1">Tap</button><button class="btn plain sm" data-split="${j}" aria-label="Split piece ${j + 1}">Split</button><button class="btn plain sm danger" data-remove="${j}" aria-label="Remove piece ${j + 1}">Remove</button>`}</td></tr>`;
     }).join("")}</tbody></table>
-    <p class="foot-note">Split a piece where SAM 3.1 missed a break. Remove a piece only when it is not core: a block, a chip, a label.</p>`;
+    <p class="foot-note">Tap a piece and SAM 3.1 cuts it again where a break is missed or extra. Split by hand when SAM cannot. Remove a piece only when it is not core: a block, a chip, a label.</p>`;
 }
 function bindPieces(r) {
   const sec = $("sec-pieces"); if (!sec) return;
@@ -1041,6 +1056,7 @@ function bindPieces(r) {
       { S.piece = null; correct(`runs/${S.run}/pieces/${j}`, "DELETE", null, "Piece removed. Numbers recalculated."); }
   }));
   sec.querySelectorAll("[data-split]").forEach((x) => (x.onclick = () => openSplit(+x.dataset.split)));
+  sec.querySelectorAll("[data-tap]").forEach((x) => (x.onclick = () => openTap(+x.dataset.tap)));
   const hl = sec.querySelector("tr.hl"); if (hl && S.open.pieces) setTimeout(() => hl.scrollIntoView({block:"center", behavior:"smooth"}), 120);
 }
 
@@ -1079,23 +1095,85 @@ function openSplit(j) {
   d.showModal(); requestAnimationFrame(draw);
 }
 
+/* tap with SAM: the row around the piece, enlarged; each tap is a point prompt for SAM 3.1 */
+function openTap(j) {
+  const b = S.box, T = b.tray, ppc = T.px_per_cm, p = b.runs[S.run].pieces[j], row = p.row, [y1, y2] = T.rows[row];
+  const d = $("tap"), cv = $("tp-canvas"), img = new Image(), mask = new Image(), rowCm = T.width / ppc;
+  const mine = b.runs[S.run].pieces.filter((q) => q.row === row);
+  let a = Math.max(Math.min(...mine.map((q) => q.start_cm)) - 3, 0), z = Math.min(Math.max(...mine.map((q) => q.end_cm)) + 3, rowCm);
+  const span = innerWidth < 600 ? 25 : 60;  // cm in view: a phone gets a closer look
+  if (z - a > span) { const mid = (p.start_cm + p.end_cm) / 2; z = Math.min(Math.max(mid + span / 2, span), rowCm); a = Math.max(z - span, 0); }
+  const tap = {points:[], positive:true, busy:false, cut:null};
+  const mode = $("tp-mode"), read = $("tp-read"), busy = $("tp-busy");
+  const setMode = (pos) => { tap.positive = pos; mode.querySelectorAll("button").forEach((x) => x.setAttribute("aria-selected", String((x.dataset.pos === "1") === pos)));
+    const on = mode.querySelector('[aria-selected="true"]'), th = mode.querySelector(".thumb"); th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`; };
+  const draw = () => {
+    if (!img.naturalWidth || !cv.clientWidth) return;
+    const k = img.naturalWidth / T.width, w = cv.clientWidth, h = Math.min(w * (y2 - y1) / ((z - a) * ppc), 300), dpr = devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = h * dpr; cv.style.height = `${h}px`;
+    const g = cv.getContext("2d"), X = (cm) => ((cm - a) / (z - a)) * w, css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || "#fff";
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.drawImage(img, a * ppc * k, y1 * k, (z - a) * ppc * k, (y2 - y1) * k, 0, 0, w, h);
+    if (tap.cut && mask.naturalWidth) { const m = mask.naturalWidth / T.width; g.drawImage(mask, a * ppc * m, 0, (z - a) * ppc * m, mask.naturalHeight, 0, 0, w, h); }
+    g.lineCap = "round";
+    S.box.runs.forEach((r, ri) => r.pieces.forEach((q, qi) => {
+      if (q.row !== row || qi === r.pieces.length - 1 || q.end_cm < a || q.end_cm > z) return;
+      g.strokeStyle = css(BREAK_COLOR[q.break_after]); g.lineWidth = ri === S.run ? 3 : 1.5; g.setLineDash(q.break_after === "mechanical" ? [6, 5] : []);
+      g.beginPath(); g.moveTo(X(q.end_cm), 6); g.lineTo(X(q.end_cm), h - 6); g.stroke();
+    }));
+    g.setLineDash([]);
+    tap.points.forEach((pt) => { const px = X(pt.x / ppc), py = ((pt.y - y1) / (y2 - y1)) * h;
+      g.fillStyle = pt.positive ? "#34c759" : "#ff453a"; g.strokeStyle = "#fff"; g.lineWidth = 2;
+      g.beginPath(); g.arc(px, py, 7, 0, 2 * Math.PI); g.fill(); g.stroke();
+      g.fillStyle = "#fff"; g.fillRect(px - 3.5, py - 1, 7, 2); if (pt.positive) g.fillRect(px - 1, py - 3.5, 2, 7); });
+  };
+  const send = async (pt) => {
+    if (tap.busy) return;
+    if (!tap.points.length && !pt.positive) { toast("Tap the piece first"); return; }
+    const kept = tap.points;  // a tap on a piece starts a new piece; "not the piece" refines the last one
+    tap.points = pt.positive ? [pt] : [...kept, pt]; tap.busy = true; draw();
+    const t0 = performance.now(), tick = setInterval(() => ($("tp-busy-text").textContent = `SAM 3.1 is cutting this row, ${((performance.now() - t0) / 1000).toFixed(1)} s`), 100);
+    busy.classList.add("on"); read.textContent = "";
+    const before = S.box.runs[S.run].log;
+    try {
+      const out = await api(`/api/boxes/${S.box.id}/runs/${S.run}/sam-point`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({points:tap.points, refine:tap.points.length > 1})});
+      tap.cut = out; mask.onload = draw; mask.src = out.mask;
+      showCorrected(out.box, before);
+      read.textContent = `SAM 3.1 cut ${(out.end_cm - out.start_cm).toFixed(1)} cm in ${out.seconds.toFixed(1)} s. ${out.changed ? "Numbers recalculated." : "It agrees with the pieces."}`;
+    } catch (e) { tap.points = kept; toast(e.message); }
+    finally { clearInterval(tick); busy.classList.remove("on"); $("tp-busy-text").textContent = "SAM 3.1 is cutting this row"; tap.busy = false; draw(); }
+  };
+  cv.onpointerdown = (e) => { const R = cv.getBoundingClientRect(), fx = (e.clientX - R.left) / R.width, fy = (e.clientY - R.top) / R.height;
+    send({x:+((a + fx * (z - a)) * ppc).toFixed(1), y:+(y1 + fy * (y2 - y1)).toFixed(1), positive:tap.positive}); };
+  cv.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); send({x:+(((p.start_cm + p.end_cm) / 2) * ppc).toFixed(1), y:+((y1 + y2) / 2).toFixed(1), positive:tap.positive}); } };
+  mode.querySelectorAll("button").forEach((x) => (x.onclick = () => setMode(x.dataset.pos === "1")));
+  $("tp-done").onclick = () => d.close();
+  $("tp-title").textContent = `Tap with SAM 3.1, row ${row + 1}`;
+  read.textContent = "";
+  img.onload = draw; img.src = `/api/boxes/${b.id}/tray.jpg`;
+  d.showModal(); setMode(true); requestAnimationFrame(draw);
+}
+
 function historyHTML(r) {
-  return r.corrections.length ? `<ol class="hist">${r.corrections.slice().reverse().map((c) => `<li>${c.source === "voice" ? I.mic : I.edit}
+  return r.corrections.length ? `<ol class="hist">${r.corrections.slice().reverse().map((c) => `<li>${c.source === "voice" ? I.mic : c.source === "sam-point" ? glyph("sam", 16, "model") : I.edit}
     <span>${esc(cap(c.target))}: <del>${esc(c.original) || "empty"}</del> to ${esc(c.corrected) || "empty"}${c.transcript ? `<br><span class="muted">Heard: “${esc(c.transcript)}”</span>` : ""}
     <time datetime="${esc(c.at)}">${new Date(c.at).toLocaleString([], {dateStyle:"medium", timeStyle:"short"})}</time></span></li>`).join("")}</ol>
     <p class="foot-note">Kept next to the value it replaced, for the evaluation and future fine-tuning.</p>`
     : `<p class="by">No corrections yet. Changes to breaks, pieces and the description appear here with the value they replaced.</p>`;
 }
 
+function showCorrected(box, before) {
+  S.box = box; S.error = null;
+  const after = S.box.runs[S.run].log, flash = ["rqd_pct", "tcr_pct", "fracture_frequency_per_m"].filter((k) => before[k] !== after[k]);
+  const keep = S.run, piece = S.piece; renderBox(); S.run = keep; S.piece = piece; drawOverlay(); renderDrawer(flash);
+  loadLists();
+}
 async function correct(path, method, body, message) {
   const before = S.box.runs[S.run].log;
   try {
-    S.box = await api(`/api/boxes/${S.box.id}/${path}`, {method, headers:body ? {"Content-Type":"application/json"} : {}, body:body ? JSON.stringify(body) : undefined});
-    S.error = null;
-    const after = S.box.runs[S.run].log, flash = ["rqd_pct", "tcr_pct", "fracture_frequency_per_m"].filter((k) => before[k] !== after[k]);
-    const keep = S.run, piece = S.piece; renderBox(); S.run = keep; S.piece = piece; drawOverlay(); renderDrawer(flash);
+    showCorrected(await api(`/api/boxes/${S.box.id}/${path}`, {method, headers:body ? {"Content-Type":"application/json"} : {}, body:body ? JSON.stringify(body) : undefined}), before);
     if (message) toast(message);
-    loadLists(); return true;
+    return true;
   } catch (e) { toast(e.message); return false; }
 }
 

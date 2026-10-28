@@ -160,3 +160,27 @@ def test_respond_posts_the_body_and_caches_the_answer(tmp_path):
     assert client.respond(body)["output"][0]["name"] == "x"
     assert client.respond(dict(body))["output"][0]["name"] == "x"
     assert calls == [body]  # the second answer came from data/cache/responses
+
+
+def test_locate_row_asks_for_grounding_with_a_schema_and_caches_it(tmp_path):
+    calls = []
+    answer = {"objects": [{"kind": "core", "x_min": 12, "y_min": 80, "x_max": 240, "y_max": 920},
+                          {"kind": "run_block", "x_min": 241, "y_min": 60, "x_max": 270,
+                           "y_max": 1003}]}  # fmt: skip
+
+    def handler(request):
+        calls.append(json.loads(request.content))
+        text = json.dumps(answer)
+        return httpx.Response(
+            200, json={"output": [{"content": [{"type": "output_text", "text": text}]}]}
+        )
+
+    client = MetaClient(api_key="k", cache_dir=tmp_path, transport=httpx.MockTransport(handler))
+    first = client.locate_row(b"png")
+    again = client.locate_row(b"png")
+    assert len(calls) == 1 and first == again
+    assert [o.kind for o in first.objects] == ["core", "run_block"]
+    body = calls[0]
+    assert body["model"] == "muse-spark-1.3"
+    assert body["text"]["format"]["name"] == "RowLocation"
+    assert "0 to 1000 grid" in body["input"][0]["content"][0]["text"]

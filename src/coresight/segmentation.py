@@ -21,12 +21,22 @@ Four methods, each a layer on the previous one, measurable for the ablation
   orientation line runs on across it is a possible mechanical break: still
   counted as natural (uncertain), but listed first for review.
 
+Each method also has a ``"spark+"`` twin (point B of docs/ANALISIS-2.md):
+instead of the phrase "stone", Muse Spark first localizes every core piece
+of the row and everything that is not core (run blocks, cards, tools), and
+SAM 3.1 cuts the core pieces with those boxes as prompts. Wax-sealed samples
+are core (taken for testing, still recovered) and are cut too. What Spark
+calls not core is taken out of the row's length (``located_masks``).
+A ``"fallback+"`` method uses "stone" and turns to Spark's boxes only for a
+row where "stone" returns no mask at all.
+
 Positions are in cm from the left end of the row crop. RQD and the rest are
 computed later by geometry.py; this module only measures pieces.
 """
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -34,7 +44,16 @@ import cv2
 import numpy as np
 
 from coresight.geometry import Piece
-from coresight.meta_client import DEFAULT_CACHE_DIR, MetaClient, sam_cache_key, sam_masks
+from coresight.meta_client import (
+    DEFAULT_CACHE_DIR,
+    MAX_SAM_OBJECTS,
+    MetaClient,
+    SamObject,
+    grid_box_to_pixels,
+    sam_cache_key,
+    sam_masks,
+    sam_prompt,
+)
 
 PROMPT = "stone"
 MIN_PIECE_CM = 0.5  # shorter masks are specks, not core
@@ -52,8 +71,19 @@ MARK_MIN_NEIGHBOUR_CM = 3.0  # rubble is not marked: both pieces must be this lo
 FIT_MAX_GAP_CM = 0.3  # a possible mechanical break closes this tight
 FIT_MIN_PIECE_CM = 10.0  # between two pieces at least this long
 METHODS = ("sam", "sam+fill", "sam+fill+profile", "sam+fill+profile+marks")
+SPARK = "spark+"  # prefix of the methods whose SAM prompts are Muse Spark's boxes
+SPARK_METHODS = tuple(SPARK + m for m in METHODS)
+FALLBACK = "fallback+"  # "stone" first; Spark's boxes only for a row where "stone" finds nothing
+FALLBACK_METHODS = tuple(FALLBACK + m for m in METHODS)
 BreakKind = str  # "natural", "uncertain", "possible_mechanical" or "mechanical"
 DIP_END_MARGIN_CM = 2.0  # ignore dips this close to a piece end
+TILE_ASPECT = 2.5  # Muse Spark sees a row in tiles about this much wider than tall
+TILE_OVERLAP = 0.15  # share of a tile repeated on each side, so no piece is lost at an edge
+TILE_EDGE = 0.01  # a box this close to a tile edge was cut by it
+# a wax-sealed sample is core taken for testing: it counts as recovered, as in our labels
+CORE_KINDS = ("core", "waxed_sample")
+BOX_MARGIN = 0.05  # a box-prompt mask may pass its box by this share of the box width
+TILE_DUPLICATE = 0.6  # boxes of one kind sharing this much of the smaller one are one object
 
 
 @dataclass
@@ -270,21 +300,28 @@ def split_intervals(
     return out
 
 
+def png_of(crop: np.ndarray) -> bytes:
+    ok, buf = cv2.imencode(".png", crop)
+    if not ok:
+        raise ValueError("could not encode the row crop")
+    return buf.tobytes()
+
+
 def row_masks(
-    client: MetaClient, crop: np.ndarray, cache_dir: Path | None = DEFAULT_CACHE_DIR
+    client: MetaClient,
+    crop: np.ndarray,
+    cache_dir: Path | None = DEFAULT_CACHE_DIR,
+    prompt: str = PROMPT,
 ) -> list[dict]:
-    """Decoded SAM masks for one row crop.
+    """Decoded SAM masks for one row crop (the phrase "stone", or a box and point prompt).
 
     Decoding with meta_sam_parser takes seconds per row, so the decoded masks
     are cached next to the raw SAM text, under the same key.
     """
-    ok, buf = cv2.imencode(".png", crop)
-    if not ok:
-        raise ValueError("could not encode the row crop")
-    png = buf.tobytes()
+    png = png_of(crop)
     path = None
     if cache_dir is not None:
-        path = Path(cache_dir) / "sam_masks" / f"{sam_cache_key(png, PROMPT)}.npz"
+        path = Path(cache_dir) / "sam_masks" / f"{sam_cache_key(png, prompt)}.npz"
         if path.exists():
             with np.load(path) as data:
                 return [
@@ -296,7 +333,7 @@ def row_masks(
                     }
                     for i in range(len(data["ids"]))
                 ]
-    masks = sam_masks(client.segment_row_raw(png, PROMPT))
+    masks = sam_masks(client.segment_row_raw(png, prompt))
     if path is not None:
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
@@ -307,6 +344,111 @@ def row_masks(
             **{f"mask_{i}": m["mask"] for i, m in enumerate(masks)},
         )
     return masks
+
+
+def tiles(w: int, h: int) -> list[tuple[int, int]]:
+    """x ranges of the tiles Muse Spark sees: about TILE_ASPECT:1, overlapping by TILE_OVERLAP.
+
+    On a whole row (9:1 and longer) Spark's boxes drift and it calls a label core;
+    on tiles of about 2.5:1 they land on the pieces (docs/SAM-PROMPTS.md).
+    """
+    n = max(1, int(np.ceil(w / (TILE_ASPECT * h))))
+    step = w / n
+    pad = TILE_OVERLAP * step
+    return [(int(max(0, t * step - pad)), int(min(w, (t + 1) * step + pad))) for t in range(n)]
+
+
+def merge_tile_boxes(
+    boxes: list[tuple[str, tuple[int, int, int, int], bool, bool]],
+) -> list[tuple[str, tuple[int, int, int, int]]]:
+    """Join the two halves of an object a tile edge cut; keep one box of an object seen twice.
+
+    Each box: kind, (x1, y1, x2, y2) in row px, cut by its tile's left edge, cut
+    by its tile's right edge. Two overlapping boxes of one kind are the two
+    halves of one object when the first was cut on its right and the second on
+    its left; they are one object seen by two tiles when most of the smaller one
+    is shared, and then the larger box is kept. Touching pieces stay apart.
+    """
+    out: list[list] = []
+    for kind, box, cut_left, cut_right in sorted(boxes, key=lambda b: (b[0], b[1][0])):
+        prev = out[-1] if out and out[-1][0] == kind else None
+        if prev:
+            (a1, ay1, a2, ay2), (b1, by1, b2, by2) = prev[1], box
+            shared = min(a2, b2) - max(a1, b1)
+            if shared > 0 and prev[3] and cut_left:
+                prev[1] = (min(a1, b1), min(ay1, by1), max(a2, b2), max(ay2, by2))
+                prev[3] = cut_right
+                continue
+            if shared >= TILE_DUPLICATE * (min(a2 - a1, b2 - b1) + 1):
+                if b2 - b1 > a2 - a1:
+                    prev[1:] = [box, cut_left, cut_right]
+                continue
+        out.append([kind, box, cut_left, cut_right])
+    return [(kind, box) for kind, box, _, _ in sorted(out, key=lambda b: b[1][0])]
+
+
+def located_masks(
+    client: MetaClient, crop: np.ndarray, cache_dir: Path | None = DEFAULT_CACHE_DIR
+) -> tuple[list[dict], list[tuple[float, float]]]:
+    """Spark localizes, SAM cuts: masks of the core pieces and x spans that are not core.
+
+    Muse Spark boxes every core piece (wax-sealed samples included) and every
+    object that is not core (MetaClient.locate_row, validated as
+    schemas.RowLocation), one tile of the row at a time, in parallel. The
+    core boxes go to SAM 3.1 on the whole row as box prompts, at most 16 per
+    request; each mask comes back under the index of its box. The other boxes
+    are returned as x spans (crop px) to take out of the row's length.
+    """
+    h, w = crop.shape[:2]
+    spans = tiles(w, h)
+    with ThreadPoolExecutor(max_workers=len(spans)) as pool:
+        answers = list(pool.map(lambda t: client.locate_row(png_of(crop[:, t[0] : t[1]])), spans))
+    found = []
+    for (a, b), location in zip(spans, answers, strict=True):
+        for o in location.objects:
+            x1, y1, x2, y2 = grid_box_to_pixels((o.x_min, o.y_min, o.x_max, o.y_max), (b - a, h))
+            edge = TILE_EDGE * (b - a)
+            found.append((o.kind, (a + x1, y1, a + x2, y2), a > 0 and x1 <= edge,
+                          b < w and x2 >= b - a - 1 - edge))  # fmt: skip
+    boxes = merge_tile_boxes(found)
+    core = [b for kind, b in boxes if kind in CORE_KINDS]
+    other = [(float(b[0]), float(b[2] + 1)) for kind, b in boxes if kind not in CORE_KINDS]
+    masks: list[dict] = []
+    for start in range(0, len(core), MAX_SAM_OBJECTS):
+        batch = core[start : start + MAX_SAM_OBJECTS]
+        objects = [SamObject(start + i, box=b) for i, b in enumerate(batch)]
+        found_masks = row_masks(client, crop, cache_dir, sam_prompt(objects, (w, h)))
+        masks += [clip_to_box(m, core[m["id"]]) for m in found_masks if m["id"] < len(core)]
+    return masks, sorted(other)
+
+
+def clip_to_box(m: dict, box: tuple[int, int, int, int]) -> dict:
+    """A box-prompt mask kept to its box along x: SAM sometimes runs on into the next piece."""
+    left, top, right, bottom = m["bounds"]
+    margin = BOX_MARGIN * (box[2] - box[0] + 1)
+    lo, hi = max(left, int(box[0] - margin)), min(right, int(np.ceil(box[2] + 1 + margin)))
+    mask = np.zeros_like(m["mask"])
+    if hi > lo:
+        mask[:, lo - left : hi - left] = m["mask"][:, lo - left : hi - left]
+    return {**m, "mask": mask}
+
+
+def exclude_spans(
+    intervals: list[tuple[float, float]], spans: list[tuple[float, float]], px_per_cm: float
+) -> list[tuple[float, float]]:
+    """Intervals with the x spans that are not core taken out (a block inside a piece cuts it)."""
+    out = []
+    for a, b in intervals:
+        parts = [(a, b)]
+        for s, e in spans:
+            parts = [
+                q
+                for x, y in parts
+                for q in ([(x, y)] if e <= x or s >= y else [(x, s), (e, y)])
+                if q[1] > q[0]
+            ]
+        out += [(x, y) for x, y in parts if y - x >= MIN_PIECE_CM * px_per_cm]
+    return out
 
 
 def _red(crop_hsv: np.ndarray) -> np.ndarray:
@@ -414,20 +556,29 @@ def classify_breaks(
 
 
 def segment_row(
-    crop: np.ndarray, masks: list[dict], px_per_cm: float, method: str = METHODS[-1]
+    crop: np.ndarray,
+    masks: list[dict],
+    px_per_cm: float,
+    method: str = METHODS[-1],
+    not_core: list[tuple[float, float]] = (),
 ) -> RowPieces:
-    """Pieces of one straightened row crop from its decoded SAM masks."""
-    if method not in METHODS:
+    """Pieces of one straightened row crop from its decoded SAM masks.
+
+    ``not_core``: x spans (crop px) that are not core, from located_masks.
+    """
+    if method not in METHODS + SPARK_METHODS + FALLBACK_METHODS:
         raise ValueError(f"unknown method {method!r}")
+    layers = method.removeprefix(SPARK).removeprefix(FALLBACK)
     intervals, union = masks_to_intervals(masks, crop, px_per_cm)
-    if method != "sam":
+    if layers != "sam":
         intervals, filled = fill_gaps(crop, intervals, px_per_cm)
         union |= filled
+    intervals = exclude_spans(intervals, list(not_core), px_per_cm)
     cuts: list[float] = []
-    if method.startswith("sam+fill+profile"):
+    if layers.startswith("sam+fill+profile"):
         cuts = [c for iv in intervals for c in fracture_cuts(crop, union, iv, px_per_cm)]
         intervals = split_intervals(intervals, cuts, px_per_cm)
-    if method.endswith("+marks"):
+    if layers.endswith("+marks"):
         breaks = classify_breaks(crop, intervals, cuts, px_per_cm)
     else:
         breaks = default_breaks(intervals, cuts)

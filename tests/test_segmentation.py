@@ -171,3 +171,119 @@ def test_tight_break_with_continuous_line_is_possible_mechanical():
     crop = core_with_line()
     kinds = classify_breaks(crop, [(0, 400), (401, 990)], [], PX_PER_CM)
     assert kinds == ["possible_mechanical", "uncertain"]
+
+
+def test_not_core_spans_are_taken_out_of_the_pieces():
+    from coresight.segmentation import exclude_spans
+
+    intervals = [(0, 400), (500, 900)]
+    # a run block at 600-650 cuts the second piece; a card over 380-520 trims both
+    out = exclude_spans(intervals, [(600, 650), (380, 520)], PX_PER_CM)
+    assert out == [(0, 380), (520, 600), (650, 900)]
+    # what is left of a piece shorter than a speck is dropped
+    assert exclude_spans([(0, 100)], [(3, 100)], PX_PER_CM) == []
+
+
+def test_spark_methods_measure_like_their_twins_without_the_not_core():
+    from coresight.segmentation import SPARK_METHODS, segment_row
+
+    assert SPARK_METHODS[0] == "spark+sam"
+    masks = [mask(0, 400), mask(420, 900)]
+    plain = segment_row(grey_crop(), masks, PX_PER_CM, "sam")
+    spark = segment_row(grey_crop(), masks, PX_PER_CM, "spark+sam", not_core=[(700, 760)])
+    assert plain.intervals_px == [(0, 400), (420, 900)]
+    assert spark.intervals_px == [(0, 400), (420, 700), (760, 900)]
+    assert spark.method == "spark+sam"
+
+
+def test_spark_sees_a_long_row_in_overlapping_tiles():
+    from coresight.segmentation import tiles
+
+    assert tiles(2500, 278) == [(0, 718), (531, 1343), (1156, 1968), (1781, 2500)]
+    assert tiles(600, 278) == [(0, 600)]
+
+
+def test_tile_boxes_cut_by_an_edge_are_joined_and_twins_dropped():
+    from coresight.segmentation import merge_tile_boxes
+
+    boxes = [
+        ("core", (0, 5, 200, 50), False, False),
+        ("core", (500, 5, 718, 50), False, True),  # cut by the right edge of tile 1
+        ("core", (531, 8, 760, 52), True, False),  # its other half, cut by tile 2's left edge
+        ("card", (900, 0, 1000, 60), False, False),
+        ("card", (905, 0, 1002, 60), False, False),  # the same card seen by two tiles
+        ("core", (1003, 5, 1100, 50), False, False),
+        ("core", (1095, 5, 1300, 50), False, False),  # touching pieces stay two
+        ("core", (1156, 5, 1290, 50), True, False),  # a tile's cut copy of the last one
+    ]
+    assert merge_tile_boxes(boxes) == [
+        ("core", (0, 5, 200, 50)),
+        ("core", (500, 5, 760, 52)),
+        ("card", (900, 0, 1000, 60)),
+        ("core", (1003, 5, 1100, 50)),
+        ("core", (1095, 5, 1300, 50)),
+    ]
+
+
+def test_located_masks_prompts_sam_with_spark_boxes_sixteen_at_a_time(tmp_path, monkeypatch):
+    from coresight import segmentation
+    from coresight.schemas import LocatedObject, RowLocation
+
+    def obj(kind, x1, x2):
+        return LocatedObject(kind=kind, x_min=x1, y_min=100, x_max=x2, y_max=900)
+
+    pieces = [obj("core", 50 * i, 50 * i + 40) for i in range(18)]
+    location = RowLocation(objects=[*pieces, obj("run_block", 950, 990), obj("card", 905, 940)])
+    prompts = []
+
+    class FakeClient:
+        def locate_row(self, png):
+            return location
+
+        def segment_row_raw(self, png, prompt):
+            prompts.append(prompt)
+            return prompt
+
+    def fake_masks(text):  # one mask per box token, under its object id
+        ids = [int(part.split("<")[0]) for part in text.removeprefix("<0f>").split(",")]
+        return [mask(10 * i, 10 * i + 5) | {"id": i} for i in ids]
+
+    monkeypatch.setattr(segmentation, "sam_masks", fake_masks)
+    crop = np.full((60, 150, 3), 150, np.uint8)  # one tile
+    masks, not_core = segmentation.located_masks(FakeClient(), crop, cache_dir=tmp_path)
+    assert len(prompts) == 2  # 18 core boxes: 16, then 2
+    assert prompts[0].count("<|box;") == 16 and prompts[1].count("<|box;") == 2
+    assert "w=150;h=60" in prompts[0]
+    assert prompts[1].startswith("<0f>16<|box;x1=120;")  # 800/1000 of 150 px
+    assert [m["id"] for m in masks] == list(range(18))
+    assert not_core == [(135.0, 142.0), (142.0, 149.0)]
+
+
+def test_a_box_prompt_mask_is_kept_to_its_box():
+    from coresight.segmentation import clip_to_box
+
+    spill = mask(100, 600)  # SAM ran on into the next piece
+    kept = clip_to_box(spill, (100, 10, 299, 50))  # box 200 px wide: 10 px of slack
+    cols = np.where(kept["mask"].any(axis=0))[0]
+    assert (cols[0] + 100, cols[-1] + 100) == (100, 309)
+    assert kept["bounds"] == spill["bounds"] and spill["mask"].all()
+
+
+def test_fallback_turns_to_spark_only_for_a_row_stone_left_empty(monkeypatch):
+    from coresight import pipeline
+
+    class FakeTray:
+        px_per_cm = PX_PER_CM
+
+        def row_crops(self, image):
+            return [grey_crop(), grey_crop()]
+
+    stone = iter([[mask(0, 400)], []])  # row 1 has masks, row 2 has none
+    located = []
+    monkeypatch.setattr(pipeline, "row_masks", lambda client, crop: next(stone))
+    monkeypatch.setattr(
+        pipeline, "located_masks", lambda client, crop: located.append(1) or ([mask(0, 900)], [])
+    )
+    rows, _ = pipeline.segment(grey_crop(), FakeTray(), object(), "fallback+sam")
+    assert located == [1]  # only the empty row asked Spark
+    assert [r.intervals_px for r in rows] == [[(0, 400)], [(0, 900)]]

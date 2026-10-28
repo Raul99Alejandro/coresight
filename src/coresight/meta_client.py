@@ -2,7 +2,8 @@
 
 Endpoints, model IDs and request shapes come from the official docs
 (https://dev.meta.ai/docs/, read 2026-10-25): sam/segmenting,
-sam/reading-segmentation, image-understanding and structured-output; voice
+sam/reading-segmentation, image-understanding (with perception grounding, read 2026-10-28) and
+structured-output; voice
 from speech-to-text, api-reference/voice/transcribe and voice/schemas (read
 2026-10-26); agents from overview (muse-wonder-1.0 takes the same requests
 as Muse Spark) and tool-calling (Responses API function tools, read
@@ -33,7 +34,13 @@ from dotenv import load_dotenv
 from meta_sam_parser import CompletedOutcome, decode_mask_to_raster, image_segmentation_format
 
 from coresight.describe import cached_description, describe_prompt
-from coresight.schemas import GeologyDescription, ModelDescription, Transcript, TrayCheck
+from coresight.schemas import (
+    GeologyDescription,
+    ModelDescription,
+    RowLocation,
+    Transcript,
+    TrayCheck,
+)
 
 DEFAULT_BASE_URL = "https://api.meta.ai/v1"
 SAM_MODEL_ID = "sam-3.1"
@@ -53,6 +60,25 @@ example a screenshot of software or a web page, a person or a selfie, a document
 a landscape, or one or two pieces of core held or laid out without a tray.
 what_it_shows: what the photo shows, in a few words. confidence: how sure you are
 of is_core_tray, from 0 to 1."""
+
+# Grounding prompt (docs: image-understanding, "Perception grounding"): boxes in a
+# 0 to 1000 grid of the image sent, x first; "object grounding expert" and "do not
+# miss" are the docs' advice for recall.
+LOCATE_PROMPT = """\
+You are an object grounding expert. This image is one row of a drill core tray seen
+from above: pieces of rock core lie end to end along the row, from left to right,
+between two wooden slats. Find every object lying in the row and give each one a
+tight bounding box in a 0 to 1000 grid of this image: (0, 0) is the top left corner
+and (1000, 1000) the bottom right, x from left to right, y from top to bottom.
+kind of each object:
+- core: one piece of rock core. Where the core is broken, give each piece its own
+  box. Include short pieces and rubble.
+- run_block: a block that marks the end of a drilling run (wood or foam, often with
+  a depth written on it).
+- card: a card, tag or label.
+- waxed_sample: core wrapped in wax, foil or plastic, taken as a sample.
+- other: anything else in the row that is not rock core (a bag, a tool, a spacer).
+Do not box the slats, the tray walls or empty tray. Do not miss any piece."""
 
 # One SAM record: "<id><|box;...|><|mask;...;data=H,W,ENC payload|>" (docs:
 # sam/reading-segmentation). The box token has no payload, so records are found
@@ -441,6 +467,53 @@ class MetaClient:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(check.model_dump_json(indent=1), encoding="utf-8")
         return check
+
+    def locate_row(self, image_png: bytes) -> RowLocation:
+        """Muse Spark localizes the core pieces of one row and what is not core (point B).
+
+        Grounding with structured output, as the docs recommend: the boxes come back
+        as schemas.RowLocation (0 to 1000 grid of the image sent), validated and
+        cached by a hash of model, prompt and image.
+        """
+        name = hashlib.sha256(
+            b"\0".join([MUSE_SPARK_MODEL_ID.encode(), LOCATE_PROMPT.encode(), image_png])
+        ).hexdigest()
+        path = self.cache_dir / "locate" / f"{name}.json" if self.cache_dir else None
+        if path and path.exists():
+            return RowLocation.model_validate_json(path.read_text(encoding="utf-8"))
+        body = {
+            "model": MUSE_SPARK_MODEL_ID,
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": LOCATE_PROMPT},
+                        {"type": "input_image", "image_url": _data_url(image_png)},
+                    ],
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "RowLocation",
+                    "schema": RowLocation.model_json_schema(),
+                }
+            },
+        }
+
+        def call() -> str:
+            resp = self._http.post(RESPONSES_PATH, json=body)
+            if resp.status_code >= 400:
+                error = TransientAPIError if resp.status_code in RETRY_STATUS else RuntimeError
+                raise error(f"Muse Spark {resp.status_code}: {resp.text}")
+            return _output_text(resp.json())
+
+        location = RowLocation.model_validate_json(self._with_retries(call))
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(location.model_dump_json(indent=1), encoding="utf-8")
+        return location
 
     def respond(self, body: dict) -> dict:
         """One Responses API turn with function tools (the area agents).

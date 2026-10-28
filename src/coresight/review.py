@@ -19,6 +19,7 @@ so the corrections can be evaluated (and later used for fine-tuning).
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from collections.abc import Callable
@@ -35,7 +36,8 @@ from coresight.crops import run_crops
 from coresight.describe import Describer, cache_key, describe_prompt, png_bytes
 from coresight.gate import check_input
 from coresight.geometry import IntervalLog
-from coresight.meta_client import sam_cache_key
+from coresight.meta_client import SamObject, SamPoint, sam_cache_key, sam_prompt
+from coresight.pipeline import row_prompts
 from coresight.runs import (
     LaidPiece,
     Position,
@@ -64,7 +66,9 @@ from coresight.segmentation import PROMPT as SAM_PROMPT
 from coresight.segmentation import row_masks, run_markers, segment_row
 
 MAX_PHOTO_SIDE_PX = 8000  # larger photos are refused before decoding them twice
-SEGMENT_METHOD = "sam+fill+profile"  # as pipeline.segment
+# "fallback+": "stone", and Muse Spark's boxes for a row "stone" leaves empty (point B,
+# chosen from outputs/eval/report.md)
+SEGMENT_METHOD = os.getenv("CORESIGHT_SEGMENT_METHOD", "fallback+sam+fill+profile")
 MODEL_NAMES = {"muse-spark-1.3": "Muse Spark 1.3"}
 
 
@@ -258,17 +262,17 @@ def analyze(
     # stage 2 as pipeline.segment, one row at a time so the page can follow it
     t, calls, cached, rows, found = time.perf_counter(), 0, 0, [], []
     crops = tray.row_crops(image)
-    pieces, confidences = 0, []
+    pieces, confidences, located = 0, [], 0
     for i, crop in enumerate(crops):
         report.stage(
             "segmentation", status="working", current=i, progress=i / len(crops),
             detail=f"Row {i + 1} of {len(crops)}",
         )  # fmt: skip
         hit = _sam_cached(client, crop)
-        masks = row_masks(client, crop)
-        calls, cached = calls + (not hit), cached + hit
+        masks, not_core, spark_row = row_prompts(client, crop, SEGMENT_METHOD)
+        calls, cached, located = calls + (not hit), cached + hit, located + spark_row
         report.masks(i, mask_overlay(masks, crop.shape[:2]))
-        row = segment_row(crop, masks, tray.px_per_cm, SEGMENT_METHOD)
+        row = segment_row(crop, masks, tray.px_per_cm, SEGMENT_METHOD, not_core)
         rows.append(row)
         found += [Position(i, x / tray.px_per_cm) for x in run_markers(crop, tray.px_per_cm)]
         pieces += len(row.intervals_px)
@@ -276,13 +280,16 @@ def analyze(
         mean = sum(confidences) / len(confidences) if confidences else 0
         report.stage(
             "segmentation", progress=(i + 1) / len(crops), calls=calls, cached=cached,
-            detail=f"Row {i + 1} of {len(crops)}: {pieces} pieces, confidence {mean:.2f}",
+            detail=f"Row {i + 1} of {len(crops)}: {pieces} pieces, confidence {mean:.2f}"
+                   + (", Muse Spark boxed the core" if spark_row else ""),
         )  # fmt: skip
     mean = sum(confidences) / len(confidences) if confidences else 0
     report.stage(
         "segmentation", status="done", progress=1, current=None, calls=calls, cached=cached,
         seconds=time.perf_counter() - t,
-        detail=f"{pieces} pieces in {len(crops)} rows, confidence {mean:.2f}",
+        detail=f"{pieces} pieces in {len(crops)} rows, confidence {mean:.2f}"
+               + (f", {located} row{'s' if located > 1 else ''} boxed by Muse Spark"
+                  if located else ""),
     )  # fmt: skip
     # no mask at all is SAM's "nothing here"; masks without a confidence say nothing
     sam = mean if confidences else (None if pieces else 0.0)
@@ -443,6 +450,176 @@ def split_piece(
         )
     )
     return run
+
+
+# SAM with a click (point C): the geologist taps a piece, SAM 3.1 cuts it again.
+
+MAX_POINTS = 8  # points of one piece: the first tap and the refining ones
+MASK_MIN_COLUMN = 0.2  # a column is the piece's when the mask covers this share of its height
+SNAP_CM = 1.0  # a mask end this close to a break the row already has is that break
+_EPS_CM = 1e-6
+
+
+@dataclass
+class PointMask:
+    """The piece SAM 3.1 cut at the geologist's points, measured on its mask."""
+
+    row: int
+    start_cm: float  # cm from the row start, from the mask's columns (not its box)
+    end_cm: float
+    confidence: float | None
+    overlay: bytes  # see-through PNG of the mask over the row crop
+    seconds: float
+
+
+def sam_point_mask(
+    client, tray_image: np.ndarray, view: TrayView, points: list[tuple[float, float, bool]]
+) -> PointMask:
+    """SAM 3.1 on one row with the geologist's points (x, y in tray px, positive or not).
+
+    The row is the one under the first point, cropped from the straightened tray
+    as in calibration.Tray.row_crops. The piece is the run of mask columns that
+    holds the first positive point, so SAM's box (often wider) is not used.
+    """
+    if not points or not points[0][2]:
+        raise ReviewError("Tap the piece first: the first point must be on the piece.")
+    if len(points) > MAX_POINTS:
+        raise ReviewError(f"Use at most {MAX_POINTS} points for one piece.")
+    y = points[0][1]
+    row = next((r for r, (y1, y2) in enumerate(view.rows) if y1 <= y < y2), None)
+    if row is None:
+        raise ReviewError("Tap on a row of core.")
+    top, bottom = max(int(view.rows[row][0]), 0), int(np.ceil(view.rows[row][1]))
+    crop = tray_image[top:bottom]
+    h, w = crop.shape[:2]
+    if any(not top <= py < bottom for _, py, _ in points):
+        raise ReviewError("All the points of one piece must be in the same row.")
+    prompt_points = tuple(
+        SamPoint(min(max(px, 0), w - 1), min(max(py - top, 0), h - 1), positive)
+        for px, py, positive in points
+    )
+    prompt = sam_prompt([SamObject(1, points=prompt_points)], (w, h))
+    started = time.perf_counter()
+    masks = [
+        m
+        for m in row_masks(client, crop, getattr(client, "cache_dir", None), prompt)
+        if m["id"] == 1
+    ]
+    seconds = time.perf_counter() - started
+    full = np.zeros((h, w), dtype=bool)
+    for m in masks:
+        left, mtop, right, mbottom = (int(v) for v in m["bounds"])
+        part = m["mask"][: max(0, min(mbottom, h) - mtop), : max(0, min(right, w) - left)]
+        full[mtop : mtop + part.shape[0], left : left + part.shape[1]] |= part
+    cols = full.sum(axis=0)
+    if cols.max() == 0:
+        raise ReviewError("SAM found no piece there. Tap the middle of the piece, or use Split.")
+    on = np.where(cols >= MASK_MIN_COLUMN * cols.max())[0]
+    x0 = int(on[np.argmin(np.abs(on - prompt_points[0].x))])
+    a = b = x0
+    while a > 0 and cols[a - 1] >= MASK_MIN_COLUMN * cols.max():
+        a -= 1
+    while b < w - 1 and cols[b + 1] >= MASK_MIN_COLUMN * cols.max():
+        b += 1
+    confidences = [m["confidence"] for m in masks if m["confidence"] is not None]
+    return PointMask(
+        row=row,
+        start_cm=a / view.px_per_cm,
+        end_cm=(b + 1) / view.px_per_cm,
+        confidence=max(confidences) if confidences else None,
+        overlay=mask_overlay([{"bounds": (0, 0, w, h), "mask": full}], (h, w)),
+        seconds=round(seconds, 2),
+    )
+
+
+def _span(p: ReviewPiece) -> str:
+    return f"{p.start_cm:.1f}-{p.end_cm:.1f}"
+
+
+def sam_piece_ready(box: BoxReview, i: int) -> None:
+    """Refuse a tap before paying for SAM when the run cannot be corrected."""
+    _run(box, i)
+
+
+def sam_piece(
+    box: BoxReview, i: int, cut: PointMask, n_points: int, refine: bool = False
+) -> tuple[RunReview, bool]:
+    """Make SAM's piece one piece of run i: breaks inside it go, its ends become breaks.
+
+    So one tap fixes a missing break (the mask ends inside a piece) or an
+    extra one (the mask runs over a break). Mask ends near a break the row
+    already has snap to it. ``refine`` replaces the run's last SAM correction
+    (the same piece, tapped again with more points). Returns the run and
+    whether anything changed; geometry.py recomputes the numbers.
+    """
+    run = _run(box, i)
+    last = run.corrections[-1] if run.corrections else None
+    reverted = bool(refine and last and last.source == "sam-point" and last.pieces_before)
+    if reverted:
+        run.corrections.pop()
+        run.pieces = list(last.pieces_before)
+    before = list(run.pieces)
+    r = cut.row
+    # the run ends at its run blocks and where the neighbouring runs' pieces are
+    mid = (cut.start_cm + cut.end_cm) / 2
+    blocks = [x for row, x in (box.tray.markers if box.tray else []) if row == r]
+    left = max(
+        [p.end_cm for o in box.runs[:i] for p in o.pieces if p.row == r]
+        + [x for x in blocks if x <= mid],
+        default=0.0,
+    )
+    right = min(
+        [p.start_cm for o in box.runs[i + 1 :] for p in o.pieces if p.row == r]
+        + [x for x in blocks if x > mid],
+        default=float("inf"),
+    )
+    a, b = max(cut.start_cm, left), min(cut.end_cm, right)
+    if b - a < MIN_SPLIT_CM:
+        raise ReviewError(f"That piece is not in run {i + 1}. Open the run it belongs to.")
+    in_row = [p for p in run.pieces if p.row == r]
+    ends = [v for p in in_row for v in (p.start_cm, p.end_cm)]
+
+    def snap(v: float) -> float:
+        near = min(ends, key=lambda e: abs(e - v), default=None)
+        return near if near is not None and abs(near - v) <= SNAP_CM else v
+
+    a, b = snap(a), snap(b)
+    kept, touched, kind = [], [], "natural"
+    for p in in_row:
+        if p.end_cm <= a + _EPS_CM or p.start_cm >= b - _EPS_CM:
+            kept.append(p)
+            continue
+        touched.append(p)
+        if p.start_cm < a - _EPS_CM:
+            kept.append(p.model_copy(update={"end_cm": a, "break_after": "natural"}))
+        if p.end_cm > b + _EPS_CM:
+            kept.append(p.model_copy(update={"start_cm": b}))
+            kind = "natural"  # a new break at the mask's end
+        else:
+            kind = p.break_after
+    piece = ReviewPiece(row=r, start_cm=a, end_cm=b, break_after=kind)
+    new_row = sorted([*kept, piece], key=lambda p: p.start_cm)
+    if new_row == in_row:
+        if reverted:
+            _after_pieces(run)
+        return run, reverted
+    others = [p for p in run.pieces if p.row != r]
+    run.pieces = sorted([*others, *new_row], key=lambda p: (p.row, p.start_cm))
+    _after_pieces(run)
+    was = ", ".join(_span(p) for p in touched)
+    run.corrections.append(
+        Correction(
+            at=_now(),
+            target=f"row {r + 1}, {a:.1f}-{b:.1f} cm",
+            original=f"{len(touched)} piece{'s' if len(touched) != 1 else ''}"
+            + (f": {was} cm" if touched else ""),
+            corrected=f"one piece {_span(piece)} cm from the SAM 3.1 mask"
+            f" ({n_points} point{'s' if n_points != 1 else ''})",
+            source="sam-point",
+            pieces_before=before,
+        )
+    )
+    return run, True
 
 
 def set_description(
