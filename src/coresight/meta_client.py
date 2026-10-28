@@ -146,13 +146,84 @@ class SamObject:
     points: tuple[SamPoint, ...] = ()
 
 
+def _prompt_image_size(size: tuple[int, int]) -> tuple[int, int]:
+    """(w, h) checked to be positive whole pixels."""
+    try:
+        w, h = size
+    except (TypeError, ValueError):
+        raise ValueError(f"image size must be (w, h), got {size!r}") from None
+    for n in (w, h):
+        if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+            raise ValueError(f"image size must be positive whole pixels, got {size!r}")
+    return w, h
+
+
+def _prompt_pixel(value: float, what: str) -> int:
+    """A prompt coordinate floored to a whole pixel, as the API does."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{what} must be a number, got {value!r}")
+    try:
+        return int(value // 1)
+    except (OverflowError, ValueError):
+        raise ValueError(f"{what} out of range: {value!r}") from None
+
+
+def _grid_pixel(value: float, n: int) -> int:
+    """A 0 to 1000 grid coordinate as a clamped pixel of a side ``n``."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"grid coordinate must be a number, got {value!r}")
+    try:
+        pixel = int(value * n // 1000)  # 1000 scales to n, clamped to n - 1 below
+    except (OverflowError, ValueError):
+        raise ValueError(f"grid coordinate out of range: {value!r}") from None
+    return max(0, min(pixel, n - 1))
+
+
 def sam_prompt(objects: Sequence[SamObject], size: tuple[int, int]) -> str:
     """The input_text of a SAM 3.1 box and point prompt for one image of ``size`` (w, h).
 
     Raises ValueError when the API would refuse it. Spec: tests/test_sam_prompts.py.
-    To be built with Muse Code.
     """
-    raise NotImplementedError
+    w, h = _prompt_image_size(size)
+    if not objects:
+        raise ValueError("at least one object")
+    if len(objects) > MAX_SAM_OBJECTS:
+        raise ValueError(f"at most {MAX_SAM_OBJECTS} objects, got {len(objects)}")
+    seen = set()
+    rendered = []
+    for obj in objects:
+        if isinstance(obj.id, bool) or not isinstance(obj.id, int) or obj.id < 0:
+            raise ValueError(f"object id must be a whole number from 0, got {obj.id!r}")
+        if obj.id in seen:
+            raise ValueError(f"duplicate object id {obj.id}")
+        seen.add(obj.id)
+        if obj.box is None and not any(p.positive for p in obj.points):
+            raise ValueError(f"object {obj.id} needs a box or a positive point")
+        chunk = [str(obj.id)]
+        if obj.box is not None:
+            try:
+                bx1, by1, bx2, by2 = obj.box
+            except (TypeError, ValueError):
+                raise ValueError(f"object {obj.id} box must be (x1, y1, x2, y2)") from None
+            what = f"object {obj.id} box"
+            x1 = _prompt_pixel(bx1, what)
+            y1 = _prompt_pixel(by1, what)
+            x2 = _prompt_pixel(bx2, what)
+            y2 = _prompt_pixel(by2, what)
+            if not (0 <= x1 <= x2 < w and 0 <= y1 <= y2 < h):
+                raise ValueError(f"object {obj.id} box {(x1, y1, x2, y2)} outside {w}x{h}")
+            chunk.append(f"<|box;x1={x1};y1={y1};x2={x2};y2={y2};w={w};h={h}|>")
+        for point in obj.points:
+            what = f"object {obj.id} point"
+            x = _prompt_pixel(point.x, what)
+            y = _prompt_pixel(point.y, what)
+            if not (0 <= x < w and 0 <= y < h):
+                raise ValueError(f"object {obj.id} point {(x, y)} outside {w}x{h}")
+            if not point.positive:
+                chunk.append("-")
+            chunk.append(f"<|point;x={x};y={y};w={w};h={h}|>")
+        rendered.append("".join(chunk))
+    return "<0f>" + ",".join(rendered)
 
 
 def grid_box_to_pixels(
@@ -160,9 +231,19 @@ def grid_box_to_pixels(
 ) -> tuple[int, int, int, int]:
     """A Muse Spark box in the 0 to 1000 grid as an inclusive pixel box of the image sent.
 
-    Spec: tests/test_sam_prompts.py. To be built with Muse Code.
+    Spec: tests/test_sam_prompts.py.
     """
-    raise NotImplementedError
+    w, h = _prompt_image_size(size)
+    try:
+        gx1, gy1, gx2, gy2 = box
+    except (TypeError, ValueError):
+        raise ValueError(f"grid box must be (x1, y1, x2, y2), got {box!r}") from None
+    x1 = _grid_pixel(gx1, w)
+    y1 = _grid_pixel(gy1, h)
+    x2 = _grid_pixel(gx2, w)
+    y2 = _grid_pixel(gy2, h)
+    # A backwards box is put in order, so the result is always a valid prompt.
+    return (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
 
 
 def _output_text(response: dict) -> str:
