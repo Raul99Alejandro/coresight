@@ -17,6 +17,9 @@ Licenses were checked on the source page on 2026-10-25.
 | 8 | [Hugging Face: Drill Core Image Dataset (DCID)](https://huggingface.co/datasets/168sir/drill-core-image-dataset) | About 98,000 RGB core images for lithology classification, 3.8 GB | CC BY-NC 4.0 | No | Lithology only |
 
 Rejected or pending:
+- geoloogia.info (source 4), checked again on 2026-10-28 for the hole view: the file page of
+  [Aseri PH012B](https://geoloogia.info/en/file/154417/) has no license field; the portal only says
+  its materials are "mostly" CC BY-SA "unless indicated otherwise". Not clear per file, so not used.
 - [NTGS GEMIS HyLogged Drillholes](https://geoscience.nt.gov.au/gemis/ntgsjspui/handle/1/92544?mode=full): tray photography via STRIKE, but the page states only "© Northern Territory Government", no open license. Do not use until a license is confirmed.
 - [University of Hawaii ScholarSpace: Scientific Observation Hole core photos](https://scholarspace.manoa.hawaii.edu/items/abfc89b4-b246-400f-bb38-173741df7236): full box series by depth; rights statement not checked (site blocks automated access). Check by hand.
 
@@ -49,6 +52,17 @@ tray. Scale from the depths written on the wax-sealed samples (9.7-10.1 ft and 1
 px/cm, a 66 cm tray. Run 3 (10.1-15.1 ft) continues in the next box and is logged to the box end.
 The measured recovery matches the run labels: run 1 48.5% (label 2.4 of 5.0 ft), run 2 75.7% (4.0 of
 5.1 ft), run 3 97.4% (1.1 of 1.1 ft). Depths are converted from feet to metres.
+
+## Finding (2026-10-28): a second box of the same Nevada hole
+
+`commons_nts_u12g_2.jpg` is the same hole as the demo sample: the cards read U12G-GF-GT#2, 19.0 at the
+start and 26.3 at the end, run 5 (20.1-25.1 ft, drilled 5.0, recovered 4.9) and run 6 (25.1-30.2 ft)
+blocks, and wax-sealed samples at 23.2-23.6 and 23.6-24.0 ft. Labelled as box 3 in
+`pieces/U12G-GF-GT2_box03.json`: the number is not written on the box; the box before it (11.2 to
+19.0 ft) is not public, so the hole view shows that stretch as a gap. Scale from the wax-sealed
+samples and the run 6 block: 34.4 px/cm, a 68 cm tray. Run 5 recovered 98.2% (the card says 4.9 of
+5.0 ft, 98%). The "Waxed Sandia 25.9-26.1" block stands in for a sample taken out and is counted as
+recovered core. Depths are converted from feet to metres.
 
 ## Images used
 

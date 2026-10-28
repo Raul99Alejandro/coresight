@@ -1,0 +1,232 @@
+{
+ "hole_id": "U12G-GF-GT2",
+ "box_number": 3,
+ "image": "data/raw/commons_nts_u12g_2.jpg",
+ "runs": [
+  {
+   "from_m": 5.791,
+   "to_m": 6.126
+  },
+  {
+   "from_m": 6.126,
+   "to_m": 7.65
+  },
+  {
+   "from_m": 7.65,
+   "to_m": 8.016
+  }
+ ],
+ "rows": [
+  {
+   "y1": 560,
+   "y2": 750,
+   "pieces": [
+    {
+     "x1": 615,
+     "x2": 880,
+     "after": "natural"
+    },
+    {
+     "x1": 880,
+     "x2": 1100,
+     "after": "natural"
+    },
+    {
+     "x1": 1100,
+     "x2": 1145,
+     "after": "natural"
+    },
+    {
+     "x1": 1145,
+     "x2": 1425,
+     "after": "natural"
+    },
+    {
+     "x1": 1425,
+     "x2": 1620,
+     "after": "natural"
+    },
+    {
+     "x1": 1620,
+     "x2": 1700,
+     "after": "natural"
+    },
+    {
+     "x1": 1700,
+     "x2": 1790,
+     "after": "natural"
+    },
+    {
+     "x1": 1790,
+     "x2": 1890,
+     "after": "natural"
+    },
+    {
+     "x1": 1890,
+     "x2": 1980,
+     "after": "natural"
+    },
+    {
+     "x1": 1980,
+     "x2": 2060,
+     "after": "run_end"
+    },
+    {
+     "x1": 2340,
+     "x2": 2410,
+     "after": "natural"
+    },
+    {
+     "x1": 2410,
+     "x2": 2600,
+     "after": "natural"
+    }
+   ]
+  },
+  {
+   "y1": 810,
+   "y2": 1000,
+   "pieces": [
+    {
+     "x1": 270,
+     "x2": 545,
+     "after": "natural"
+    },
+    {
+     "x1": 545,
+     "x2": 760,
+     "after": "natural"
+    },
+    {
+     "x1": 760,
+     "x2": 1030,
+     "after": "natural"
+    },
+    {
+     "x1": 1030,
+     "x2": 1270,
+     "after": "natural"
+    },
+    {
+     "x1": 1270,
+     "x2": 1620,
+     "after": "natural"
+    },
+    {
+     "x1": 1620,
+     "x2": 1855,
+     "after": "natural"
+    },
+    {
+     "x1": 1855,
+     "x2": 2140,
+     "after": "natural"
+    },
+    {
+     "x1": 2140,
+     "x2": 2360,
+     "after": "natural"
+    },
+    {
+     "x1": 2360,
+     "x2": 2620,
+     "after": "natural"
+    }
+   ]
+  },
+  {
+   "y1": 1050,
+   "y2": 1250,
+   "pieces": [
+    {
+     "x1": 330,
+     "x2": 535,
+     "after": "natural"
+    },
+    {
+     "x1": 535,
+     "x2": 830,
+     "after": "natural"
+    },
+    {
+     "x1": 830,
+     "x2": 1060,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1060,
+     "x2": 1480,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1480,
+     "x2": 1955,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1975,
+     "x2": 2305,
+     "after": "natural"
+    },
+    {
+     "x1": 2305,
+     "x2": 2615,
+     "after": "natural"
+    }
+   ]
+  },
+  {
+   "y1": 1310,
+   "y2": 1490,
+   "pieces": [
+    {
+     "x1": 345,
+     "x2": 620,
+     "after": "run_end"
+    },
+    {
+     "x1": 965,
+     "x2": 1150,
+     "after": "natural"
+    },
+    {
+     "x1": 1150,
+     "x2": 1500,
+     "after": "natural"
+    },
+    {
+     "x1": 1500,
+     "x2": 1830,
+     "after": "uncertain"
+    },
+    {
+     "x1": 1830,
+     "x2": 2100,
+     "after": "run_end"
+    }
+   ]
+  }
+ ],
+ "meter_marks": [
+  {
+   "row": 2,
+   "x": 1060,
+   "depth_m": 7.071
+  },
+  {
+   "row": 2,
+   "x": 1480,
+   "depth_m": 7.193
+  },
+  {
+   "row": 2,
+   "x": 1955,
+   "depth_m": 7.315
+  },
+  {
+   "row": 3,
+   "x": 965,
+   "depth_m": 7.65
+  }
+ ]
+}

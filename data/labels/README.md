@@ -59,4 +59,8 @@ Onkalo choices to review: breaks without a clear coating, and the breaks at row 
 box 5 is three 1.5 cm fragments; the chip lying on top of that row is not counted.
 `commons_onkalo_2.jpg` shows the same two boxes wet, so it has no label of its own.
 
+Nevada U12G box 3 choices to review: the run 4 rubble at the end of row 1 is five fragments under
+10 cm; breaks next to the wax-sealed samples are `uncertain`; the "Waxed Sandia" block is a sample
+taken out and counts as core. Details in `SOURCES.md`.
+
 Record the source and license of every public image in `SOURCES.md` next to the labels.

@@ -1,0 +1,28 @@
+{
+  "hole_id": "U12G-GF-GT2",
+  "box_number": 3,
+  "image": "data/raw/commons_nts_u12g_2.jpg",
+  "runs": [
+    {
+      "from_m": 5.791,
+      "to_m": 6.126,
+      "rqd_pct": 0.0,
+      "tcr_pct": 100.0,
+      "natural_fractures": 6
+    },
+    {
+      "from_m": 6.126,
+      "to_m": 7.65,
+      "rqd_pct": 23.7,
+      "tcr_pct": 98.2,
+      "natural_fractures": 18
+    },
+    {
+      "from_m": 7.65,
+      "to_m": 8.016,
+      "rqd_pct": 27.8,
+      "tcr_pct": 90.1,
+      "natural_fractures": 3
+    }
+  ]
+}
