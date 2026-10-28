@@ -232,21 +232,32 @@ def _box_extents(runs: list[BoxRun]) -> list[tuple[int, float, float]]:
 def _depth_issues(
     boxes: list[tuple[int, float, float]],
 ) -> list[DepthIssue]:
-    """Gaps and overlaps between boxes next to each other by depth."""
+    """Gaps and overlaps against the deepest end reached so far."""
     issues: list[DepthIssue] = []
-    for prev, nxt in zip(boxes, boxes[1:], strict=False):
-        box_before, _, end_before = prev
-        box_after, start_after, end_after = nxt
-        if start_after > end_before + DEPTH_TOL_M:
-            issues.append(
-                DepthIssue("gap", end_before, start_after, box_before, box_after)
-            )
-        elif start_after < end_before - DEPTH_TOL_M:
-            overlap_to = min(end_before, end_after)
-            issues.append(
-                DepthIssue("overlap", start_after, overlap_to, box_before, box_after)
-            )
+    deepest_box, _, deepest_end = boxes[0]
+    for box, start, end in boxes[1:]:
+        if start > deepest_end + DEPTH_TOL_M:
+            issues.append(DepthIssue("gap", deepest_end, start, deepest_box, box))
+        elif start < deepest_end - DEPTH_TOL_M:
+            overlap_to = min(deepest_end, end)
+            issues.append(DepthIssue("overlap", start, overlap_to, deepest_box, box))
+        if end > deepest_end:
+            deepest_box, deepest_end = box, end
     return issues
+
+
+def _check_box_overlaps(runs: list[BoxRun]) -> None:
+    """Runs of one box must not overlap more than the tolerance."""
+    by_box: dict[int, list[BoxRun]] = {}
+    for r in runs:
+        by_box.setdefault(r.box, []).append(r)
+    for box, group in by_box.items():
+        ordered = sorted(group, key=lambda r: (r.from_m, r.to_m))
+        deepest_to = ordered[0].to_m
+        for nxt in ordered[1:]:
+            if nxt.from_m < deepest_to - DEPTH_TOL_M:
+                raise ValueError(f"box {box} has overlapping runs")
+            deepest_to = max(deepest_to, nxt.to_m)
 
 
 def _cut_overlaps(
@@ -291,8 +302,8 @@ def _join_parts(
                 not prev.complete
                 and not r.complete
                 and prev.box != r.box
-                and gap <= DEPTH_TOL_M + 1e-9
-                and gap >= -1e-9
+                and gap <= DEPTH_TOL_M
+                and gap >= -DEPTH_TOL_M
             ):
                 groups[-1].append(r)
                 continue
@@ -339,36 +350,71 @@ def _cover_stretches(
 def _fixed_bounds(
     stretches: list[tuple[float, float]], step_m: float
 ) -> list[tuple[float, float]]:
-    """Grid intervals at multiples of step_m, cut to the cover, slivers skipped."""
+    """Grid intervals cut to the cover; short edges merged into neighbours."""
     bounds: list[tuple[float, float]] = []
+    half = step_m / 2.0
     for s_from, s_to in stretches:
         k_start = math.floor(s_from / step_m)
         k_end = math.ceil(s_to / step_m)
+        raw: list[tuple[float, float]] = []
         for k in range(k_start, k_end):
             a = max(s_from, k * step_m)
             b = min(s_to, (k + 1) * step_m)
-            if b <= a or b - a + 1e-9 < DEPTH_TOL_M:
-                continue
-            bounds.append((a, b))
+            if b > a:
+                raw.append((a, b))
+        if not raw:
+            continue
+        if len(raw) == 1:
+            bounds.append(raw[0])
+            continue
+        merged = raw
+        if merged[0][1] - merged[0][0] < half:
+            merged = [(merged[0][0], merged[1][1])] + merged[2:]
+        if len(merged) > 1 and merged[-1][1] - merged[-1][0] < half:
+            merged = merged[:-2] + [(merged[-2][0], merged[-1][1])]
+        bounds.extend(merged)
     return bounds
 
 
-def _cut_for_interval(
-    pieces: list[DepthPiece], from_m: float, to_m: float
-) -> list[Piece]:
-    """Pieces clipped to one fixed interval; a cut at its end keeps no flag."""
-    out: list[Piece] = []
-    for p in pieces:
-        if p.to_m <= from_m or p.from_m >= to_m:
+def _intact_and_fractures(
+    joined: list[tuple[float, float, list[DepthPiece]]],
+) -> tuple[list[tuple[float, float]], list[tuple[float, bool]]]:
+    """Intact spans and fracture depths from joined runs.
+
+    Mechanical breaks rejoin inside a run; the end of every intact piece
+    but the last of the run is a fracture the run log counts.
+    """
+    spans: list[tuple[float, float]] = []
+    fractures: list[tuple[float, bool]] = []
+    for _, _, pieces in joined:
+        if not pieces:
             continue
-        s = max(p.from_m, from_m)
-        e = min(p.to_m, to_m)
+        group_start = pieces[0].from_m
+        for i, p in enumerate(pieces):
+            group_end = p.to_m
+            is_last = i == len(pieces) - 1
+            if p.mechanical_break_after and not is_last:
+                continue
+            spans.append((group_start, group_end))
+            if not is_last:
+                fractures.append((group_end, p.uncertain_break_after))
+                group_start = pieces[i + 1].from_m
+    return spans, fractures
+
+
+def _cut_for_interval(
+    spans: list[tuple[float, float]], from_m: float, to_m: float
+) -> list[Piece]:
+    """Intact spans clipped to one fixed interval, without break flags."""
+    out: list[Piece] = []
+    for s_from, s_to in spans:
+        if s_to <= from_m or s_from >= to_m:
+            continue
+        s = max(s_from, from_m)
+        e = min(s_to, to_m)
         if e - s <= _EPS / 100.0:
             continue
-        cut = e < p.to_m - 1e-9
-        mech = False if cut else p.mechanical_break_after
-        unc = False if cut else p.uncertain_break_after
-        out.append(Piece((s - from_m) * 100.0, (e - from_m) * 100.0, mech, unc))
+        out.append(Piece((s - from_m) * 100.0, (e - from_m) * 100.0))
     return out
 
 
@@ -397,7 +443,7 @@ def _weak_zones(
         group.clear()
 
     for iv in intervals:
-        contiguous = not group or iv.from_m - group[-1].to_m <= DEPTH_TOL_M + 1e-9
+        contiguous = not group or iv.from_m - group[-1].to_m <= DEPTH_TOL_M
         if iv.rqd_pct < zone_max_rqd and contiguous:
             group.append(iv)
         else:
@@ -444,8 +490,8 @@ def log_hole(
     runs_list = list(runs)
     if not runs_list:
         raise ValueError("hole has no runs")
-    if not (math.isfinite(step_m) and step_m > 0):
-        raise ValueError(f"step_m ({step_m}) must be a positive finite number")
+    if not (math.isfinite(step_m) and step_m >= 0.1):
+        raise ValueError(f"step_m ({step_m}) must be at least 0.1 m")
     if zone_min_intervals < 1:
         raise ValueError(
             f"zone_min_intervals ({zone_min_intervals}) must be at least 1"
@@ -457,6 +503,7 @@ def log_hole(
             raise ValueError(
                 f"run to_m ({r.to_m}) must be greater than from_m ({r.from_m})"
             )
+    _check_box_overlaps(runs_list)
     boxes = _box_extents(runs_list)
     issues = tuple(_depth_issues(boxes))
     trimmed = _cut_overlaps(runs_list, boxes)
@@ -464,15 +511,31 @@ def log_hole(
     run_logs = tuple(
         log_interval(_as_run_pieces(pieces, f), f, t) for f, t, pieces in joined
     )
+    spans, fractures = _intact_and_fractures(joined)
     stretches = _cover_stretches(boxes)
     bounds = _fixed_bounds(stretches, step_m)
-    all_pieces: list[DepthPiece] = []
-    for r in trimmed:
-        all_pieces.extend(r.pieces)
-    all_pieces.sort(key=lambda p: p.from_m)
-    interval_logs = tuple(
-        log_interval(_cut_for_interval(all_pieces, a, b), a, b) for a, b in bounds
-    )
+    counts = [[0, 0] for _ in bounds]
+    for depth, uncertain in fractures:
+        for idx, (a, b) in enumerate(bounds):
+            if a <= depth <= b:
+                counts[idx][0] += 1
+                if uncertain:
+                    counts[idx][1] += 1
+                break
+    from dataclasses import replace
+
+    logs: list[IntervalLog] = []
+    for (a, b), (nat, unc) in zip(bounds, counts, strict=True):
+        base = log_interval(_cut_for_interval(spans, a, b), a, b)
+        logs.append(
+            replace(
+                base,
+                natural_fractures=nat,
+                uncertain_breaks=unc,
+                fracture_frequency_per_m=nat / (b - a),
+            )
+        )
+    interval_logs = tuple(logs)
     zones = _weak_zones(interval_logs, zone_max_rqd, zone_min_intervals)
     return HoleLog(
         boxes=tuple(boxes),
