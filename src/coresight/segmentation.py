@@ -78,6 +78,21 @@ FALLBACK = "fallback+"  # "stone" first; Spark's boxes only for a row where "sto
 FALLBACK_METHODS = tuple(FALLBACK + m for m in METHODS)
 BreakKind = str  # "natural", "uncertain", "possible_mechanical" or "mechanical"
 DIP_END_MARGIN_CM = 2.0  # ignore dips this close to a piece end
+
+
+@dataclass(frozen=True)
+class ProfileThresholds:
+    """When a dark line inside a piece becomes an uncertain break (the profile layer).
+
+    The defaults were set by hand on the first boxes; coresight.learning fits them
+    per site from the geologist's corrections (point F).
+    """
+
+    min_contrast: float = DIP_MIN_CONTRAST  # relative darkening at the line
+    min_crossing: float = DIP_MIN_CROSSING  # share of the core height it must cross
+
+
+DEFAULT_PROFILE = ProfileThresholds()
 TILE_ASPECT = 2.5  # Muse Spark sees a row in tiles about this much wider than tall
 TILE_OVERLAP = 0.15  # share of a tile repeated on each side, so no piece is lost at an edge
 TILE_EDGE = 0.01  # a box this close to a tile edge was cut by it
@@ -243,7 +258,11 @@ def _core_band(union: np.ndarray, a: int, b: int) -> tuple[int, int]:
 
 
 def fracture_cuts(
-    crop: np.ndarray, union: np.ndarray, interval: tuple[float, float], px_per_cm: float
+    crop: np.ndarray,
+    union: np.ndarray,
+    interval: tuple[float, float],
+    px_per_cm: float,
+    thresholds: ProfileThresholds = DEFAULT_PROFILE,
 ) -> list[float]:
     """x positions (crop px) of thin dark lines that cross the core inside one piece."""
     a, b = int(interval[0]), int(interval[1])
@@ -269,20 +288,20 @@ def fracture_cuts(
     cuts = []
     x = margin
     while x < len(contrast) - margin:
-        if contrast[x] < DIP_MIN_CONTRAST:
+        if contrast[x] < thresholds.min_contrast:
             x += 1
             continue
         end = x
-        while end < len(contrast) and contrast[end] >= DIP_MIN_CONTRAST / 2:
+        while end < len(contrast) and contrast[end] >= thresholds.min_contrast / 2:
             end += 1
         start = x
-        while start > 0 and contrast[start - 1] >= DIP_MIN_CONTRAST / 2:
+        while start > 0 and contrast[start - 1] >= thresholds.min_contrast / 2:
             start -= 1
         if end - start <= max_width:
             centre = start + int(np.argmax(contrast[start:end]))
             column = band[:, max(centre - 2, 0) : centre + 3].min(axis=1)
-            crossing = (column < baseline[centre] * (1 - DIP_MIN_CONTRAST / 2)).mean()
-            if crossing >= DIP_MIN_CROSSING:
+            crossing = (column < baseline[centre] * (1 - thresholds.min_contrast / 2)).mean()
+            if crossing >= thresholds.min_crossing:
                 cuts.append(float(a + centre))
         x = end + 1
     return cuts
@@ -564,10 +583,12 @@ def segment_row(
     px_per_cm: float,
     method: str = METHODS[-1],
     not_core: list[tuple[float, float]] = (),
+    profile: ProfileThresholds = DEFAULT_PROFILE,
 ) -> RowPieces:
     """Pieces of one straightened row crop from its decoded SAM masks.
 
     ``not_core``: x spans (crop px) that are not core, from located_masks.
+    ``profile``: the thresholds of the profile layer (a site's, once learned).
     """
     if method not in METHODS + SPARK_METHODS + FALLBACK_METHODS:
         raise ValueError(f"unknown method {method!r}")
@@ -579,7 +600,7 @@ def segment_row(
     intervals = exclude_spans(intervals, list(not_core), px_per_cm)
     cuts: list[float] = []
     if layers.startswith("sam+fill+profile"):
-        cuts = [c for iv in intervals for c in fracture_cuts(crop, union, iv, px_per_cm)]
+        cuts = [c for iv in intervals for c in fracture_cuts(crop, union, iv, px_per_cm, profile)]
         intervals = split_intervals(intervals, cuts, px_per_cm)
     if layers.endswith("+marks"):
         breaks = classify_breaks(crop, intervals, cuts, px_per_cm)
