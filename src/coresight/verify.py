@@ -215,9 +215,8 @@ def _check_finding_trends(finding: HoleFinding, trends: list[HoleTrend]) -> Chec
     unknown = list(dict.fromkeys(k for k in finding.trends if k not in found))
     if not unknown:
         return Check(name="trends", ok=True)
-    parts = [f"code did not find {_TREND_WORDS[k]} along the hole" for k in unknown]
-    detail = "; ".join(parts)
-    return Check(name="trends", ok=False, detail=detail[0].upper() + detail[1:])
+    parts = [f"Code did not find {_TREND_WORDS[k]} along the hole." for k in unknown]
+    return Check(name="trends", ok=False, detail=" ".join(parts))
 
 
 def _check_finding_action(finding: HoleFinding, trends: list[HoleTrend]) -> Check:
@@ -243,6 +242,9 @@ def _check_finding_action(finding: HoleFinding, trends: list[HoleTrend]) -> Chec
     return Check(name="action", ok=False, detail=detail)
 
 
+_PERCENT_WORD = re.compile(r"(?:per\s+cent|percent(?:age)?|pct)\b", re.IGNORECASE)
+
+
 def _extract_numbers_pct(text: str) -> list[tuple[str, float, int, bool]]:
     out: list[tuple[str, float, int, bool]] = []
     for m in _NUMBER.finditer(text):
@@ -253,7 +255,13 @@ def _extract_numbers_pct(text: str) -> list[tuple[str, float, int, bool]]:
             val = float(norm)
         except ValueError:
             continue
-        out.append((raw, val, decimals, text[m.end():].lstrip().startswith("%")))
+        start = m.start()
+        if start > 0 and text[start - 1] == "-" and (start < 2 or not text[start - 2].isdigit()):
+            raw = "-" + raw
+            val = -val
+        after = text[m.end():].lstrip()
+        is_pct = after.startswith("%") or bool(_PERCENT_WORD.match(after))
+        out.append((raw, val, decimals, is_pct))
     return out
 
 
@@ -365,7 +373,7 @@ def _check_plant(applies: bool, signals: RoutingSignals) -> Check:
 
 def _check_finance(applies: bool, lab_applies: bool | None) -> Check:
     if lab_applies is None:
-        return Check(name="finance", ok=True)
+        lab_applies = False
     if lab_applies and not applies:
         return Check(name="finance", ok=False,
                      detail="Finance must apply: lab applies, and finance prices its request")
