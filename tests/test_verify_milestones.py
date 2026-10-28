@@ -14,9 +14,12 @@ two milestones are checked by code:
      box and of earlier boxes (as verify's numbers check), run numbers from 1, box numbers
      (this box, earlier boxes and the trends' boxes), and every number of the trends
      (from_m, to_m, rqd_before_pct, rqd_after_pct, rqd_pct, min_rqd_pct). The detail
-     lists the numbers no tool gave, as verify's numbers check does.
+     lists the numbers no tool gave, as verify's numbers check does. A minus sign is
+     part of the number. A number written as a percent ("%", "percent", "per cent",
+     "pct") must be a percent a tool gave (an RQD or a recovery), not a depth.
    Failed details are sentences without field names: trend kinds read as
-   "an RQD drop", "a weak zone", "a change of rock", "sulfides appearing", "sulfides ending".
+   "an RQD drop", "a weak zone", "a change of rock", "sulfides appearing", "sulfides ending",
+   one sentence per unknown trend ("Code did not find a weak zone along the hole.").
 
 2. The orchestrator's routing (check_routing), against what code knows about the box
    (RoutingSignals, from hole.routing_signals). One check per area, named by the area,
@@ -28,7 +31,8 @@ two milestones are checked by code:
    - lab must apply if the box shows sulfides. It cannot apply without lab evidence.
    - plant must apply if sulfides appear or end ("sulfides_appear", "sulfides_gone").
      It cannot apply with no "lithology_change", no sulfide trend and no sulfides.
-   - finance applies exactly when lab applies (it only prices the lab request).
+   - finance applies exactly when lab applies (it only prices the lab request); a
+     missing lab route counts as lab not applying.
    - an area without a route fails: "<Area> has no route".
    Details: "<Area> must apply: <why>" or "<Area> cannot apply: <why>", the area
    capitalised (Lab, Safety, Plant, Finance), reasons joined with "; ".
@@ -245,3 +249,37 @@ def test_a_draft_quoting_the_trends_is_traceable(box):
     assert numbers["numbers"].ok, numbers["numbers"].detail
     without = {c.name: c for c in verify("safety", d, box, load_prices(), [])}
     assert not without["numbers"].ok
+
+
+# --- Found by the read-only Muse Code reviewer (routing-review-1.json) ----------
+
+
+def test_a_negative_number_is_not_its_positive(box):
+    f = finding(body="RQD falls from 92.4 % in box 2 to 69.3 % in box 3. Level -2 m.")
+    c = named(check_finding(f, [DROP], box, []), ["trends", "action", "numbers"])
+    assert not c["numbers"].ok and "-2" in c["numbers"].detail
+
+
+@pytest.mark.parametrize("word", ["percent", "per cent", "pct"])
+def test_a_percent_in_words_is_a_percent(box, word):
+    f = finding(action="oriented_core", trends=["weak_zone"],
+                body=f"RQD 12.5 {word} then 41.2 %")  # fmt: skip
+    c = named(check_finding(f, [ZONE], box, []), ["trends", "action", "numbers"])
+    assert not c["numbers"].ok and "12.5" in c["numbers"].detail
+
+
+def test_every_unknown_trend_is_its_own_sentence(box):
+    f = finding(trends=["rqd_drop", "weak_zone", "lithology_change"])
+    c = named(check_finding(f, [DROP], box, []), ["trends", "action", "numbers"])
+    assert c["trends"].detail == (
+        "Code did not find a weak zone along the hole. "
+        "Code did not find a change of rock along the hole."
+    )
+
+
+def test_finance_without_a_lab_route_cannot_apply():
+    c = named(check_routing(routing("finance", skip=("lab",)), signals()), AREAS)
+    assert c["lab"].detail == "Lab has no route"
+    assert c["finance"].detail == (
+        "Finance cannot apply: lab does not apply, so there is no request to price"
+    )
