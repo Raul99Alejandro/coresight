@@ -64,6 +64,16 @@ def upload(c: TestClient, runs="10-11, 11-12.5", data=None):
     )
 
 
+def fake_sample_photo(tmp_path, monkeypatch, name="onkalo-box5") -> None:
+    """The sample photos are not in git (data/raw): point the sample at a fake one."""
+    from coresight import api
+
+    photo = tmp_path / "sample.jpg"
+    photo.write_bytes(photo_bytes())
+    sample = api.SAMPLES[name].model_copy(update={"photo": str(photo)})
+    monkeypatch.setitem(api.SAMPLES, name, sample)
+
+
 def wav() -> bytes:
     pcm = b"\0\0" * 1600
     header = b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt "
@@ -337,7 +347,7 @@ def test_a_tap_needs_a_positive_point_first_and_a_box_under_review(tmp_path, mon
     assert c.post(f"/api/boxes/{bid}/runs/5/sam-point", json=bad).status_code == 400
 
 
-def test_an_upload_carries_the_geologist_corrections_of_its_hole(tmp_path):
+def test_an_upload_carries_the_geologist_corrections_of_its_hole(tmp_path, monkeypatch):
     from test_review import described_box
 
     from coresight.describe import EXAMPLES_KEY
@@ -348,7 +358,8 @@ def test_an_upload_carries_the_geologist_corrections_of_its_hole(tmp_path):
         seen.append(job.context.get(EXAMPLES_KEY))
         return fake_analyzer(photo, job, report)
 
-    store = ReviewStore(tmp_path)
+    fake_sample_photo(tmp_path, monkeypatch)
+    store = ReviewStore(tmp_path / "boxes")
     store.save(described_box(1, corrections=[("lithology", "granite", "granite gneiss")]))
     c = TestClient(create_app(store=store, analyzer=analyzer, background=False))
     assert upload(c).status_code == 202  # DDH-1, like the approved box

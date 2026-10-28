@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from test_api import client, fake_analyzer, photo_bytes, upload
+from test_api import client, fake_analyzer, fake_sample_photo, photo_bytes, upload
 from test_review import GateClient, tray_photo
 
 from coresight import review
@@ -181,8 +181,9 @@ def test_the_hourly_cap_for_everybody_is_clear(tmp_path, monkeypatch):
 def test_samples_do_not_use_up_the_upload_allowance(tmp_path, monkeypatch):
     monkeypatch.setenv("CORESIGHT_MAX_ANALYSES_PER_VISITOR", "1")
     monkeypatch.setenv("CORESIGHT_MAX_ANALYSES_PER_HOUR", "1")
-    app = create_app(store=ReviewStore(tmp_path), analyzer=lambda p, j, r: (_ for _ in ()).throw(
-        review.ReviewError("stop")), background=False)  # fmt: skip
+    fake_sample_photo(tmp_path, monkeypatch)
+    app = create_app(store=ReviewStore(tmp_path / "boxes"), analyzer=fake_analyzer,
+                     background=False)  # fmt: skip
     c = TestClient(app)
     for _ in range(3):  # cached samples are cheap: their own, larger cap
         assert c.post("/api/samples/onkalo-box5").status_code == 202
