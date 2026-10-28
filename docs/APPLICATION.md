@@ -48,6 +48,14 @@ Registro de uso:
   - 4 tests nuevos (commit `b715f11`) y tercera ronda del constructor: sesión `01a183f8-64f7-76f3-9315-8faf5fe87a2d`, 20 llamadas. Traza: `docs/muse-code/hole-3.json`.
   - En total: 3 rondas del constructor y 2 del revisor, 69 llamadas. La sandbox sigue sin PowerShell; corrimos pytest y ruff fuera (320 en verde, ruff limpio). No editamos su código.
 
+- 28 oct (punto E del segundo análisis): la verificación en los hitos, `check_finding` y `check_routing` en `src/coresight/verify.py`, y `verify(..., trends)`. Muse Code 1.4.14, `--model muse-spark-1.3`, constructor y revisor como en D.
+  - Especificación: `tests/test_verify_milestones.py`, escrita antes por nosotros (commit `2e02cd2`, 23 tests). Las tendencias entre cajas (`hole.hole_trends`) y el agente de barreno los escribimos nosotros.
+  - Constructor, ronda 1: sesión `01a18410-fb19-7921-aa89-a7f0aa93faa8`, 32 llamadas. Traza: `docs/muse-code/routing-1.json`. Commit: `5653d4d`.
+  - Revisor de solo lectura (`--disable-write`): sesión `01a1841c-df12-7a23-a050-4a64d149e9f2`, 21 llamadas. Traza: `docs/muse-code/routing-review-1.json`. Encontró dos errores reales (un signo menos se perdía y "-2" pasaba como "2"; un porcentaje escrito con palabras pasaba como profundidad) y dos detalles (las tendencias desconocidas en una sola frase; finanzas pasaba sin ruta de laboratorio). Los cuatro volvieron como 6 tests nuevos (commit `1539361`); no los arreglamos a mano.
+  - Constructor, ronda 2: sesión `01a18424-7509-7df0-9a12-996019274166`, 33 llamadas. Traza: `docs/muse-code/routing-2.json`. Los 29 tests de hitos y los 20 de `verify` en verde.
+  - En total: 2 rondas del constructor y 1 del revisor, 86 llamadas. La sandbox sigue sin PowerShell; corrimos pytest y ruff fuera (383 en verde, ruff limpio). No editamos su código.
+  - Prueba real en local con la API de Meta (Nevada U12G caja 3, con la caja 1 aprobada): el código encontró 3 tendencias, el agente de barreno propuso avisar a geotecnia (3 de 3 checks, el juez respaldó 10 de 10 afirmaciones), Wonder mandó solo a seguridad (4 de 4 áreas coherentes al primer intento) y el borrador de seguridad pasó 4 de 4 checks y 11 de 11 afirmaciones. Unos 110 s, la mitad verificando.
+
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.
 

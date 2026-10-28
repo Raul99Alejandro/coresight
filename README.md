@@ -145,7 +145,7 @@ Meta's Agents Rule of Two: the agents read model output about the photo and priv
 
 ## Built with Muse Code
 
-Five pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
+Six pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
@@ -159,6 +159,10 @@ Five pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against t
   - Builder, round 2 (session `01a183e5-86e3-7391-89d7-257f02ae3408`): all 41 tests green. Fractures and recovered core now add up the same by run and by interval.
   - Second reviewer (session `01a183ee-17c2-7872-965a-26e7a5a56b8d`): four more (rounding overlaps between runs of one box crashed, a gap inside a box got an interval with RQD 0, lost core between rejoined pieces counted as core, a break on a `3 * 0.3` boundary fell one interval low). Four new tests.
   - Builder, round 3 (session `01a183f8-64f7-76f3-9315-8faf5fe87a2d`): all 46 tests green. Traces `hole-1` to `hole-3` and `hole-review-1` and `-2`.
+- `check_finding` and `check_routing` in `src/coresight/verify.py`, the milestone checks of the agents: the hole agent's finding against the trends code found, and the orchestrator's routing against what code knows about the box, before any area agent writes; and `verify` taking the trends. Spec: `tests/test_verify_milestones.py`. Builder and reviewer:
+  - Builder, round 1 (session `01a18410-fb19-7921-aa89-a7f0aa93faa8`): all 23 tests green.
+  - Reviewer (session `01a1841c-df12-7a23-a050-4a64d149e9f2`, `--disable-write`): a minus sign was dropped ("-2" passed as "2"), a percent written in words passed as a depth, unknown trends ran into one sentence, finance passed with no lab route. Six new tests.
+  - Builder, round 2 (session `01a18424-7509-7df0-9a12-996019274166`): all 29 tests green. Traces `routing-1`, `routing-2` and `routing-review-1`.
 - Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`. Reviewers also run with `--disable-write`.
 - Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
 - Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
