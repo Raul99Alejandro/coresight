@@ -129,7 +129,7 @@ No se hace: LoRA con el Kaggle NC, una traza de barreno presentada como real, fo
 
 ## Plan del tercer análisis (28 oct, noche)
 
-Adoptado de `docs/ANALISIS-3.md`. A a G hechos y en producción. Nota estimada: 7.8 hoy, 8.4 a 8.7 con este plan.
+Adoptado de `docs/ANALISIS-3.md`. A a G hechos y en producción. 1 y 2 hechos y en producción el 28 oct (`b7b8a47`): cookie firmada dueña de cada caja, muestras fijadas de solo lectura, comprobado con dos clientes. Nota estimada: 7.8 hoy, 8.4 a 8.7 con este plan.
 Lo que falta ya no es alcance: es producción y pulido.
 
 | Fecha | Puntos | Objetivo | Listo cuando |
