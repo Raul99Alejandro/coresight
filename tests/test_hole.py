@@ -8,25 +8,43 @@ A hole is the approved boxes of one drill hole laid end to end by depth.
 - ``log_hole`` takes every ``BoxRun`` of the hole, in any order:
   - ``boxes``: one ``(box, from_m, to_m)`` per box number, from its runs as given,
     sorted by ``from_m``.
-  - ``issues``: between boxes next to each other by depth, a ``gap`` when the next box
-    starts more than ``DEPTH_TOL_M`` after the previous one ends, and an ``overlap`` when
-    it starts more than ``DEPTH_TOL_M`` before. An overlap runs from the next box's start
-    to the earlier of both ends.
-  - In an overlap the earlier box wins: the next box's runs and pieces are cut to start
-    where the previous box ends, and a run left empty is dropped. It never raises.
+  - One tolerance rule everywhere: two depths are contiguous when the second is at most
+    ``DEPTH_TOL_M`` past the first; more than that is a gap.
+  - ``issues``: walking the boxes by depth, each box is compared with the deepest end
+    reached so far (and the box that reached it). A ``gap`` when the box starts more than
+    ``DEPTH_TOL_M`` after that end, an ``overlap`` when it starts more than ``DEPTH_TOL_M``
+    before it. An overlap runs from the box's start to the earlier of both ends. A box
+    inside another is an overlap, never a gap.
+  - In an overlap the earlier box wins: the later box's runs and pieces are cut to start
+    where the earlier coverage ends, and a run left empty is dropped. It never raises.
+  - Runs of the same box must not overlap (more than ``DEPTH_TOL_M``): ``ValueError``
+    that names the box. The same run given twice is such an overlap.
   - ``runs``: one ``IntervalLog`` per run, by depth. Parts of one run split between two
     boxes (``complete=False`` on both, different boxes, contiguous within
     ``DEPTH_TOL_M``) are joined into one run from the first part's ``from_m`` to the
     last part's ``to_m``. Break flags are kept as given.
   - ``intervals``: fixed intervals on a grid at multiples of ``step_m``, cut to the depth
-    the boxes cover (contiguous boxes are one stretch; a gap has no interval). An interval
-    shorter than ``DEPTH_TOL_M`` is skipped. A piece that crosses an interval boundary is
-    cut there; the cut is not a fracture.
+    the boxes cover (contiguous boxes are one stretch; a gap has no interval). At each end
+    of a stretch, an interval shorter than half a step is merged into its neighbour, so
+    edge intervals run up to 1.5 steps and no core is dropped; a stretch shorter than that
+    is one interval.
+  - Intervals agree with the runs:
+    - RQD: the intact pieces of each run (after mechanical breaks are rejoined, never
+      across a run end) are cut at the interval bounds; parts of 10 cm or more count. A
+      piece that crosses an interval boundary is cut there; the cut is not a fracture.
+    - TCR: recovered core inside the interval / interval length.
+    - Fractures: every natural or uncertain break that its run log counts is counted in
+      exactly one interval, the one that contains its depth; a break exactly on an
+      interval boundary goes to the interval above. A run end is never a fracture. So
+      over intervals that cover the runs, fractures and uncertain breaks add up to the
+      runs' totals. Fracture frequency = fractures / interval length.
+    - RQD and TCR come from ``log_interval`` on the cut intact pieces; the fracture counts
+      follow the rule above.
   - ``zones``: runs of at least ``zone_min_intervals`` consecutive, contiguous intervals
     with ``rqd_pct < zone_max_rqd``. Zone RQD is weighted by length
     (sum of ``rqd_cm`` / sum of ``run_length_cm`` x 100).
-  - ``ValueError`` for no runs, a step that is not a positive finite number, or
-    ``zone_min_intervals < 1``.
+  - ``ValueError`` for no runs, a step that is not a finite number of at least 0.1 m,
+    or ``zone_min_intervals < 1``.
 """
 
 import pytest
@@ -120,6 +138,40 @@ def test_overlap_is_reported_and_the_earlier_box_wins():
     assert hole.runs[1].recovered_cm == pytest.approx(100.0)
 
 
+def test_box_inside_another_is_an_overlap_not_a_gap():
+    runs = [run(1, 0.0, 10.0, [1000]), run(2, 2.0, 3.0, [100]), run(3, 4.0, 5.0, [100])]
+    hole = log_hole(runs)
+    assert [(i.kind, i.from_m, i.to_m, i.box_before, i.box_after) for i in hole.issues] == [
+        ("overlap", 2.0, 3.0, 1, 2),
+        ("overlap", 4.0, 5.0, 1, 3),
+    ]
+    assert spans(hole.runs) == near([(0.0, 10.0)])
+
+
+def test_one_tolerance_rule_for_gaps_joins_and_zones():
+    gap = DEPTH_TOL_M * 1.05
+    runs = [
+        broken(1, 0.0, 1.0),
+        run(1, 1.0, 2.0, [5] * 20, complete=False),
+        run(2, 2.0 + gap, 3.0, [5] * 19, complete=False),
+        broken(2, 3.0, 4.0),
+    ]
+    hole = log_hole(runs)
+    assert [i.kind for i in hole.issues] == ["gap"]
+    assert len(hole.runs) == 4  # not joined across the gap
+    assert spans(hole.zones) == near([(0.0, 2.0), (2.0 + gap, 4.0)])
+
+
+def test_runs_of_one_box_that_overlap_raise():
+    with pytest.raises(ValueError, match="box 1"):
+        log_hole([run(1, 0.0, 2.0, [100]), run(1, 1.0, 3.0, [100])])
+
+
+def test_the_same_run_twice_raises():
+    with pytest.raises(ValueError, match="box 1"):
+        log_hole([run(1, 0.0, 1.0, [100]), run(1, 0.0, 1.0, [100])])
+
+
 def test_run_inside_an_overlap_is_dropped():
     runs = [run(1, 0.0, 2.0, [200]), run(2, 1.5, 1.9, [40]), run(2, 1.9, 3.0, [110])]
     hole = log_hole(runs)
@@ -176,10 +228,10 @@ def test_complete_runs_are_never_joined():
 def test_intervals_on_a_grid_cut_to_the_covered_depth():
     hole = log_hole(two_onkalo_boxes())
     bounds = [(i.from_m, i.to_m) for i in hole.intervals]
-    assert bounds[0] == pytest.approx((17.94, 18.0))
-    assert bounds[1] == pytest.approx((18.0, 19.0))
-    assert bounds[-1] == pytest.approx((26.0, 26.7))
-    assert len(bounds) == 10
+    assert bounds[0] == pytest.approx((17.94, 19.0))  # 6 cm edge merged
+    assert bounds[1] == pytest.approx((19.0, 20.0))
+    assert bounds[-1] == pytest.approx((26.0, 26.7))  # 70 cm edge kept
+    assert len(bounds) == 9
     for a, b in zip(bounds, bounds[1:], strict=False):
         assert b[0] == pytest.approx(a[1])
 
@@ -202,22 +254,77 @@ def test_no_interval_in_a_gap():
     assert spans(log_hole(runs).intervals) == near([(0.0, 1.0), (1.0, 1.5), (3.2, 4.0)])
 
 
-def test_sliver_shorter_than_tolerance_is_skipped():
-    runs = [run(1, 0.995, 2.0, [100.5])]
-    assert spans(log_hole(runs).intervals) == near([(1.0, 2.0)])
+def test_short_edge_is_merged_and_keeps_its_core():
+    hole = log_hole([run(1, 0.995, 2.0, [100.5])])
+    assert spans(hole.intervals) == near([(0.995, 2.0)])
+    assert hole.intervals[0].recovered_cm == pytest.approx(100.5)
 
 
-def test_recovered_core_is_the_same_by_run_and_by_interval():
-    runs = two_onkalo_boxes() + [run(7, 26.70, 29.0, [8, 9, 7, 6, 40])]
+def test_both_short_edges_are_merged():
+    hole = log_hole([run(1, 0.8, 3.3, [250])])
+    assert spans(hole.intervals) == near([(0.8, 2.0), (2.0, 3.3)])
+
+
+def test_stretch_shorter_than_a_step_is_one_interval():
+    assert spans(log_hole([run(1, 0.8, 1.3, [50])]).intervals) == near([(0.8, 1.3)])
+    assert spans(log_hole([run(1, 3.2, 3.4, [20])]).intervals) == near([(3.2, 3.4)])
+
+
+def test_core_and_fractures_add_up_the_same_by_run_and_by_interval():
+    runs = two_onkalo_boxes() + [
+        run(7, 26.70, 29.0, [8, 9, 7, 6, 40]),
+        run(7, 29.0, 29.4, [12, 13], complete=False),
+        run(8, 29.4, 30.05, [30, 35], complete=False),
+        run(8, 30.05, 31.0, [5, 5, 5, 80]),
+    ]
     hole = log_hole(runs)
-    by_run = sum(r.recovered_cm for r in hole.runs)
-    by_interval = sum(i.recovered_cm for i in hole.intervals)
-    assert by_interval == pytest.approx(by_run)
+    for field in ("recovered_cm", "natural_fractures", "uncertain_breaks"):
+        by_run = sum(getattr(r, field) for r in hole.runs)
+        by_interval = sum(getattr(i, field) for i in hole.intervals)
+        assert by_interval == pytest.approx(by_run), field
 
 
 def test_lost_core_lowers_tcr_of_the_interval_where_it_is_missing():
     hole = log_hole([run(1, 0.0, 2.0, [100, 50])])
     assert [i.tcr_pct for i in hole.intervals] == pytest.approx([100.0, 50.0])
+
+
+def test_break_on_an_interval_boundary_goes_to_the_interval_above():
+    hole = log_hole([run(1, 0.0, 2.0, [100, 100])])
+    assert [i.natural_fractures for i in hole.intervals] == [1, 0]
+    assert hole.intervals[0].fracture_frequency_per_m == pytest.approx(1.0)
+    assert hole.runs[0].natural_fractures == 1
+
+
+def test_uncertain_break_on_a_boundary_is_counted_for_review():
+    pieces = (DepthPiece(0.0, 1.0, uncertain_break_after=True), DepthPiece(1.0, 2.0))
+    hole = log_hole([BoxRun(1, 0.0, 2.0, pieces)])
+    assert [i.uncertain_breaks for i in hole.intervals] == [1, 0]
+    assert [i.natural_fractures for i in hole.intervals] == [1, 0]
+
+
+def test_mechanical_break_on_a_boundary_is_not_a_fracture():
+    pieces = (DepthPiece(0.0, 1.0, mechanical_break_after=True), DepthPiece(1.0, 2.0))
+    hole = log_hole([BoxRun(1, 0.0, 2.0, pieces)])
+    assert [i.natural_fractures for i in hole.intervals] == [0, 0]
+    assert [i.rqd_pct for i in hole.intervals] == pytest.approx([100.0, 100.0])
+
+
+def test_run_end_inside_an_interval_is_not_a_fracture():
+    hole = log_hole([run(1, 0.0, 0.5, [50]), run(1, 0.5, 1.0, [50])])
+    (interval,) = hole.intervals
+    assert interval.natural_fractures == 0
+    assert interval.rqd_pct == pytest.approx(100.0)
+
+
+def test_mechanical_break_never_rejoins_across_a_run_end():
+    first = BoxRun(1, 0.0, 0.5, (DepthPiece(0.0, 0.45), DepthPiece(0.45, 0.5)))
+    second = BoxRun(1, 0.5, 1.0, (DepthPiece(0.5, 0.56), DepthPiece(0.56, 1.0)))
+    tail = BoxRun(1, 0.0, 0.5, (DepthPiece(0.0, 0.45), DepthPiece(0.45, 0.5, True)))
+    plain = log_hole([first, second]).intervals[0]
+    joined = log_hole([tail, second]).intervals[0]
+    # the 5 cm and 6 cm pieces on both sides of the run end stay apart either way
+    assert joined.rqd_pct == pytest.approx(plain.rqd_pct) == pytest.approx(89.0)
 
 
 # --- weak zones --------------------------------------------------------------
@@ -272,7 +379,7 @@ def test_zone_threshold_and_minimum_are_parameters():
 # --- errors ------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("step", [0.0, -1.0, float("nan"), float("inf")])
+@pytest.mark.parametrize("step", [0.0, -1.0, 0.05, float("nan"), float("inf")])
 def test_bad_step_raises(step):
     with pytest.raises(ValueError):
         log_hole(two_onkalo_boxes(), step_m=step)
