@@ -262,6 +262,55 @@ def _check_box_overlaps(runs: list[BoxRun]) -> None:
             deepest_to = max(deepest_to, nxt.to_m)
 
 
+def _clip_depth_pieces(
+    pieces: Iterable[DepthPiece], start: float, end: float
+) -> tuple[DepthPiece, ...]:
+    """Depth pieces cut to [start, end); slivers dropped, flags kept."""
+    kept: list[DepthPiece] = []
+    for p in pieces:
+        s = max(p.from_m, start)
+        e = min(p.to_m, end)
+        if e - s <= _EPS / 100.0:
+            continue
+        kept.append(DepthPiece(s, e, p.mechanical_break_after, p.uncertain_break_after))
+    return tuple(kept)
+
+
+def _cut_rounding_overlaps(runs: list[BoxRun]) -> list[BoxRun]:
+    """Cut same-box overlaps within tolerance; the earlier run wins."""
+    by_box: dict[int, list[BoxRun]] = {}
+    for r in runs:
+        by_box.setdefault(r.box, []).append(r)
+    trimmed: list[BoxRun] = []
+    for group in by_box.values():
+        ordered = sorted(group, key=lambda r: (r.from_m, r.to_m))
+        deepest_to = float("-inf")
+        for r in ordered:
+            start = max(r.from_m, deepest_to)
+            if start >= r.to_m:
+                continue
+            pieces = _clip_depth_pieces(r.pieces, start, r.to_m)
+            trimmed.append(BoxRun(r.box, start, r.to_m, pieces, r.complete))
+            deepest_to = max(deepest_to, r.to_m)
+    return trimmed
+
+
+def _intra_box_gaps(runs: list[BoxRun]) -> list[DepthIssue]:
+    """Gaps between runs of one box; box_before and box_after are that box."""
+    issues: list[DepthIssue] = []
+    by_box: dict[int, list[BoxRun]] = {}
+    for r in runs:
+        by_box.setdefault(r.box, []).append(r)
+    for box, group in by_box.items():
+        ordered = sorted(group, key=lambda r: (r.from_m, r.to_m))
+        deepest_to = ordered[0].to_m
+        for nxt in ordered[1:]:
+            if nxt.from_m > deepest_to + DEPTH_TOL_M:
+                issues.append(DepthIssue("gap", deepest_to, nxt.from_m, box, box))
+            deepest_to = max(deepest_to, nxt.to_m)
+    return issues
+
+
 def _cut_overlaps(
     runs: list[BoxRun], boxes: list[tuple[int, float, float]]
 ) -> list[BoxRun]:
@@ -276,16 +325,8 @@ def _cut_overlaps(
             start = max(r.from_m, covered_to)
             if start >= r.to_m:
                 continue
-            kept: list[DepthPiece] = []
-            for p in r.pieces:
-                s = max(p.from_m, start)
-                e = min(p.to_m, r.to_m)
-                if e - s <= _EPS / 100.0:
-                    continue
-                kept.append(
-                    DepthPiece(s, e, p.mechanical_break_after, p.uncertain_break_after)
-                )
-            trimmed.append(BoxRun(r.box, start, r.to_m, tuple(kept), r.complete))
+            pieces = _clip_depth_pieces(r.pieces, start, r.to_m)
+            trimmed.append(BoxRun(r.box, start, r.to_m, pieces, r.complete))
         covered_to = max(covered_to, box_to)
     return trimmed
 
@@ -333,18 +374,17 @@ def _as_run_pieces(pieces: list[DepthPiece], from_m: float) -> list[Piece]:
     ]
 
 
-def _cover_stretches(
-    boxes: list[tuple[int, float, float]],
-) -> list[tuple[float, float]]:
-    """Contiguous boxes merged; gaps wider than tolerance split the cover."""
-    start, end = boxes[0][1], boxes[0][2]
+def _cover_stretches(runs: list[BoxRun]) -> list[tuple[float, float]]:
+    """Union of run depths; gaps wider than tolerance split the cover."""
+    ordered = sorted((r.from_m, r.to_m) for r in runs)
+    start, end = ordered[0]
     stretches: list[tuple[float, float]] = []
-    for _, b_from, b_to in boxes[1:]:
-        if b_from > end + DEPTH_TOL_M:
+    for s_from, s_to in ordered[1:]:
+        if s_from > end + DEPTH_TOL_M:
             stretches.append((start, end))
-            start, end = b_from, b_to
+            start, end = s_from, s_to
         else:
-            end = max(end, b_to)
+            end = max(end, s_to)
     stretches.append((start, end))
     return stretches
 
@@ -380,43 +420,53 @@ def _fixed_bounds(
 
 def _intact_and_fractures(
     joined: list[tuple[float, float, list[DepthPiece]]],
-) -> tuple[list[tuple[float, float]], list[tuple[float, bool]]]:
-    """Intact spans and fracture depths from joined runs.
+) -> tuple[list[list[DepthPiece]], list[tuple[float, bool]]]:
+    """Intact groups and fracture depths from joined runs.
 
-    Mechanical breaks rejoin inside a run; the end of every intact piece
+    Mechanical breaks rejoin inside a run; the end of every intact group
     but the last of the run is a fracture the run log counts.
     """
-    spans: list[tuple[float, float]] = []
+    groups: list[list[DepthPiece]] = []
     fractures: list[tuple[float, bool]] = []
     for _, _, pieces in joined:
         if not pieces:
             continue
-        group_start = pieces[0].from_m
+        current: list[DepthPiece] = []
         for i, p in enumerate(pieces):
-            group_end = p.to_m
+            current.append(p)
             is_last = i == len(pieces) - 1
             if p.mechanical_break_after and not is_last:
                 continue
-            spans.append((group_start, group_end))
+            groups.append(current)
+            current = []
             if not is_last:
-                fractures.append((group_end, p.uncertain_break_after))
-                group_start = pieces[i + 1].from_m
-    return spans, fractures
+                fractures.append((p.to_m, p.uncertain_break_after))
+    return groups, fractures
 
 
 def _cut_for_interval(
-    spans: list[tuple[float, float]], from_m: float, to_m: float
+    groups: list[list[DepthPiece]], from_m: float, to_m: float
 ) -> list[Piece]:
-    """Intact spans clipped to one fixed interval, without break flags."""
+    """Intact groups clipped to one fixed interval, rejoined inside it."""
     out: list[Piece] = []
-    for s_from, s_to in spans:
-        if s_to <= from_m or s_from >= to_m:
-            continue
-        s = max(s_from, from_m)
-        e = min(s_to, to_m)
-        if e - s <= _EPS / 100.0:
-            continue
-        out.append(Piece((s - from_m) * 100.0, (e - from_m) * 100.0))
+    for group in groups:
+        clipped: list[tuple[float, float]] = []
+        for p in group:
+            if p.to_m <= from_m or p.from_m >= to_m:
+                continue
+            s = max(p.from_m, from_m)
+            e = min(p.to_m, to_m)
+            if e - s <= _EPS / 100.0:
+                continue
+            clipped.append((s, e))
+        for j, (s, e) in enumerate(clipped):
+            out.append(
+                Piece(
+                    (s - from_m) * 100.0,
+                    (e - from_m) * 100.0,
+                    mechanical_break_after=j < len(clipped) - 1,
+                )
+            )
     return out
 
 
@@ -507,19 +557,21 @@ def log_hole(
             )
     _check_box_overlaps(runs_list)
     boxes = _box_extents(runs_list)
-    issues = tuple(_depth_issues(boxes))
-    trimmed = _cut_overlaps(runs_list, boxes)
+    between = _depth_issues(boxes)
+    within = _intra_box_gaps(runs_list)
+    issues = tuple(sorted(between + within, key=lambda i: (i.from_m, i.to_m)))
+    trimmed = _cut_overlaps(_cut_rounding_overlaps(runs_list), boxes)
     joined = _join_parts(trimmed)
     run_logs = tuple(
         log_interval(_as_run_pieces(pieces, f), f, t) for f, t, pieces in joined
     )
-    spans, fractures = _intact_and_fractures(joined)
-    stretches = _cover_stretches(boxes)
+    groups, fractures = _intact_and_fractures(joined)
+    stretches = _cover_stretches(trimmed)
     bounds = _fixed_bounds(stretches, step_m)
     counts = [[0, 0] for _ in bounds]
     for depth, uncertain in fractures:
         for idx, (a, b) in enumerate(bounds):
-            if a <= depth <= b:
+            if a - _EPS <= depth <= b + _EPS:
                 counts[idx][0] += 1
                 if uncertain:
                     counts[idx][1] += 1
@@ -528,7 +580,7 @@ def log_hole(
 
     logs: list[IntervalLog] = []
     for (a, b), (nat, unc) in zip(bounds, counts, strict=True):
-        base = log_interval(_cut_for_interval(spans, a, b), a, b)
+        base = log_interval(_cut_for_interval(groups, a, b), a, b)
         logs.append(
             replace(
                 base,

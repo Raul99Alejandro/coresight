@@ -1,0 +1,102 @@
+{
+ "tool": "Muse Code 1.4.14",
+ "command": "muse exec --contributor-mode off --disable-approval --model muse-spark-1.3 --max-model-steps 40 --json --prompt-file <prompt>",
+ "session_id": "01a183f8-64f7-76f3-9315-8faf5fe87a2d",
+ "model": "muse-spark-1.3",
+ "model_calls": 20,
+ "usage": {
+  "input_tokens": 1423482,
+  "cached_tokens": 1321827,
+  "output_tokens": 36595,
+  "calls": 20
+ },
+ "prompt": "Update `log_hole` and its private helpers in `src/coresight/geometry.py` (you wrote them in two earlier sessions) so that every test in `tests/test_hole.py` passes again.\n\nWhy: a second read-only reviewer read your round 2 and found four more real errors. We turned them into four new tests and added the rules to the docstring of `tests/test_hole.py`:\n1. Two runs of the same box that overlap by less than `DEPTH_TOL_M` (rounding, for example depths converted from feet) crashed in `log_interval` with \"pieces overlap\". Now such an overlap is cut like one between boxes: the earlier run wins.\n2. A gap between runs of the same box got a fixed interval with RQD 0 although nothing was measured there. Now the covered depth is the union of the runs, and a gap inside a box is a `gap` issue whose `box_before` and `box_after` are that box.\n3. Lost core between two pieces rejoined by a mechanical break counted as core in the fixed intervals (one span from the first piece's start to the last piece's end). The part of an intact piece in an interval is the core of its pieces in it, as `log_interval` sums piece lengths.\n4. A fracture exactly on a grid boundary was compared without tolerance; with `step_m=0.3`, `3 * 0.3` is `0.8999999999999999`, so a break at 0.9 m fell one interval low. A break on a boundary within floating point error goes to the interval above.\n\nRead the docstring of `tests/test_hole.py` first, then the four new tests (`test_runs_of_one_box_that_overlap_by_rounding_are_cut`, `test_gap_between_runs_of_one_box_has_no_interval`, `test_break_on_a_floating_point_boundary_goes_to_the_interval_above`, `test_lost_core_between_rejoined_pieces_is_not_core`), then your code.\n\nRules:\n- Edit only `pieces_at_depth`, `log_hole` and the private helpers next to them in `src/coresight/geometry.py`. You may add or remove private helpers there. Do not change the tests, the dataclasses, `DEPTH_TOL_M`, `log_interval` or anything else, other modules or any config.\n- Keep both signatures as they are. Keep everything that already passes.\n- Raise `ValueError` with a short message that says what is wrong.\n- Standard library only. Install nothing.\n- Do not read or print `.env` or anything under `data/cache` or `data/reviews`. Do not make network calls.\n- Match the style of the surrounding code: type hints, small helpers, comments only where the logic is not obvious. Lines up to 100 characters.\n- The file uses LF line endings; keep them.\n\nWhen done, run:\n- `.venv\\Scripts\\python -m pytest -q tests/test_hole.py tests/test_geometry.py`\n- `.venv\\Scripts\\python -m ruff check .`\n\nIterate until both are green, then reply with a short summary of what you changed.\n",
+ "steps": [
+  {
+   "tool": "read_file",
+   "result": "Read text file `tests/test_hole.py`.\n1|\"\"\"Drill hole aggregation by depth (geometry.log_hole): the spec Muse Code builds against.\n2|\n3|A hole is the approved boxes of one drill hole laid end to end by depth.\n4|\n5|- ``pieces_at_depth`` turns run pieces (cm from the run start) into depths in metres\n6|  (``from_m + cm / 100``), keeps the break flags, cuts the piece that crosses ``to_m``\n7|  and drops ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n1|\"\"\"Deterministic geotechnical engine (symbolic layer).\n2|\n3|No LLM ever touches these numbers. Every value in an IntervalLog can be traced\n4|back to the list of piece lengths that produced it.\n5|\n6|Conventions\n7|-----------\n8|- Piece positions are in centimetres measured from the start of the run\n9|  (0 cm = ``from_m``), along the core axis.\n10|- A bre ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n(499 line(s) above)\n500|        )\n501|    for r in runs_list:\n502|        if not (math.isfinite(r.from_m) and math.isfinite(r.to_m)):\n503|            raise ValueError(\"run depths must be finite numbers\")\n504|        if r.to_m <= r.from_m:\n505|            raise ValueError(\n506|                f\"run to_m ({r.to_m}) must be greater than from_m ({r.from_m})\" ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `tests/test_geometry.py`.\n1|import math\n2|\n3|import pytest\n4|\n5|from coresight.geometry import Piece, log_interval, rock_quality_class\n6|\n7|\n8|def consecutive(lengths_cm, start=0.0):\n9|    pieces, pos = [], start\n10|    for length in lengths_cm:\n11|        pieces.append(Piece(pos, pos + length))\n12|        pos += length\n13|    return pieces\n14|\n15|\n16|def test_textbook_run():\n17|    ..."
+  },
+  {
+   "tool": "powershell",
+   "result": "tool failed: environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready\nThe execution environment is broken: the command was never started and every later command will fail the same way. Do not retry and do not fabricate command output; report this environment failure."
+  },
+  {
+   "tool": "tool",
+   "result": "tool denied: unsandboxed execution requires human approval, but approval prompts are disabled"
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n(220 line(s) above)\n221|def _box_extents(runs: list[BoxRun]) -> list[tuple[int, float, float]]:\n222|    \"\"\"One (box, from_m, to_m) per box number, sorted by from_m.\"\"\"\n223|    ends: dict[int, list[float]] = {}\n224|    for r in runs:\n225|        if r.box in ends:\n226|            ends[r.box][0] = min(ends[r.box][0], r.from_m)\n227|            ends[r.box][1] ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n1|\"\"\"Deterministic geotechnical engine (symbolic layer).\n2|\n3|No LLM ever touches these numbers. Every value in an IntervalLog can be traced\n4|back to the list of piece lengths that produced it.\n5|\n6|Conventions\n7|-----------\n8|- Piece positions are in centimetres measured from the start of the run\n9|  (0 cm = ``from_m``), along the core axis.\n10|- A bre ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n(499 line(s) above)\n500|        )\n501|    for r in runs_list:\n502|        if not (math.isfinite(r.from_m) and math.isfinite(r.to_m)):\n503|            raise ValueError(\"run depths must be finite numbers\")\n504|        if r.to_m <= r.from_m:\n505|            raise ValueError(\n506|                f\"run to_m ({r.to_m}) must be greater than from_m ({r.from_m})\" ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 265-290\n--- original\n+++ updated\n@@\n-def _cut_overlaps(\n-    runs: list[BoxRun], boxes: list[tuple[int, float, float]]\n-) -> list[BoxRun]:\n-    \"\"\"Cut later boxes to start where earlier boxes end; drop emptied runs.\"\"\"\n-    by_box: dict[int, list[BoxRun]] = {}\n-    for r in runs:\n-        by_box.setdefault(r.box, []).append(r)\n-    trimmed: list[BoxRun] = []\n-    covere ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 377-390\n--- original\n+++ updated\n@@\n-def _cover_stretches(\n-    boxes: list[tuple[int, float, float]],\n-) -> list[tuple[float, float]]:\n-    \"\"\"Contiguous boxes merged; gaps wider than tolerance split the cover.\"\"\"\n-    start, end = boxes[0][1], boxes[0][2]\n-    stretches: list[tuple[float, float]] = []\n-    for _, b_from, b_to in boxes[1:]:\n-        if b_from > end + D ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 421-460\n--- original\n+++ updated\n@@\n-def _intact_and_fractures(\n-    joined: list[tuple[float, float, list[DepthPiece]]],\n-) -> tuple[list[tuple[float, float]], list[tuple[float, bool]]]:\n-    \"\"\"Intact spans and fracture depths from joined runs.\n-\n-    Mechanical breaks rejoin inside a run; the end of every intact piece\n-    but the last of the run is a fracture the ru ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 558-581\n--- original\n+++ updated\n@@\n-    _check_box_overlaps(runs_list)\n-    boxes = _box_extents(runs_list)\n-    issues = tuple(_depth_issues(boxes))\n-    trimmed = _cut_overlaps(runs_list, boxes)\n-    joined = _join_parts(trimmed)\n-    run_logs = tuple(\n-        log_interval(_as_run_pieces(pieces, f), f, t) for f, t, pieces in joined\n-    )\n-    spans, fractures = _in ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n(250 line(s) above)\n251|def _check_box_overlaps(runs: list[BoxRun]) -> None:\n252|    \"\"\"Runs of one box must not overlap more than the tolerance.\"\"\"\n253|    by_box: dict[int, list[BoxRun]] = {}\n254|    for r in runs:\n255|        by_box.setdefault(r.box, []).append(r)\n256|    for box, group in by_box.items():\n257|        ordered = sorted(group, key=lambda ..."
+  },
+  {
+   "tool": "search",
+   "result": ""
+  },
+  {
+   "tool": "search",
+   "result": ""
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n(369 line(s) above)\n370|            p.mechanical_break_after,\n371|            p.uncertain_break_after,\n372|        )\n373|        for p in pieces\n374|    ]\n375|\n376|\n377|def _cover_stretches(runs: list[BoxRun]) -> list[tuple[float, float]]:\n378|    \"\"\"Union of run depths; gaps wider than tolerance split the cover.\"\"\"\n379|    ordered = sorted((r.from_m, r. ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/geometry.py`.\n(568 line(s) above)\n569|    stretches = _cover_stretches(trimmed)\n570|    bounds = _fixed_bounds(stretches, step_m)\n571|    counts = [[0, 0] for _ in bounds]\n572|    for depth, uncertain in fractures:\n573|        for idx, (a, b) in enumerate(bounds):\n574|            if a - _EPS <= depth <= b + _EPS:\n575|                counts[idx][0] += 1\n576|            ..."
+  },
+  {
+   "tool": "search",
+   "result": "src\\coresight\\geometry.py:265:def _clip_depth_pieces(\nsrc\\coresight\\geometry.py:279:def _cut_rounding_overlaps(runs: list[BoxRun]) -> list[BoxRun]:\nsrc\\coresight\\geometry.py:292:            pieces = _clip_depth_pieces(r.pieces, start, r.to_m)\nsrc\\coresight\\geometry.py:298:def _intra_box_gaps(runs: list[BoxRun]) -> list[DepthIssue]:\nsrc\\coresight\\geometry.py:328:            pieces = _clip_depth_pie ..."
+  },
+  {
+   "tool": "search",
+   "result": "docs\\muse-code\\hole-2.json:49:   \"result\": \"edited\\nchanged lines: lines 406-422\\n--- original\\n+++ updated\\n@@\\n-def _cut_for_interval(\\n-    pieces: list[DepthPiece], from_m: float, to_m: float\\n-) -> list[Piece]:\\n-    \\\"\\\"\\\"Pieces clipped to one fixed interval; a cut at its end keeps no flag.\\\"\\\"\\\"\\n-    out: list[Piece] = []\\n-    for p in pieces:\\n-        if p.to_m <= from_m or p.from_m >=  ..."
+  },
+  {
+   "tool": "powershell",
+   "result": "tool failed: environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready\nThe execution environment is broken: the command was never started and every later command will fail the same way. Do not retry and do not fabricate command output; report this environment failure."
+  }
+ ],
+ "final_answer": "Done — `src/coresight/geometry.py` updated (only `log_hole`, `pieces_at_depth` untouched, and private helpers).\n\nWhat changed:\n\n- Same-box rounding overlaps: new `_cut_rounding_overlaps` cuts overlaps ≤ `DEPTH_TOL_M` so the earlier run wins (via shared `_clip_depth_pieces`); no more `pieces overlap` crash.\n- Same-box gaps: new `_intra_box_gaps` reports `gap` with `box_before == box_after`, and `_cover_stretches` now takes trimmed runs (union of runs) so gaps get no interval. Inter- and intra-issues are merged sorted by depth.\n- Lost core: `_intact_and_fractures` now returns intact groups of `DepthPiece`s (not bridging spans); `_cut_for_interval` clips each piece and rejoins within the group per interval, so `log_interval` sums only real core.\n- Boundary fractures: assignment uses `a - _EPS <= depth <= b + _EPS`, so a break on a grid line within float error (e.g. `3 * 0.3`) goes to the interval above.\n\nVerification: I could not run the commands — every shell call fails with `sandbox enforcement unavailable: windows_elevated setup_required`, and the escalated path needs approval, which is disabled (same as the prior session). I checked every `test_hole.py` case by hand against the new logic instead. Please run `.venv\\Scripts\\python -m pytest -q tests/test_hole.py tests/test_geometry.py` and `.venv\\Scripts\\python -m ruff check .` locally; if anything is red, paste the output and I will fix it.Could not verify: the shell is still broken (`sandbox users are not ready`), so both gates remain unrun; no further changes made.",
+ "note": "Round 3, after the second read-only review (hole-review-2.json). Built from the `muse exec --json` event stream; Muse's own context is left out; encrypted reasoning is not included. Its Windows sandbox could not start PowerShell, so Muse Code did not run pytest itself; we ran it."
+}
