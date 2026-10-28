@@ -399,3 +399,69 @@ class BoxReview(_Strict):
     voice: VoiceUsage = Field(default_factory=VoiceUsage)
     handoffs: Handoffs | None = None  # area agents, after approval (day 8)
     gate: GateResult | None = None  # the input gate's last verdict (day 10)
+
+# --- Drill hole view (point D) ------------------------------------------------
+
+RockQuality = Literal["very poor", "poor", "fair", "good", "excellent"]
+
+
+class HoleBox(_Strict):
+    id: str
+    box_number: int = Field(ge=1)
+    from_m: float
+    to_m: float
+    status: Literal["processing", "ready", "failed", "approved"]
+    source: str
+    in_log: bool  # approved and used in the hole log
+
+
+class HoleIssue(_Strict):
+    kind: Literal["gap", "overlap"]
+    from_m: float
+    to_m: float
+    box_before: int
+    box_after: int
+
+
+class HoleInterval(Interval):
+    """One run or fixed interval of the hole, every number from geometry.log_hole."""
+
+    rqd_pct: float = Field(ge=0, le=100)
+    tcr_pct: float = Field(ge=0, le=100)
+    natural_fractures: int = Field(ge=0)
+    fracture_frequency_per_m: float = Field(ge=0)
+    uncertain_breaks: int = Field(ge=0)
+    rock_quality: RockQuality
+    boxes: list[int]  # boxes the core of this interval comes from
+    lithology: str | None = None  # of the reviewed run that covers most of it
+    anomalies: list[AnomalyType] = Field(default_factory=list)
+
+
+class HoleZone(Interval):
+    rqd_pct: float = Field(ge=0, le=100)
+    min_rqd_pct: float = Field(ge=0, le=100)
+    intervals: int = Field(ge=1)
+    rock_quality: RockQuality
+
+
+class HoleTrace(_Strict):
+    """Collar orientation for the 3D view. Without a survey it is an example and says so."""
+
+    azimuth_deg: float = Field(ge=0, lt=360)
+    dip_deg: float = Field(ge=-90, le=90)
+    surveyed: bool
+    note: str
+
+
+class HoleView(_Strict):
+    hole_id: str = Field(min_length=1)
+    step_m: float = Field(gt=0)
+    zone_max_rqd: float
+    from_m: float | None = None
+    to_m: float | None = None
+    boxes: list[HoleBox]
+    issues: list[HoleIssue] = Field(default_factory=list)
+    runs: list[HoleInterval] = Field(default_factory=list)
+    intervals: list[HoleInterval] = Field(default_factory=list)
+    zones: list[HoleZone] = Field(default_factory=list)
+    trace: HoleTrace

@@ -33,6 +33,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel, Field, ValidationError
 
+from coresight import hole
 from coresight.geometry import rock_quality_class
 from coresight.meta_client import MUSE_SPARK_MODEL_ID, MUSE_WONDER_MODEL_ID
 from coresight.schemas import (
@@ -191,6 +192,11 @@ class Toolbox:
         note = "" if boxes else "No earlier approved box of this hole."
         return {"hole_id": self.box.hole_id, "earlier_boxes": boxes, "note": note}
 
+    def hole_log(self, _: NoArg) -> dict:
+        """The hole by depth up to this box (earlier approved boxes and this one)."""
+        boxes = [*self.history, self.box]  # the agents run after approval
+        return hole.depth_history(hole.hole_view(boxes, self.box.hole_id))
+
     def count_samples(self, a: IntervalArg) -> dict:
         n = max(1, math.ceil(round((a.to_m - a.from_m) / self.prices.sample_length_m, 6)))
         return {"from_m": a.from_m, "to_m": a.to_m, "samples": n,
@@ -243,6 +249,10 @@ class Toolbox:
                  RunArg, self.run_metrics),
             Tool("hole_history", "Earlier approved boxes of the same drill hole.",
                  NoArg, self.hole_history),
+            Tool("hole_log", "The drill hole by depth up to this box, from geometry.py: "
+                 "RQD, TCR, fracture frequency, Deere class, lithology and anomalies by run "
+                 "and by 1 m interval, weak zones (consecutive poor intervals), and gaps or "
+                 "overlaps between boxes.", NoArg, self.hole_log),
             Tool("count_samples", "How many assay samples an interval makes at the "
                  "standard sample length.", IntervalArg, self.count_samples),
             Tool("price_list", "The assay price table (an EXAMPLE table in this demo) and "

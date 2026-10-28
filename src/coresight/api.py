@@ -21,9 +21,13 @@ piece of the run (review.sam_point_mask and review.sam_piece).
 Approving a box starts the area agents in the background (coresight.agents);
 the page polls the box and shows the decision log and the drafts. A draft is
 approved one by one and is never sent.
+
+GET /api/holes/{hole_id} joins the approved boxes of one drill hole by depth
+(coresight.hole, numbers from geometry.log_hole): the hole view and its 3D.
 - META_API_KEY in .env, read by meta_client.
 
-The samples are public photos only (Onkalo, Wikimedia Commons, CC BY-SA 4.0);
+The samples are public photos only (Onkalo, CC BY-SA 4.0, and Nevada Test Site,
+public domain, both from Wikimedia Commons);
 the Kaggle set (NC) is never served here.
 """
 
@@ -48,7 +52,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from coresight import agents, review
+from coresight import agents, hole, review
 from coresight.labeling import PieceSheet, sheet_markers
 from coresight.pipeline import export_csv
 from coresight.review import Analysis, ReviewError, ReviewStore
@@ -59,6 +63,7 @@ from coresight.schemas import (
     DescriptionField,
     GateResult,
     Handoffs,
+    HoleView,
     Interval,
     Stage,
     TrayView,
@@ -86,6 +91,7 @@ class Sample(BaseModel):
     tray_index: int
     box_length_cm: float = 100.0
     n_rows: int = 5
+    first_starts_in_box: bool = True  # False: the first run started in the previous box
     credit: str
 
 
@@ -104,6 +110,18 @@ SAMPLES = {
             credit="Photo: U.S. Department of Energy (NNSA), Wikimedia Commons, public domain",
         ),
         Sample(
+            name="nevada-u12g-box3",
+            title="Nevada Test Site U12G-GF-GT#2, box 3 (19.0-26.3 ft)",
+            photo="data/raw/commons_nts_u12g_2.jpg",
+            label="data/labels/U12G-GF-GT2_box03.json",
+            sheet="data/labels/pieces/U12G-GF-GT2_box03.json",
+            tray_index=0,
+            box_length_cm=68.0,  # from the depths on the wax-sealed samples
+            n_rows=4,
+            first_starts_in_box=False,  # run 4 started in box 2 (not public)
+            credit="Photo: U.S. Department of Energy (NNSA), Wikimedia Commons, public domain",
+        ),
+        Sample(
             name="onkalo-box5",
             title="Onkalo ONK-DTPH5.1, box 5 (17.94-22.60 m)",
             photo="data/raw/commons_onkalo_1.jpg",
@@ -114,7 +132,7 @@ SAMPLES = {
         ),
         Sample(
             name="onkalo-box6",
-            title="Onkalo ONK-DTPH5.1, box 6",
+            title="Onkalo ONK-DTPH5.1, box 6 (22.60-27.20 m)",
             photo="data/raw/commons_onkalo_1.jpg",
             label="data/labels/ONK-DTPH5.1_box06.json",
             sheet="data/labels/pieces/ONK-DTPH5.1_box06.json",
@@ -403,7 +421,7 @@ def create_app(
         job = Job(
             box_length_cm=s.box_length_cm,
             runs=[Interval(from_m=r.from_m, to_m=r.to_m) for r in label.runs],
-            first_starts_in_box=True,
+            first_starts_in_box=s.first_starts_in_box,
             tray_index=s.tray_index,
             n_rows=s.n_rows,
             sample=s.name,
@@ -442,6 +460,19 @@ def create_app(
             {"id": b.id, "hole_id": b.hole_id, "box_number": b.box_number, "status": b.status}
             for b in store.all()
         ]
+
+    @app.get("/api/holes")
+    def list_holes() -> list[dict]:
+        """Holes with at least one approved box."""
+        return hole.hole_summaries(store.all())
+
+    @app.get("/api/holes/{hole_id}")
+    def read_hole(hole_id: str) -> HoleView:
+        """The approved boxes of one hole joined by depth (geometry.log_hole)."""
+        view = hole.hole_view(store.all(), hole_id)
+        if not view.boxes:
+            raise HTTPException(404, "No box of this hole.")
+        return view
 
     @app.get("/api/boxes/{box_id}")
     def read_box(box_id: str) -> BoxReview:

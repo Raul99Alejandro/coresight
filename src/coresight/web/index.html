@@ -452,7 +452,51 @@ button.metric:hover{background:var(--fill-2)}
 .agents-working small{display:block;color:var(--ink-3);font-size:13px}
 @media (max-width:900px){.routes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.routes{grid-template-columns:1fr}.drafts{grid-template-columns:1fr}.ev{grid-template-columns:56px 26px 1fr}.ev .ev-who{display:none}}
+
+/* drill hole (point D) */
+.hole-grid{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;align-items:stretch}
+.strip-card{padding:14px 10px 10px 4px}
+.strip-card svg{display:block;width:100%;height:auto}
+.strip-card text{font:12px "Geist",system-ui,sans-serif;fill:var(--ink-3)}
+.strip-card text.z{fill:var(--bad);font-weight:600}
+.strip-card .row-hit{cursor:pointer}
+.strip-card .row-hit:hover rect.rq{filter:brightness(1.12)}
+.strip-legend{display:flex;gap:14px;flex-wrap:wrap;padding:8px 10px 2px 16px;font-size:12.5px;color:var(--ink-3)}
+.strip-legend i{display:inline-block;width:14px;height:8px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.hole3d{position:relative;min-height:520px;overflow:hidden;padding:0}
+.hole3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important;border-radius:18px;cursor:grab}
+.hole3d canvas:active{cursor:grabbing}
+.h3-note{position:absolute;left:14px;top:14px;right:14px;z-index:2;display:flex;align-items:flex-start;gap:8px;pointer-events:none}
+.h3-note span{display:inline-block;padding:5px 11px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);font-size:12.5px;font-weight:500;line-height:1.4}
+.h3-load{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:14px;padding:20px;text-align:center}
+.h3-foot{position:absolute;left:14px;bottom:12px;right:14px;z-index:2;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--ink-3);pointer-events:none}
+.h3-foot i{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:5px}
+.h3-label{position:absolute;z-index:1;transform:translate(10px,-50%);font-size:12px;color:var(--ink-2);white-space:nowrap;pointer-events:none;text-shadow:0 0 6px var(--bg)}
+.h3-label.z{color:var(--bad);font-weight:600}
+.issue{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--ink-2);font-size:14px;margin-bottom:10px}
+.issue b{color:var(--ink);font-weight:600}
+.issue svg{flex:none;color:var(--accent-ink);margin-top:1px}
+.issue.overlap{background:var(--bad-soft)}.issue.overlap svg{color:var(--bad)}
+.zone-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.zone{display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:14px;background:var(--bad-soft);font-size:14px;color:var(--ink-2)}
+.zone svg{flex:none;color:var(--bad)}
+.zone b{color:var(--ink);font-weight:600}
+.zone .zr{margin-left:auto;font-weight:600;color:var(--bad);white-space:nowrap}
+.hole-gap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0;padding:10px 16px;border-radius:12px;font-size:13.5px;color:var(--ink-3);
+  background:repeating-linear-gradient(135deg,var(--fill) 0 6px,transparent 6px 12px)}
+.hole-gap b{color:var(--ink-2);font-weight:600}
+a.run{color:inherit}
+.run .lith small{display:inline-block;margin-left:6px;font-size:12px;padding:0 7px;border-radius:99px;background:var(--bad-soft);color:var(--bad);vertical-align:1px}
+.box-chips{display:flex;gap:8px;flex-wrap:wrap}
+.box-chip{display:inline-flex;align-items:center;gap:9px;padding:9px 14px 9px 12px;border-radius:12px;background:var(--surface);box-shadow:var(--sh-1);font-size:14px;transition:background .2s}
+.box-chip:hover{background:var(--fill)}
+.box-chip small{color:var(--ink-3)}
+.box-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fill-2)}
+.box-chip.out{opacity:.7}
+@media (max-width:900px){.hole-grid{grid-template-columns:1fr}.hole3d{min-height:400px}}
+@media (max-width:640px){.hero .grow{flex-basis:100%}.zone{display:grid;grid-template-columns:20px 1fr;align-items:start}.zone .zr{grid-column:2;margin-left:0}}
 </style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -530,7 +574,7 @@ const I = {
   file:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 1.5h5l3 3v10H4z"/><path d="M9 1.5v3h3"/></svg>',
 };
 
-const S = {box:null, boxes:[], samples:[], run:null, piece:null, view:"pieces", pop:null, error:null, poll:null, drafts:{}, open:{description:true}};
+const S = {box:null, boxes:[], samples:[], holes:[], hole:null, holeBy:"intervals", run:null, piece:null, view:"pieces", pop:null, error:null, poll:null, drafts:{}, open:{description:true}};
 
 /* model identity */
 const ACTOR = {sam:"model", spark:"model", voice:"model", wonder:"model", code:"code", cv:"code", human:"human"};
@@ -672,6 +716,166 @@ function bindAgents() {
   if (retry) retry.onclick = async () => { try { S.box = await api(`/api/boxes/${S.box.id}/handoffs`, {method:"POST"}); el.innerHTML = agentsHTML(S.box); bindAgents(); clearTimeout(S.poll); S.poll = setTimeout(() => openBox(S.box.id), 1200); } catch (e) { toast(e.message); } };
 }
 
+/* drill hole (point D): the approved boxes of one hole joined by depth; every number from geometry.log_hole */
+const m2 = (x) => (x == null ? "" : `${Number(x).toFixed(2)} m`);
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const holeRows = (h) => (S.holeBy === "runs" ? h.runs : h.intervals);
+const holeBoxId = (h, n) => { const b = h.boxes.find((x) => x.in_log && x.box_number === n); return b ? b.id : null; };
+const boxChip = (b) => `<a class="box-chip ${b.in_log ? "" : "out"}" href="#/box/${esc(b.id)}"><span class="dot ${esc(b.status)}"></span>Box ${b.box_number}<small>${b.to_m > b.from_m ? `${b.from_m.toFixed(2)} to ${b.to_m.toFixed(2)} m, ` : ""}${b.in_log ? "in the log" : STATUS[b.status].toLowerCase()}</small></a>`;
+async function openHole(id) {
+  try {
+    S.hole = await api(`/api/holes/${encodeURIComponent(id)}`); S.box = null;
+    renderBar(); $("switch-label").textContent = S.hole.hole_id; renderHole();
+  } catch (e) { S.hole = null; renderBar(); $("page").innerHTML = `<div class="empty">${banner(e.message, '<a class="btn" href="#/">Go home</a>')}</div>`; }
+}
+
+function stripSVG(h) {
+  const rows = holeRows(h), top = Math.floor(h.from_m), bottom = Math.ceil(h.to_m), span = Math.max(bottom - top, 1);
+  const ppm = Math.min(70, Math.max(26, 520 / span)), y = (d) => 30 + (d - top) * ppm, H = y(bottom) + 10;
+  const x0 = 70, W = 160, bx = (v) => x0 + v / 100 * W, every = span > 24 ? 5 : span > 12 ? 2 : 1;
+  let s = `<text x="${x0}" y="14">RQD</text><text x="${x0 + W}" y="14" text-anchor="end">100%</text>`;
+  [25, 50, 75, 90].forEach((v) => (s += `<line x1="${bx(v)}" x2="${bx(v)}" y1="22" y2="${y(bottom)}" stroke="var(--hair-2)" ${v === 50 ? "" : 'stroke-dasharray="2 3"'}/>`));
+  for (let d = Math.ceil(top / every) * every; d <= bottom; d += every)
+    s += `<line x1="38" x2="44" y1="${y(d)}" y2="${y(d)}" stroke="var(--ink-3)"/><text x="34" y="${y(d) + 4}" text-anchor="end">${d} m</text>`;
+  s += `<line x1="44" x2="44" y1="${y(top)}" y2="${y(bottom)}" stroke="var(--hair-2)"/>`;
+  h.issues.forEach((i) => {
+    s += `<rect x="50" y="${y(i.from_m)}" width="${x0 + W - 50}" height="${Math.max(y(i.to_m) - y(i.from_m), 2)}" fill="url(#hatch-${i.kind})" rx="3"/>`;
+    if (y(i.to_m) - y(i.from_m) > 16) s += `<text x="${x0 + 6}" y="${(y(i.from_m) + y(i.to_m)) / 2 + 4}">${i.kind === "gap" ? "Gap: no approved box" : "Overlap"}</text>`;
+  });
+  rows.forEach((r, k) => {
+    const c = QUALITY[r.rock_quality], ya = y(r.from_m), hh = Math.max(y(r.to_m) - ya - 1, 1), id = holeBoxId(h, r.boxes[0]);
+    s += `<g class="row-hit" ${id ? `data-box="${id}"` : ""}><title>${r.from_m.toFixed(2)} to ${r.to_m.toFixed(2)} m: RQD ${r.rqd_pct.toFixed(0)}%, TCR ${r.tcr_pct.toFixed(0)}%, ${cap(r.rock_quality)}${r.lithology ? `, ${esc(r.lithology)}` : ""}</title>
+      <rect x="50" y="${ya}" width="12" height="${hh}" rx="2" fill="${c}"/>
+      <rect x="${x0}" y="${ya}" width="${Math.max(bx(r.tcr_pct) - x0, 1)}" height="${hh}" rx="2" fill="none" stroke="var(--ink-3)" stroke-opacity=".55"/>
+      <rect class="rq" x="${x0}" y="${ya}" width="${Math.max(bx(r.rqd_pct) - x0, 1)}" height="${hh}" rx="2" fill="${c}" fill-opacity=".85" style="animation:grow .8s var(--ease) ${k * 40}ms both;transform-origin:${x0}px 0"/></g>`;
+  });
+  h.zones.forEach((z) => {
+    const ya = y(z.from_m), yb = y(z.to_m), xz = x0 + W + 12;
+    s += `<path d="M${xz} ${ya + 1}h6v${yb - ya - 2}h-6" fill="none" stroke="var(--bad)" stroke-width="2" stroke-linejoin="round"/>
+      <text class="z" x="${xz + 12}" y="${(ya + yb) / 2 - 2}">Weak</text><text class="z" x="${xz + 12}" y="${(ya + yb) / 2 + 12}">${z.rqd_pct.toFixed(0)}%</text>`;
+  });
+  const defs = `<defs><pattern id="hatch-gap" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="var(--fill)"/><line y2="8" stroke="var(--hair-2)" stroke-width="3"/></pattern>
+    <pattern id="hatch-overlap" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="var(--bad-soft)"/><line y2="8" stroke="var(--bad)" stroke-opacity=".4" stroke-width="3"/></pattern></defs>`;
+  return `<svg viewBox="0 0 ${x0 + W + 64} ${H}" role="img" aria-label="Hole log by depth: RQD bars, TCR outlines, Deere class column, gaps and weak zones">${defs}${s}</svg>`;
+}
+
+function holeRow(h, r, i) {
+  const c = QUALITY[r.rock_quality], tall = S.holeBy === "runs" ? Math.max(68, (r.to_m - r.from_m) * 34) : 60, id = holeBoxId(h, r.boxes[0]);
+  const flags = r.anomalies.map((a) => `<small>${esc(a.replace(/_/g, " "))}</small>`).join("");
+  return `<a class="run" role="listitem" ${id ? `href="#/box/${id}"` : ""} style="height:${tall}px" aria-label="${r.from_m} to ${r.to_m} m, box ${r.boxes.join(" and ")}">
+    <div class="depth"><b>${r.from_m.toFixed(2)} m</b><span>${r.to_m.toFixed(2)} m</span></div>
+    <div class="column" style="background:${c}"></div>
+    <div class="rqd"><div class="track"><i style="width:${r.rqd_pct}%;background:${c};animation-delay:${i * 50}ms"></i></div><b>${r.rqd_pct.toFixed(0)}%</b></div>
+    <div class="num">${r.tcr_pct.toFixed(0)}%</div>
+    <div class="num">${r.fracture_frequency_per_m.toFixed(1)}</div>
+    <div class="cls"><i style="background:${c}"></i>${cap(r.rock_quality)}</div>
+    <div class="lith">${r.lithology ? esc(r.lithology) : '<span class="muted">No description</span>'}${flags}</div>
+    <div class="chev">${I.chev}</div></a>`;
+}
+function holeTable(h) {
+  const rows = holeRows(h); let out = "";
+  rows.forEach((r, i) => {
+    const gap = i && h.issues.find((x) => x.kind === "gap" && Math.abs(x.from_m - rows[i - 1].to_m) < 0.02);
+    if (gap) out += `<div class="hole-gap"><b>${m2(gap.from_m)} to ${m2(gap.to_m)}</b>No approved box covers this depth (between box ${gap.box_before} and box ${gap.box_after}).</div>`;
+    out += holeRow(h, r, i);
+  });
+  return out;
+}
+
+function renderHole() {
+  const h = S.hole, inLog = h.boxes.filter((b) => b.in_log);
+  if (!inLog.length) {
+    $("page").innerHTML = `<div class="empty"><h1>${esc(h.hole_id)}</h1><p>No box of this hole is approved yet. The hole log only takes boxes a geologist approved.</p>
+      <div class="box-chips" style="justify-content:center">${h.boxes.map(boxChip).join("")}</div></div>`;
+    return;
+  }
+  const gaps = h.issues.filter((i) => i.kind === "gap").length, over = h.issues.length - gaps;
+  const worst = h.intervals.map((r) => r.rock_quality).sort((a, c) => Object.keys(QUALITY).indexOf(a) - Object.keys(QUALITY).indexOf(c))[0];
+  const text = `${m2(h.from_m)} to ${m2(h.to_m)} from ${plural(inLog.length, "approved box", "approved boxes")}. ${h.zones.length ? plural(h.zones.length, "weak zone") : "No weak zone"}, ${worst} rock at worst.${gaps ? ` ${plural(gaps, "gap")} between boxes.` : ""}${over ? ` ${plural(over, "overlap")}.` : ""}`;
+  const issues = h.issues.map((i) => `<div class="issue ${i.kind}">${I.warn}<div><b>${i.kind === "gap" ? "Gap" : "Overlap"} from ${m2(i.from_m)} to ${m2(i.to_m)}.</b> ${i.kind === "gap"
+    ? `No approved box covers it, between box ${i.box_before} and box ${i.box_after}. Nothing is measured there.`
+    : `Box ${i.box_before} and box ${i.box_after} both claim it. Box ${i.box_before} is used; check the depths of box ${i.box_after}.`}</div></div>`).join("");
+  const zones = h.zones.length ? `<div class="zone-list">${h.zones.map((z) => `<div class="zone">${I.warn}<div><b>Weak zone, ${m2(z.from_m)} to ${m2(z.to_m)}</b><br>${plural(z.intervals, `consecutive ${h.step_m} m interval`)} below RQD ${h.zone_max_rqd}, lowest ${z.min_rqd_pct.toFixed(0)}%</div><span class="zr">RQD ${z.rqd_pct.toFixed(0)}%, ${z.rock_quality}</span></div>`).join("")}</div>` : "";
+  $("page").innerHTML = `<section class="hero"><div class="grow"><h1>${esc(h.hole_id)}</h1><p>${esc(text)}</p></div>
+      <div class="seg" role="tablist" aria-label="Rows" id="hole-seg"><span class="thumb"></span>${[["intervals", `${h.step_m} m intervals`], ["runs", "Runs"]].map(([v, l]) => `<button role="tab" data-by="${v}" aria-selected="${S.holeBy === v}">${l}</button>`).join("")}</div></section>
+    ${issues}
+    <div class="hole-grid">
+      <section class="card strip-card" id="strip">${stripSVG(h)}
+        <div class="strip-legend"><span><i style="background:var(--q-poor)"></i>RQD</span><span><i style="border:1px solid var(--ink-3)"></i>TCR</span><span><i style="background:var(--bad)"></i>Weak zone</span></div></section>
+      <section class="card hole3d" id="hole3d"><div class="h3-load">Loading the 3D view</div>
+        <div class="h3-note"><span>${esc(h.trace.note)}</span></div>
+        <div class="h3-foot">${Object.entries(QUALITY).map(([k, v]) => `<span><i style="background:${v}"></i>${cap(k)}</span>`).join("")}<span class="grow"></span><span>Drag to turn</span></div></section>
+    </div>
+    ${zones}
+    <div class="section"><h2>Hole log</h2><p>Approved boxes joined by depth. Tap a row to open its box.</p></div>
+    <section class="card log" role="list">
+      <div class="log-head" aria-hidden="true"><span>Depth</span><span></span><span>RQD</span><span class="num">TCR</span><span class="num">FF/m</span><span>Deere</span><span>Lithology</span><span></span></div>
+      ${holeTable(h)}
+    </section>
+    <div class="section"><h2>Boxes</h2><p>Only approved boxes enter the hole log.</p></div>
+    <div class="box-chips">${h.boxes.map(boxChip).join("")}</div>
+    ${motto()}
+    <p class="foot-note">Every number comes from geometry.py: runs split between two boxes are joined, ${h.step_m} m intervals cut pieces at their bounds, and a weak zone is two or more consecutive intervals below RQD ${h.zone_max_rqd}. Lithology is the reviewed description of the run that covers most of each row. ${esc(h.trace.note)}</p>`;
+  const seg = $("hole-seg"), on = seg.querySelector('[aria-selected="true"]'), th = seg.querySelector(".thumb");
+  th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`;
+  seg.querySelectorAll("button").forEach((x) => (x.onclick = () => { S.holeBy = x.dataset.by; stop3D(); renderHole(); }));
+  $("strip").querySelectorAll("[data-box]").forEach((g) => (g.onclick = () => (location.hash = `#/box/${g.dataset.box}`)));
+  draw3D();
+}
+
+/* 3D: a cylinder per row, coloured by Deere class, along the trace (an example unless surveyed) */
+let H3 = null;
+function stop3D() { if (H3) { cancelAnimationFrame(H3.raf); H3.ro.disconnect(); H3.controls.dispose(); H3.renderer.dispose(); H3 = null; } }
+async function draw3D() {
+  const el = $("hole3d"); if (!el) return;
+  let THREE, OrbitControls;
+  try { THREE = await import("three"); ({OrbitControls} = await import("three/addons/controls/OrbitControls.js")); }
+  catch { el.querySelector(".h3-load").textContent = "The 3D view could not load. The log by depth is complete without it."; return; }
+  if ($("hole3d") !== el) return;
+  stop3D();
+  const h = S.hole, rows = holeRows(h), css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const col = Object.fromEntries(Object.entries(QUALITY).map(([k, v]) => [k, css(v.slice(4, -1))]));
+  const az = h.trace.azimuth_deg * Math.PI / 180, dip = h.trace.dip_deg * Math.PI / 180;
+  const dir = new THREE.Vector3(Math.sin(az) * Math.cos(dip), Math.sin(dip), -Math.cos(az) * Math.cos(dip)).normalize();
+  const at = (d) => dir.clone().multiplyScalar(d), R = Math.max(0.12, h.to_m / 55);
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); el.querySelector(".h3-load").remove(); el.prepend(renderer.domElement);
+  const scene = new THREE.Scene(), up = new THREE.Vector3(0, 1, 0);
+  scene.add(new THREE.AmbientLight(0xffffff, 1.6)); const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(5, 10, 7); scene.add(sun);
+  const tube = (from, to, radius, mat) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, to - from, 28), mat);
+    m.quaternion.setFromUnitVectors(up, dir); m.position.copy(at((from + to) / 2)); scene.add(m); return m;
+  };
+  rows.forEach((r) => tube(r.from_m, r.to_m - 0.004 * h.to_m, R, new THREE.MeshStandardMaterial({color:col[r.rock_quality], roughness:.55})));
+  h.zones.forEach((z) => tube(z.from_m, z.to_m, R * 1.9, new THREE.MeshBasicMaterial({color:css("--bad"), transparent:true, opacity:.16, depthWrite:false})));
+  const dashed = (a, b) => { const g = new THREE.BufferGeometry().setFromPoints([at(a), at(b)]);
+    const l = new THREE.Line(g, new THREE.LineDashedMaterial({color:css("--ink-3"), dashSize:R * 2, gapSize:R * 1.5})); l.computeLineDistances(); scene.add(l); };
+  dashed(0, h.from_m); h.issues.filter((i) => i.kind === "gap").forEach((i) => dashed(i.from_m, i.to_m));
+  const size = Math.max(6, Math.round(h.to_m * 1.1)), grid = new THREE.GridHelper(size, 10, css("--ink-3"), css("--ink-3"));
+  grid.material.transparent = true; grid.material.opacity = .22; scene.add(grid);
+  const collar = new THREE.Mesh(new THREE.RingGeometry(R * 1.2, R * 2, 32), new THREE.MeshBasicMaterial({color:css("--accent"), side:THREE.DoubleSide}));
+  collar.rotation.x = -Math.PI / 2; scene.add(collar);
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 2000), target = at(h.to_m / 2);
+  const side = new THREE.Vector3().crossVectors(dir, up).normalize(); if (side.lengthSq() < 0.1) side.set(1, 0, 0);
+  camera.position.copy(target).add(side.multiplyScalar(h.to_m * 2.1 + 3)).add(new THREE.Vector3(0, h.to_m * 0.3, 0));
+  const controls = new OrbitControls(camera, renderer.domElement); controls.target.copy(target); controls.enableDamping = true;
+  controls.enableZoom = false; // the wheel scrolls the page; pinch and drag still turn it
+  controls.autoRotate = !matchMedia("(prefers-reduced-motion: reduce)").matches; controls.autoRotateSpeed = 0.7;
+  controls.addEventListener("start", () => (controls.autoRotate = false));
+  const labels = [[0, "Collar, 0 m"], ...(h.from_m > h.to_m * 0.08 ? [[h.from_m, m2(h.from_m)]] : []), [h.to_m, m2(h.to_m)], ...h.zones.map((z) => [(z.from_m + z.to_m) / 2, `Weak zone, RQD ${z.rqd_pct.toFixed(0)}%`, "z"])]
+    .map(([d, t, c]) => { const e = document.createElement("div"); e.className = `h3-label ${c || ""}`; e.textContent = t; el.appendChild(e); return {e, p:at(d)}; });
+  const fit = () => { const w = el.clientWidth, ht = el.clientHeight; renderer.setSize(w, ht, false); camera.aspect = w / ht; camera.updateProjectionMatrix(); };
+  const ro = new ResizeObserver(fit); ro.observe(el); fit();
+  const v = new THREE.Vector3();
+  H3 = {renderer, controls, ro, raf:0};
+  const loop = () => {
+    controls.update(); renderer.render(scene, camera);
+    labels.forEach(({e, p}) => { v.copy(p).project(camera); e.style.left = `${(v.x + 1) / 2 * el.clientWidth}px`; e.style.top = `${(1 - v.y) / 2 * el.clientHeight}px`; e.style.opacity = v.z < 1 ? 1 : 0; });
+    if (H3) H3.raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
 /* plumbing */
 async function api(path, opts = {}) {
   let res;
@@ -711,7 +915,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeMen
 $("switch").onclick = (e) => {
   const m = $("boxes-menu");
   if (m.classList.contains("on")) return closeMenus();
-  m.innerHTML = `${S.boxes.length ? `<h4>Your boxes</h4>${S.boxes.map((b) => `<a role="menuitem" href="#/box/${esc(b.id)}"><span class="dot ${esc(b.status)}"></span><div>${esc(b.hole_id)}, box ${esc(b.box_number)}<small>${STATUS[b.status]}</small></div></a>`).join("")}<hr>` : ""}
+  m.innerHTML = `${S.holes.length ? `<h4>Drill holes</h4>${S.holes.map((h) => `<a role="menuitem" href="#/hole/${encodeURIComponent(h.hole_id)}"><span class="dot approved"></span><div>${esc(h.hole_id)}<small>Box${h.boxes_in_log.length > 1 ? "es" : ""} ${h.boxes_in_log.join(", ")}, ${h.from_m.toFixed(2)} to ${h.to_m.toFixed(2)} m</small></div></a>`).join("")}<hr>` : ""}${S.boxes.length ? `<h4>Your boxes</h4>${S.boxes.map((b) => `<a role="menuitem" href="#/box/${esc(b.id)}"><span class="dot ${esc(b.status)}"></span><div>${esc(b.hole_id)}, box ${esc(b.box_number)}<small>${STATUS[b.status]}</small></div></a>`).join("")}<hr>` : ""}
     <h4>Public samples</h4>${S.samples.map((s) => `<button role="menuitem" data-sample="${esc(s.name)}"><span class="dot"></span><div>${esc(s.title)}<small>${esc(s.credit)}</small></div></button>`).join("")}`;
   openMenu(m, e.currentTarget);
 };
@@ -726,7 +930,7 @@ document.addEventListener("click", (e) => { const s = e.target.closest("[data-sa
 $("new-top").onclick = () => openNew();
 
 async function loadLists() {
-  try { [S.boxes, S.samples] = await Promise.all([api("/api/boxes"), api("/api/samples")]); } catch {}
+  try { [S.boxes, S.samples, S.holes] = await Promise.all([api("/api/boxes"), api("/api/samples"), api("/api/holes")]); } catch {}
 }
 async function startSample(name) {
   try { const box = await api(`/api/samples/${encodeURIComponent(name)}`, {method:"POST"}); location.hash = `#/box/${box.id}`; loadLists(); }
@@ -735,10 +939,11 @@ async function startSample(name) {
 
 /* routing */
 function route() {
-  clearTimeout(S.poll); S.error = null; closeDrawer(true);
+  clearTimeout(S.poll); S.error = null; closeDrawer(true); stop3D();
   document.querySelectorAll("dialog[open]").forEach((d) => d.close());
-  const m = location.hash.match(/^#\/box\/([a-z0-9]+)/i);
-  if (m) openBox(m[1]); else { S.box = null; renderHome(); }
+  const m = location.hash.match(/^#\/box\/([a-z0-9]+)/i), hm = location.hash.match(/^#\/hole\/(.+)$/);
+  if (!hm) S.hole = null;
+  if (m) openBox(m[1]); else if (hm) openHole(decodeURIComponent(hm[1])); else { S.box = null; renderHome(); }
 }
 addEventListener("hashchange", route);
 
@@ -794,7 +999,7 @@ function renderHome() {
   $("page").innerHTML = `<div class="empty">${S.error ? banner(S.error) : ""}
     <h1>Log a core box from one photo</h1>
     <p>CoreSight measures every piece, computes RQD, recovery and fracture frequency per run, and drafts a description. You check it, correct it and approve it.</p>
-    <div class="actions"><button class="btn primary" id="h-new">Log a new box</button>${S.samples[0] ? `<button class="btn" data-sample="${esc(S.samples[0].name)}">Try a sample box</button>` : ""}</div>
+    <div class="actions"><button class="btn primary" id="h-new">Log a new box</button>${S.samples[0] ? `<button class="btn" data-sample="${esc(S.samples[0].name)}">Try a sample box</button>` : ""}${S.holes[0] ? `<a class="btn" href="#/hole/${encodeURIComponent(S.holes[0].hole_id)}">See a drill hole</a>` : ""}</div>
     <div class="how">
       <div><b>Measured, not guessed</b><span>SAM 3.1 finds the pieces. RQD, TCR and fracture frequency come from deterministic code.</span></div>
       <div><b>Described for you</b><span>Muse Spark drafts lithology, alteration and mineralization for every run.</span></div>
@@ -890,6 +1095,7 @@ function renderBox() {
   const b = S.box, T = b.tray, sm = summary(b);
   $("page").innerHTML = `${S.error ? banner(S.error) : ""}
     <section class="hero"><div class="grow"><h1>${esc(b.hole_id)}, box ${esc(b.box_number)}</h1><p>${esc(sm.text)}</p></div>
+      ${S.holes.some((x) => x.hole_id === b.hole_id) ? `<a class="btn" href="#/hole/${encodeURIComponent(b.hole_id)}">See the whole hole</a>` : ""}
       ${sm.toCheck && b.status === "ready" ? `<button class="check" id="to-check"><b>${sm.toCheck}</b>breaks to check</button>` : ""}</section>
     ${b.status === "approved" ? `<div id="agents">${agentsHTML(b)}</div>` : ""}
     <section class="card tray-card">
@@ -903,7 +1109,7 @@ function renderBox() {
         <span class="grow"></span><span class="src model">${glyph("sam", 13)}SAM 3.1</span><span class="muted">Click a piece to open its run.</span>
       </div>
     </section>
-    <div class="section"><h2>Hole log</h2><p>Each run is drawn as tall as it is long.</p></div>
+    <div class="section"><h2>Box log</h2><p>Each run is drawn as tall as it is long.</p></div>
     <section class="card log" role="list">
       <div class="log-head" aria-hidden="true"><span>Depth</span><span></span><span>RQD</span><span class="num">TCR</span><span class="num">FF/m</span><span>Deere</span><span>Lithology</span><span></span></div>
       ${b.runs.map(runRow).join("")}
