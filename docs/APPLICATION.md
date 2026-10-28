@@ -56,6 +56,14 @@ Registro de uso:
   - En total: 2 rondas del constructor y 1 del revisor, 86 llamadas. La sandbox sigue sin PowerShell; corrimos pytest y ruff fuera (383 en verde, ruff limpio). No editamos su código.
   - Prueba real en local con la API de Meta (Nevada U12G caja 3, con la caja 1 aprobada): el código encontró 3 tendencias, el agente de barreno propuso avisar a geotecnia (3 de 3 checks, el juez respaldó 10 de 10 afirmaciones), Wonder mandó solo a seguridad (4 de 4 áreas coherentes al primer intento) y el borrador de seguridad pasó 4 de 4 checks y 11 de 11 afirmaciones. Unos 110 s, la mitad verificando.
 
+- 28 oct (punto F del segundo análisis): el ciclo de aprendizaje, `mae_of`, `fit`, `leave_one_box_out` y `learning_curve` en `src/coresight/learning.py`. Muse Code 1.4.14, `--model muse-spark-1.3`, constructor y revisor como en D y E.
+  - Especificación: `tests/test_learning.py`, escrita antes por nosotros (commit `85f6a1c`, 18 tests).
+  - Constructor, ronda 1: sesión `01a18464-3527-7f22-a9b6-2c50b9baa9a7`, 15 llamadas. Traza: `docs/muse-code/learning-1.json`. Commit: `d718864`.
+  - Revisor de solo lectura (`--disable-write`): sesión `01a18468-a270-7d61-8d57-23efb2b49741`, 11 llamadas. Traza: `docs/muse-code/learning-review-1.json`. En `learning.py`: duplicados que ganaba el último, un NaN en un candidato no usado que pasaba, ningún candidato elegible que regresaba el valor por omisión sin medirlo y un tramo repetido que pesaba doble. Volvieron como 5 tests (commit `ee530fb`). En nuestro script encontró dos errores reales: las cajas 5 y 6 de Onkalo son una sola foto (dejar una caja fuera no deja fuera su foto) y el eje del total contaba tramos por sitio. Los arreglamos nosotros: la validación cruzada ahora es por foto.
+  - Constructor, ronda 2: sesión `01a1846d-5cd8-7fd3-9770-6ad32a239c2d`, 14 llamadas. Traza: `docs/muse-code/learning-2.json`. 23 de 23 en verde.
+  - En total: 2 rondas del constructor y 1 del revisor, 40 llamadas. La sandbox sigue sin PowerShell; corrimos pytest y ruff fuera (440 en verde, ruff limpio). No editamos su código.
+  - Resultado medido (`outputs/eval/learning.md`): desde los umbrales por omisión, Nevada fuera de muestra queda en 15.1 puntos (no había nada que aprender); desde un sitio mal ajustado baja de 21.6 a 16.6 con las correcciones de la otra foto. Queda como "listo para aprender", sin presumir mejora. Las correcciones de descripción entran como few-shot a Spark y Glimmer; sin descripciones de un geólogo públicas para medir, no se presume.
+
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.
 

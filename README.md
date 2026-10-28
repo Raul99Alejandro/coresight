@@ -96,6 +96,17 @@ Time and cost per tray (5 rows, 2 runs): about 40 s and under US$0.05 with the h
 
 Files: [`outputs/eval/report.md`](outputs/eval/report.md) (every table, per site and method, Deere confusion matrix, dry against wet per run), [`outputs/eval/runs.csv`](outputs/eval/runs.csv) (error per run and method) and [`outputs/eval/bland_altman_public.svg`](outputs/eval/bland_altman_public.svg). Statistics in [`evaluation.py`](src/coresight/evaluation.py), with tests. Reproduce with `python scripts/eval_logs.py` once the Kaggle set is in `data/raw/`.
 
+### Learning from the geologist's corrections (no fine-tuning)
+
+Two loops, measured and published as they came out, with no LoRA and nothing trained on the Kaggle set (NC):
+
+1. **Break corrections tune the profile thresholds of a site.** The profile layer cuts a piece where a thin dark line crosses the core; two thresholds decide when (`ProfileThresholds` in `segmentation.py`). Our labels of the public boxes play the geologist's corrections; every labelled box is segmented with 45 threshold pairs on cached SAM masks, `geometry.py` logs every run, and `learning.py` fits a pair per site and scores it on a photo it never saw. Onkalo boxes 5 and 6 are two trays of one photo, so only Nevada (two photos) gets a held-out score.
+   - From the hand-set default: held-out RQD MAE **15.1 to 15.1** points on Nevada. The default was already the best pair on these photos; nothing to learn there.
+   - From a site whose thresholds start badly set (0.1, 0.7): **21.6 to 16.6** after the corrected runs of the other photo. The loop finds its way back when a site's thresholds are wrong.
+   - The largest Nevada errors do not move with any pair: they come from the pieces before the profile layer. Five held-out runs are far too few for an interval, so we claim no gain. **Ready to learn**: each approved box of a site adds its corrected runs.
+   - [`outputs/eval/learning.md`](outputs/eval/learning.md), [`learning.svg`](outputs/eval/learning.svg), [`learning.csv`](outputs/eval/learning.csv); `python scripts/learn_thresholds.py`.
+2. **Description corrections become few-shot examples.** When the geologist corrects lithology, alteration or mineralization in an approved box, the next uploaded box of the same hole sends up to three of those corrections (what the model wrote, what the geologist wrote) with the prompt, to Muse Spark and to Muse Glimmer alike. Not measured: there is no public description written by a geologist to score against, so we do not claim it helps.
+
 Descriptions: the same 14 public crops (Onkalo, Potter Mine and Warren County, all from Commons) described by Muse Spark (API), Muse Spark Open on Baseten and Muse Glimmer on our own machine with llama.cpp, all 14/14 valid against the same Pydantic contract. Side by side with time and cost in [`outputs/describe/compare.md`](outputs/describe/compare.md); raw outputs in `outputs/describe/<backend>/`.
 
 ## Open weights and provenance
@@ -145,7 +156,7 @@ Meta's Agents Rule of Two: the agents read model output about the photo and priv
 
 ## Built with Muse Code
 
-Six pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
+Seven pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
@@ -163,6 +174,10 @@ Six pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against te
   - Builder, round 1 (session `01a18410-fb19-7921-aa89-a7f0aa93faa8`): all 23 tests green.
   - Reviewer (session `01a1841c-df12-7a23-a050-4a64d149e9f2`, `--disable-write`): a minus sign was dropped ("-2" passed as "2"), a percent written in words passed as a depth, unknown trends ran into one sentence, finance passed with no lab route. Six new tests.
   - Builder, round 2 (session `01a18424-7509-7df0-9a12-996019274166`): all 29 tests green. Traces `routing-1`, `routing-2` and `routing-review-1`.
+- `mae_of`, `fit`, `leave_one_box_out` and `learning_curve` in `src/coresight/learning.py`, the learning loop: a site's threshold pair fitted from the geologist's corrections and scored on boxes (or photos) it never saw. Spec: `tests/test_learning.py`. Builder and reviewer:
+  - Builder, round 1 (session `01a18464-3527-7f22-a9b6-2c50b9baa9a7`): all 18 tests green.
+  - Reviewer (session `01a18468-a270-7d61-8d57-23efb2b49741`, `--disable-write`): duplicate errors silently took the last one, a NaN on an unused candidate slipped through, no eligible candidate returned an unscored default, and a run given twice weighed double. Five new tests. It also found two errors in our own script: Onkalo boxes 5 and 6 share one photo, so holding out a box still let the fit see its photo, and the pooled x axis counted runs per site. We fixed the script: cross-validation is now by photo.
+  - Builder, round 2 (session `01a1846d-5cd8-7fd3-9770-6ad32a239c2d`): all 23 tests green. Traces `learning-1`, `learning-2` and `learning-review-1`.
 - Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`. Reviewers also run with `--disable-write`.
 - Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
 - Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
@@ -175,6 +190,8 @@ Before measuring anything, an input gate checks three signals: how clearly calib
 The models work together. Where SAM 3.1 finds nothing with the phrase "stone", Muse Spark boxes the core pieces of the row and SAM cuts them with those boxes. In the review, the geologist taps a piece on the photo: the tap goes to SAM 3.1 as a point prompt (a second tap marked "Not the piece" is a negative point), the piece is measured on the mask SAM returns, `geometry.py` recomputes the run, and the correction is kept with the source `sam-point` in the history and the CSV. It takes 3 to 4 s per tap; Split by hand stays as the fallback.
 
 The unit is a drill hole, not a photo. Approved boxes of the same hole join into one log by depth (`geometry.log_hole`): RQD, TCR, fracture frequency and Deere class by run and by 1 m interval, gaps and overlaps between boxes flagged, and weak zones (two or more consecutive 1 m intervals below RQD 50) marked. The hole view shows it as a depth column and in 3D. No public hole has a downhole survey, so the 3D uses an example orientation and says so on screen. Demo holes: Onkalo ONK-DTPH5.1 boxes 5 and 6, and Nevada U12G-GF-GT#2 boxes 1 and 3 (box 2 is not public and shows as a gap). A read-only `hole_log` tool gives the agents the hole by depth.
+
+Built to hold up in production: the home page shows a real box being read and the hole it belongs to, and a "60-second tour" walks through the product live (a refused screenshot, a sample, Spark and SAM, a correction, the agents, the hole in 3D; [`docs/TOUR.md`](docs/TOUR.md)). The abuse test ([`tests/test_abuse.py`](tests/test_abuse.py)) covers a photo that is not a core box, a huge photo or a small file that declares a huge image (the size is read from the header before decoding), GIF, PDF, TIFF, HEIC and damaged files, a box without scale, and many uploads in a row (5 per visitor in 10 minutes, on top of the hourly caps); each ends in a message, never in a number. The public samples are pre-warmed (`scripts/prewarm_demo.py`: 0 live calls, about 2 s each) and a token-protected credit watch counts every request to Meta Model API and every cache hit.
 
 Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
 The agents look at the hole, not only the box: approving a box that sits under better rock gives a trend alert from the hole agent, a verified routing and a safety draft verified in two layers (see Agents). Day-by-day plan in `docs/PLAN.md`.

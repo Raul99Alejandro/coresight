@@ -8,8 +8,11 @@ never used: not to fit, not to score.
 For every box, the production segmentation (review.SEGMENT_METHOD) runs once per
 candidate pair of profile thresholds, on SAM masks read from data/cache (no API
 call is paid), and geometry.py logs every run. coresight.learning then fits a
-pair per site and scores it on boxes it never saw (leave one box out), and draws
-the learning curve: the held-out RQD error after n corrected runs. Two starts:
+pair per site and scores it on photos it never saw, and draws the learning
+curve: the held-out RQD error after n corrected runs of the site. The unit of
+cross-validation is the photo, not the box: Onkalo boxes 5 and 6 are two trays
+of one photo (same light, same camera), so holding out one box would still let
+the fit see its photo. Onkalo has one photo, so it gets no held-out score. Two starts:
 the hand-set default, and a site whose thresholds start badly set (a new mine
 before anyone tuned them), to show whether the loop finds its way back.
 
@@ -43,6 +46,8 @@ CONTRASTS = (0.10, 0.125, 0.15, 0.175, 0.20, 0.25, 0.30, 0.40, 9.99)  # 9.99: no
 CROSSINGS = (0.6, 0.7, 0.8, 0.9, 1.0)
 DEFAULT = (DEFAULT_PROFILE.min_contrast, DEFAULT_PROFILE.min_crossing)
 POOR_START = (0.10, 0.7)  # a site before anyone tuned it: cuts at faint lines
+assert DEFAULT in itertools.product(CONTRASTS, CROSSINGS)
+assert POOR_START in itertools.product(CONTRASTS, CROSSINGS)
 Curve = list[tuple[int, float, float]]
 
 
@@ -64,8 +69,12 @@ BOXES = [  # public photos only (data/labels/SOURCES.md)
 ]
 
 
-def box_errors(box: Box, client: MetaClient) -> list[RunError]:
-    """RQD error of every complete run, for every candidate pair (geometry.py logs them)."""
+def box_errors(box: Box, client: MetaClient, k: int) -> list[RunError]:
+    """RQD error of every complete run, for every candidate pair (geometry.py logs them).
+
+    ``RunError.box`` is the photo (the unit of cross-validation); runs are numbered
+    ``100 * k + i`` so two boxes of one photo never share a run key.
+    """
     label = BoxLabel.model_validate_json((LABELS / f"{box.label}.json").read_text("utf-8"))
     image = cv2.imread(str(ROOT / label.image))
     tray = find_trays(image, box.box_length_cm, n_rows=box.n_rows,
@@ -82,24 +91,15 @@ def box_errors(box: Box, client: MetaClient) -> list[RunError]:
         results = build_logs(rows, markers, list(label.runs), box.first_starts_in_box)
         for i, (run, res) in enumerate(zip(label.runs, results, strict=True)):
             if res.complete:
-                out.append(RunError(box.label, i, (contrast, crossing), res.rqd_pct - run.rqd_pct))
-    return out
-
-
-def pooled(curves: dict[str, Curve], runs: dict[str, int]) -> Curve:
-    """All sites together: each site's pooled MAE weighted by its held-out runs."""
-    n_max = max(n for c in curves.values() for n, _, _ in c)
-    total = sum(runs.values())
-    out = []
-    for n in range(n_max + 1):
-        at = {s: c[min(n, len(c) - 1)] for s, c in curves.items()}
-        out.append((n, sum(at[s][1] * runs[s] for s in at) / total,
-                    sum(at[s][2] * runs[s] for s in at) / total))  # fmt: skip
+                err = res.rqd_pct - run.rqd_pct
+                out.append(RunError(Path(label.image).stem, 100 * k + i, (contrast, crossing), err))
+    if not out:
+        raise RuntimeError(f"{box.label}: no complete run to learn from")
     return out
 
 
 def curve_svg(series: list[tuple[str, str, Curve]], path: Path) -> None:
-    """Held-out RQD MAE after n corrected runs: one line per start, all sites pooled."""
+    """Held-out RQD MAE after n corrected runs of the site: one line per start."""
     w, h, left, right, top, bottom = 720, 400, 64, 210, 64, 56
     n_max = max(n for _, _, c in series for n, _, _ in c)
     y_max = max(5.0, 1.15 * max(v for _, _, c in series for _, d, f in c for v in (d, f)))
@@ -112,8 +112,8 @@ def curve_svg(series: list[tuple[str, str, Curve]], path: Path) -> None:
          ' font-size="12">', f'<rect width="{w}" height="{h}" fill="#fff"/>',
          f'<text x="{left}" y="26" font-size="15" font-weight="600">After n corrected runs,'
          " the RQD error on boxes the fit never saw</text>",
-         f'<text x="{left}" y="45" fill="#666">Leave one box out within each site, Onkalo and'
-         " Nevada pooled. Public boxes only; our labels play the geologist.</text>"]  # fmt: skip
+         f'<text x="{left}" y="45" fill="#666">Nevada U12G: fit on one photo, scored on the other.'
+         " Public boxes only; our labels play the geologist.</text>"]  # fmt: skip
     step = 5 if y_max > 12 else 2
     for v in range(0, int(y_max) + 1, step):
         _, y = xy(0, v)
@@ -124,7 +124,7 @@ def curve_svg(series: list[tuple[str, str, Curve]], path: Path) -> None:
         p.append(f'<text x="{x:.1f}" y="{h - bottom + 18}" text-anchor="middle" fill="#666">{n}'
                  "</text>")  # fmt: skip
     p.append(f'<text x="{(left + w - right) / 2}" y="{h - 14}" text-anchor="middle">'
-             "corrected runs used to fit the thresholds</text>")  # fmt: skip
+             "corrected runs of the site used to fit the thresholds</text>")  # fmt: skip
     p.append(f'<text x="18" y="{h / 2 + 70}" transform="rotate(-90 18 {h / 2 + 70})">'
              "held-out RQD MAE (points)</text>")  # fmt: skip
     labels = []
@@ -149,9 +149,9 @@ def curve_svg(series: list[tuple[str, str, Curve]], path: Path) -> None:
 
 
 def curves_from(by_site: dict[str, list[RunError]], start: tuple[float, float]) -> dict:
+    """Learning curves of the sites with two photos or more (one photo: no held-out score)."""
     curves = {site: learning_curve(errs, start) for site, errs in by_site.items()}
-    runs = {site: len({(e.box, e.run) for e in errs}) for site, errs in by_site.items()}
-    return {**curves, "all": pooled(curves, runs)}
+    return {site: c for site, c in curves.items() if c}
 
 
 def table(curves: dict[str, Curve]) -> list[str]:
@@ -166,8 +166,8 @@ def table(curves: dict[str, Curve]) -> list[str]:
 def main() -> None:
     client = MetaClient()
     by_site: dict[str, list[RunError]] = {}
-    for b in BOXES:
-        by_site.setdefault(b.site, []).extend(box_errors(b, client))
+    for k, b in enumerate(BOXES):
+        by_site.setdefault(b.site, []).extend(box_errors(b, client, k))
     OUT.mkdir(parents=True, exist_ok=True)
     with (OUT / "learning.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -182,8 +182,10 @@ def main() -> None:
              f" `{SEGMENT_METHOD}`, SAM masks from the cache. Default thresholds"
              f" (min_contrast, min_crossing) = {DEFAULT}. Candidates: {len(CONTRASTS)} contrasts"
              f" x {len(CROSSINGS)} crossings (contrast 9.99 = no profile cut).", "",
-             "## Leave one box out, per site, from the default", "",
-             "| Site | Held-out box | Fitted on the other box | Train runs | Test runs |"
+             "## Leave one photo out, from the default", "",
+             "Onkalo boxes 5 and 6 are two trays of one photo: one photo, no held-out score."
+             " Nevada boxes 1 and 3 are two photos.", "",
+             "| Site | Held-out photo | Fitted on the other photo | Train runs | Test runs |"
              " RQD MAE default | RQD MAE fitted |", "|---|---|---|---|---|---|---|"]  # fmt: skip
     for site, errs in by_site.items():
         for fo in leave_one_box_out(errs, DEFAULT):
@@ -191,38 +193,39 @@ def main() -> None:
                          f"{fo.test_runs} | {fo.mae_default:.1f} | {fo.mae_fitted:.1f} |")
     from_default, from_poor = curves_from(by_site, DEFAULT), curves_from(by_site, POOR_START)
     lines += ["", "## Learning curve from the default", "",
-              "Held-out RQD MAE (points) after n corrected runs; n = 0 is the default.", "",
-              *table(from_default), "",
+              "Held-out RQD MAE (points) after n corrected runs of the site; n = 0 is the"
+              " default.", "", *table(from_default), "",
               f"## Learning curve from a poorly set site {POOR_START}", "",
-              "The same boxes, as if the site started with thresholds nobody had tuned"
+              "The same photos, as if the site started with thresholds nobody had tuned"
               " (it cuts at faint lines). A scenario, not a real site.", "",
               *table(from_poor), "",
-              "## Fitted on every corrected run of the site (what production would use)",
+              "## Fitted on every corrected run of the site (in-sample: not evidence)",
               ""]  # fmt: skip
     for site, errs in by_site.items():
-        best, keys = fit(errs, None, DEFAULT), {(e.box, e.run) for e in errs}
-        lines.append(f"- {site}: {best}, in-sample RQD MAE {mae_of(errs, best, keys):.1f}"
-                     f" against {mae_of(errs, DEFAULT, keys):.1f} with the default"
-                     " (in-sample: not evidence; the held-out numbers above are)")  # fmt: skip
-    a, b = from_default["all"][0][2], from_default["all"][-1][2]
-    c, d = from_poor["all"][0][2], from_poor["all"][-1][2]
+        keys = {(e.box, e.run) for e in errs}
+        for start in (DEFAULT, POOR_START):
+            best = fit(errs, None, start)
+            lines.append(f"- {site}, from {start}: fits {best}, RQD MAE"
+                         f" {mae_of(errs, start, keys):.1f} to {mae_of(errs, best, keys):.1f}")
+    site = "nevada"
+    a, b = from_default[site][0][2], from_default[site][-1][2]
+    c, d = from_poor[site][0][2], from_poor[site][-1][2]
+    n = from_poor[site][-1][0]
     lines += ["", "## Result", "",
-              f"- From the hand-set default: after {from_default['all'][-1][0]} corrected runs the"
-              f" held-out RQD MAE goes from {a:.1f} to {b:.1f} points. The loop picks the default"
-              " back: on these public boxes there was nothing left to learn in these two"
-              " thresholds.",
-              f"- From a poorly set site: from {c:.1f} to {d:.1f} points after"
-              f" {from_poor['all'][-1][0]} corrected runs. The loop works when the thresholds are"
-              " wrong for a site.",
+              f"- From the hand-set default, Nevada: the held-out RQD MAE goes from {a:.1f} to"
+              f" {b:.1f} points after {n} corrected runs. Nothing to learn in these two"
+              " thresholds on these photos: the default was already the best.",
+              f"- From a poorly set site, Nevada: from {c:.1f} to {d:.1f} points after {n}"
+              " corrected runs, on a photo the fit never saw. The loop finds its way back when a"
+              " site's thresholds are wrong.",
               "- What the thresholds cannot fix: the largest Nevada errors (box 1 run 3, box 3"
               " run 3) do not move with any candidate: they come from a layer before the"
-              " profile (the pieces SAM and the fill rules give), so these thresholds cannot"
-              " reach them.",
-              "- Four boxes and ten runs are too few for a confidence interval. Ready to learn:"
-              " each approved box of a site adds its corrected runs to the fit."]  # fmt: skip
+              " profile (the pieces SAM and the fill rules give).",
+              "- Two photos with held-out runs, five Nevada runs: far too few for a confidence"
+              " interval. Ready to learn: each approved box of a site adds its corrected runs."]
     (OUT / "learning.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    curve_svg([("from the default", "#16181c", from_default["all"]),
-               (f"from a poor start {POOR_START}", "#d9822b", from_poor["all"])],
+    curve_svg([("from the default", "#16181c", from_default[site]),
+               (f"from a poor start {POOR_START}", "#d9822b", from_poor[site])],
               OUT / "learning.svg")  # fmt: skip
     print("\n".join(lines))
 
