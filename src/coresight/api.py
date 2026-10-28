@@ -58,6 +58,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from coresight import agents, hole, review
+from coresight.describe import EXAMPLES_KEY
 from coresight.labeling import PieceSheet, sheet_markers
 from coresight.meta_client import DEFAULT_CACHE_DIR, UsageLog, usage_summary
 from coresight.pipeline import export_csv
@@ -580,6 +581,9 @@ def create_app(
             n_rows=n_rows,
             context={"hole_id": hole_id, "box": box_number},
         )
+        examples = review.fewshot_examples(store.all(), hole_id)  # point F: few-shot, no training
+        if examples:
+            job.context[EXAMPLES_KEY] = examples
         # nginx sets X-Real-IP to the address it saw (X-Forwarded-For can be forged)
         visitor = request.headers.get("x-real-ip") or (request.client and request.client.host)
         visitor = visitor or "unknown"

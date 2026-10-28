@@ -46,8 +46,30 @@ do not estimate them. Answer in English.
 """
 
 
+EXAMPLES_KEY = "geologist_corrections"  # in the context: few-shot examples (point F)
+MAX_EXAMPLES = 3
+FEWSHOT_HEAD = """
+The geologist of this drill hole corrected earlier descriptions. Follow their \
+vocabulary and judgement where the core looks alike; describe only what this photo shows:
+"""
+
+
 def describe_prompt(context: dict) -> str:
-    return PROMPT + "\nContext: " + json.dumps(context, ensure_ascii=False)
+    """The prompt for one run; the geologist's corrections, if any, go last as examples.
+
+    Without corrections the prompt is the same as before point F, so cached
+    answers stay valid. Spark, Glimmer and Baseten all build their prompt here.
+    """
+    examples = (context.get(EXAMPLES_KEY) or [])[:MAX_EXAMPLES]
+    ctx = {k: v for k, v in context.items() if k != EXAMPLES_KEY}
+    prompt = PROMPT + "\nContext: " + json.dumps(ctx, ensure_ascii=False)
+    if examples:
+        prompt += FEWSHOT_HEAD + "\n".join(
+            f'- {e["field"]}: the model wrote "{e["model"]}"; the geologist corrected it to'
+            f' "{e["geologist"]}"'
+            for e in examples
+        )
+    return prompt
 
 
 class Describer(Protocol):

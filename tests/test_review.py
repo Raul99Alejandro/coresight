@@ -345,3 +345,46 @@ def test_sam_point_mask_wants_a_positive_first_point_in_one_row(monkeypatch):
         review.sam_point_mask(object(), image, view, [(10, 10, True), (10, 150, False)])
     with pytest.raises(ReviewError, match="no piece"):
         review.sam_point_mask(object(), image, view, [(10, 10, True)])
+
+
+# Few-shot examples for the next box of the hole (point F)
+
+
+def described_box(i, hole="DDH-1", status="approved", corrections=(), minutes=0):
+    from datetime import timedelta
+
+    from coresight.schemas import Correction
+
+    run = make_run(PIECES)
+    run.corrections = [Correction(at=datetime(2026, 10, 30, tzinfo=UTC), target=t, original=o,
+                                  corrected=c) for t, o, c in corrections]  # fmt: skip
+    box = make_box(run, status=status)
+    box.id, box.hole_id = f"b{i}", hole
+    box.created_at = datetime(2026, 10, 30, tzinfo=UTC) + timedelta(minutes=minutes)
+    return box
+
+
+def test_fewshot_examples_come_from_description_corrections_of_approved_boxes_of_the_hole():
+    boxes = [
+        described_box(1, corrections=[("lithology", "granite", "granite gneiss"),
+                                      ("break 2", "uncertain", "mechanical"),
+                                      ("comment", "", "check contact")], minutes=1),
+        described_box(2, corrections=[("alteration", "none visible", "weak chloritic")],
+                      minutes=2),
+        described_box(3, status="ready", corrections=[("lithology", "a", "b")], minutes=3),
+        described_box(4, hole="DDH-2", corrections=[("lithology", "c", "d")], minutes=4),
+    ]  # fmt: skip
+    ex = review.fewshot_examples(boxes, "DDH-1")
+    assert ex == [
+        {"field": "alteration", "model": "none visible", "geologist": "weak chloritic"},
+        {"field": "lithology", "model": "granite", "geologist": "granite gneiss"},
+    ]
+
+
+def test_fewshot_examples_are_capped_and_skip_empty_or_unchanged_values():
+    from coresight.describe import MAX_EXAMPLES
+
+    corr = [("lithology", "", "x"), ("mineralization", "pyrite", "pyrite")]
+    corr += [("lithology", f"m{i}", f"g{i}") for i in range(MAX_EXAMPLES + 2)]
+    ex = review.fewshot_examples([described_box(1, corrections=corr)], "DDH-1")
+    assert len(ex) == MAX_EXAMPLES and all(e["model"] and e["model"] != e["geologist"] for e in ex)

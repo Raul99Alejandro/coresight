@@ -335,3 +335,23 @@ def test_a_tap_needs_a_positive_point_first_and_a_box_under_review(tmp_path, mon
     r = c.post(f"/api/boxes/{bid}/runs/0/sam-point", json=bad)
     assert r.status_code == 400 and "first point" in r.json()["detail"]
     assert c.post(f"/api/boxes/{bid}/runs/5/sam-point", json=bad).status_code == 400
+
+
+def test_an_upload_carries_the_geologist_corrections_of_its_hole(tmp_path):
+    from test_review import described_box
+
+    from coresight.describe import EXAMPLES_KEY
+
+    seen = []
+
+    def analyzer(photo, job, report):
+        seen.append(job.context.get(EXAMPLES_KEY))
+        return fake_analyzer(photo, job, report)
+
+    store = ReviewStore(tmp_path)
+    store.save(described_box(1, corrections=[("lithology", "granite", "granite gneiss")]))
+    c = TestClient(create_app(store=store, analyzer=analyzer, background=False))
+    assert upload(c).status_code == 202  # DDH-1, like the approved box
+    assert seen[-1] == [{"field": "lithology", "model": "granite", "geologist": "granite gneiss"}]
+    assert c.post("/api/samples/onkalo-box5").status_code == 202
+    assert seen[-1] is None  # samples keep their cached description: the demo never waits

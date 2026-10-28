@@ -305,3 +305,26 @@ def test_baseten_usage_is_recorded_and_priced(tmp_path):
     client.describe_interval(b"png", {})  # cached: not paid again
     assert len(client.usage) == 1
     assert cost_usd(client.usage[0]) == pytest.approx((1000 * 1.25 + 2000 * 4.25) / 1e6)
+
+
+# Few-shot from the geologist's corrections (point F)
+
+
+def test_the_prompt_is_unchanged_without_corrections():
+    from coresight.describe import EXAMPLES_KEY, describe_prompt
+
+    ctx = {"hole_id": "DDH-1", "from_m": 1.0}
+    assert describe_prompt(ctx) == describe_prompt({**ctx, EXAMPLES_KEY: []})
+    assert EXAMPLES_KEY not in describe_prompt(ctx)
+
+
+def test_corrections_become_examples_after_the_context():
+    from coresight.describe import EXAMPLES_KEY, MAX_EXAMPLES, describe_prompt
+
+    ex = [{"field": "lithology", "model": f"granite {i}", "geologist": f"gneiss {i}"}
+          for i in range(MAX_EXAMPLES + 2)]  # fmt: skip
+    p = describe_prompt({"hole_id": "DDH-1", EXAMPLES_KEY: ex})
+    assert '"hole_id": "DDH-1"' in p and EXAMPLES_KEY not in p.split("Context:")[1].split("\n")[0]
+    assert 'the model wrote "granite 0"' in p and 'corrected it to "gneiss 0"' in p
+    assert f"granite {MAX_EXAMPLES}" not in p  # at most MAX_EXAMPLES
+    assert p.index("Context:") < p.index("granite 0")

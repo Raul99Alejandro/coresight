@@ -33,7 +33,7 @@ import numpy as np
 from coresight.anomalies import with_rule_anomalies
 from coresight.calibration import CalibrationError, Tray, find_trays
 from coresight.crops import run_crops
-from coresight.describe import Describer, cache_key, describe_prompt, png_bytes
+from coresight.describe import MAX_EXAMPLES, Describer, cache_key, describe_prompt, png_bytes
 from coresight.gate import check_input
 from coresight.geometry import IntervalLog
 from coresight.meta_client import SamObject, SamPoint, sam_cache_key, sam_prompt
@@ -742,6 +742,26 @@ def approve(box: BoxReview) -> BoxReview:
         raise ReviewError(f"Write a lithology for run(s) {missing} before approving.")
     box.status, box.approved_at = "approved", _now()
     return box
+
+
+FEWSHOT_FIELDS = ("lithology", "alteration", "mineralization")
+
+
+def fewshot_examples(boxes: list[BoxReview], hole_id: str) -> list[dict]:
+    """The geologist's description corrections in approved boxes of the hole, newest first.
+
+    They go to the describer of the next box as examples (describe.EXAMPLES_KEY):
+    the learning loop without training (point F). Only fields the model wrote and
+    the geologist changed; at most describe.MAX_EXAMPLES.
+    """
+    out = []
+    approved = [b for b in boxes if b.hole_id == hole_id and b.status == "approved"]
+    for box in sorted(approved, key=lambda b: b.created_at, reverse=True):
+        for run in box.runs:
+            for c in reversed(run.corrections):
+                if c.target in FEWSHOT_FIELDS and c.original.strip() and c.original != c.corrected:
+                    out.append({"field": c.target, "model": c.original, "geologist": c.corrected})
+    return out[:MAX_EXAMPLES]
 
 
 class ReviewStore:
