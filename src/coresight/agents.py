@@ -1,11 +1,23 @@
-"""Stage 6: the orchestrator and the four area agents (lab, safety, plant, finance).
+"""Stage 6: the hole agent, the orchestrator and the four area agents.
 
-When the geologist approves a box, the orchestrator (Muse Wonder; plan B Muse
-Spark 1.3 when Wonder fails) looks at the box through tools and decides which
-areas of the mine it concerns and why. Each area agent (Muse Spark 1.3) then
-writes a draft with its own tools. Every draft goes through verify.py, a
-deterministic check, and a failed draft gets one retry with the failures as
-feedback. Every step lands in a decision log the page shows.
+When the geologist approves a box:
+1. Code finds the trends along the hole (hole.hole_trends: RQD drop from the box
+   above, weak zones, a change of rock, sulfides that appear or end). The hole agent
+   (Muse Spark 1.3) reads them and proposes one action, from a closed list.
+2. The orchestrator (Muse Wonder; plan B Muse Spark 1.3 when Wonder fails) reads the
+   box, the hole and the hole agent's finding and decides which areas of the mine it
+   concerns and why. Its prompt holds no routing rules.
+3. Each area agent (Muse Spark 1.3) writes a draft with its own tools.
+
+Verification is part of each submit step, not a tool an agent may skip (Meta's
+Agents 102), and it runs at three milestones: the finding, the routing (before
+any area agent writes) and every draft. Two layers: deterministic checks in
+verify.py first; then, only if they pass, Muse Spark as a judge checks every text
+claim against the geologist-approved record. The judge never runs on, and so never
+passes, what verify.py rejected. A failure goes back to the agent with the reasons,
+at most three attempts; after that the result reaches a person marked with why.
+Every step, with turns, attempts and seconds of verification, lands in a decision
+log the page shows as sentences.
 
 Autonomy and its limits (Meta's "Agents Rule of Two": an agent should hold at
 most two of [A] untrusted input, [B] private data or sensitive systems,
@@ -14,6 +26,7 @@ most two of [A] untrusted input, [B] private data or sensitive systems,
   price list [B]. They have no tool that sends, writes or changes anything [C]:
   a draft only reaches another area after a person approves it, and even then
   CoreSight only marks it approved; sending stays outside this program.
+- The tool list of each agent is closed: a call to any other tool is refused.
 - Numbers come from tools backed by geometry.py and the example price table;
   the models never compute them, and verify.py rejects any that do not match.
 - Tool arguments and submissions are validated with Pydantic before use.
@@ -25,6 +38,7 @@ from __future__ import annotations
 
 import json
 import math
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,13 +57,20 @@ from coresight.schemas import (
     BoxReview,
     Check,
     Draft,
+    Effort,
     Handoffs,
+    HoleFinding,
+    HoleReport,
+    HoleTrend,
+    JudgeVerdict,
     Routing,
+    RoutingSignals,
 )
 
 PRICES_PATH = Path(__file__).resolve().parents[2] / "data" / "prices_example.json"
 AREAS: tuple[AreaKey, ...] = ("lab", "safety", "plant", "finance")
 MAX_TURNS = 8
+MAX_ATTEMPTS = 3  # Agents 102: at most three attempts, then a person decides
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -130,6 +151,8 @@ class Toolbox:
     def __init__(self, box: BoxReview, history: list[BoxReview], prices: Prices) -> None:
         self.box, self.history, self.prices = box, history, prices
         self.lab_draft: Draft | None = None  # handed to finance once verified
+        self.finding: HoleFinding | None = None  # the hole agent's, once verified
+        self.trends: list[HoleTrend] = hole.hole_trends(history, box) if box.runs else []
 
     def _run(self, n: int):
         if not 1 <= n <= len(self.box.runs):
@@ -197,6 +220,22 @@ class Toolbox:
         boxes = [*self.history, self.box]  # the agents run after approval
         return hole.depth_history(hole.hole_view(boxes, self.box.hole_id))
 
+    def hole_trends(self, _: NoArg) -> dict:
+        """Trends between boxes that reach this box, found by code (hole.hole_trends)."""
+        return {
+            "hole_id": self.box.hole_id,
+            "box_number": self.box.box_number,
+            "trends": [t.model_dump(exclude_none=True) for t in self.trends],
+            "note": "" if self.trends else "No trend along the hole reaches this box.",
+            "source": "hole.hole_trends: numbers from geometry.py, rock names and sulfides "
+            "from the geologist-approved descriptions",
+        }
+
+    def hole_finding(self, _: NoArg) -> dict:
+        if self.finding is None:
+            return {"note": "The hole agent has no verified finding for this box."}
+        return self.finding.model_dump()
+
     def count_samples(self, a: IntervalArg) -> dict:
         n = max(1, math.ceil(round((a.to_m - a.from_m) / self.prices.sample_length_m, 6)))
         return {"from_m": a.from_m, "to_m": a.to_m, "samples": n,
@@ -253,6 +292,12 @@ class Toolbox:
                  "RQD, TCR, fracture frequency, Deere class, lithology and anomalies by run "
                  "and by 1 m interval, weak zones (consecutive poor intervals), and gaps or "
                  "overlaps between boxes.", NoArg, self.hole_log),
+            Tool("hole_trends", "Trends along the hole that reach this box, found by code: "
+                 "an RQD drop from the box above, weak zones, a change of rock at the "
+                 "contact, sulfides that appear or end. Each with depths, boxes and a "
+                 "summary sentence.", NoArg, self.hole_trends),
+            Tool("hole_finding", "The hole agent's verified finding: the trends it "
+                 "confirms and the action it proposes.", NoArg, self.hole_finding),
             Tool("count_samples", "How many assay samples an interval makes at the "
                  "standard sample length.", IntervalArg, self.count_samples),
             Tool("price_list", "The assay price table (an EXAMPLE table in this demo) and "
@@ -278,18 +323,35 @@ COMMON = (
     "a person approves it."
 )
 
+HOLE_ROLE = (
+    "You are the hole agent. You look at the whole drill hole, not one box. Read the "
+    "trends code found along the hole with hole_trends, and the hole log or the box if "
+    "you need more. Decide which trends matter for the next metres of drilling and for "
+    "the mine, and propose one action:\n"
+    "- oriented_core: ask the drillers for oriented core in the next runs, so the "
+    "structure behind poor ground can be measured.\n"
+    "- warn_geotech: warn geotechnics before the next run is drilled.\n"
+    "- sample_contact: sample across a change of rock or of sulfides.\n"
+    "- none: nothing along the hole needs an action now.\n"
+    "Cite in trends the kinds you rely on. Write a title and a short body for the "
+    "geologist with the depths, boxes and numbers as hole_trends gives them. A "
+    "geological reading (for example a possible fault zone) must say what record it "
+    "rests on. Then call submit_finding."
+)
+
+# No routing rules here: the orchestrator decides. Code checks the decision after.
 ORCHESTRATOR = (
-    "You are the orchestrator. Decide which areas of the mine this box concerns, and "
-    "why, after looking at it with your tools. Areas:\n"
-    "- lab: intervals worth assaying (visible sulfides, strong alteration, veins).\n"
-    "- safety: ground conditions for the geotechnical and safety team (poor or very "
-    "poor rock, intense fracturing, low recovery).\n"
-    "- plant: a change in rock type or mineralization compared with earlier boxes of "
-    "the hole that the processing plant should hear about.\n"
-    "- finance: the cost of an assay request against the hole's budget; it applies "
-    "only if lab applies.\n"
-    "Give one route per area, applies true or false, with a reason that cites the "
-    "runs and the numbers you read. Then call route_box."
+    "You are the orchestrator. Decide which areas of the mine should hear about this "
+    "box, and why. What each area does:\n"
+    "- lab: assays core for metals and other elements.\n"
+    "- safety: the geotechnical and safety team; plans ground support and the next "
+    "drilling runs.\n"
+    "- plant: the processing plant; plans for the rock and ore that will reach it.\n"
+    "- finance: pays assays from the hole's budget by pricing the lab's request.\n"
+    "Read the box, its runs, the trends along the hole and the hole agent's finding with "
+    "your tools. Decide each area yourself from what you read; nothing is decided for "
+    "you. Give one route per area, applies true or false, with a reason of one or two "
+    "sentences that cites the runs, depths and numbers you read. Then call route_box."
 )
 
 AREA_ROLES: dict[AreaKey, str] = {
@@ -297,12 +359,15 @@ AREA_ROLES: dict[AreaKey, str] = {
            "the tests (codes from price_list) and the priority. Use count_samples for "
            "the number of samples of each interval. Put each interval in intervals.",
     "safety": "You are the geotechnical and safety agent. Draft a ground-condition alert "
-              "for the runs with poor or very poor rock or intense fracturing: Deere "
-              "class, RQD, fracture frequency and what to check (support, scaling). Put "
-              "every number you quote in figures and every run in intervals.",
-    "plant": "You are the processing plant agent. Draft a short notice on the ore type "
-             "coming (rock type, sulfides) and how it differs from earlier boxes of the "
-             "hole. Put the intervals you mention in intervals.",
+              "for the runs with poor or very poor rock or intense fracturing (Deere "
+              "class, RQD, fracture frequency) and for the trends along the hole that "
+              "reach this box (hole_trends), with the action the hole agent proposed "
+              "(hole_finding) and what to check before the next run (support, scaling). "
+              "Put every run number you quote in figures and the depths of this box you "
+              "mention in intervals; depths outside this box go only in the body.",
+    "plant": "You are the processing plant agent. Draft a short notice on the rock and "
+             "ore coming (rock type, sulfides) and how it differs from the boxes above "
+             "(hole_trends). Put the depths of this box you mention in intervals.",
     "finance": "You are the finance agent. Read the lab request, price it with quote "
                "and draft the cost and its effect on the hole's assay budget. Copy the "
                "lines and total from quote into lines and total_usd. Say the prices are "
@@ -311,11 +376,12 @@ AREA_ROLES: dict[AreaKey, str] = {
 
 AREA_TOOLS: dict[AreaKey, tuple[str, ...]] = {
     "lab": ("box_summary", "run_metrics", "count_samples", "price_list"),
-    "safety": ("box_summary", "run_metrics", "hole_history"),
-    "plant": ("box_summary", "hole_history"),
+    "safety": ("box_summary", "run_metrics", "hole_trends", "hole_finding", "hole_log"),
+    "plant": ("box_summary", "hole_trends", "hole_history"),
     "finance": ("lab_request", "quote", "price_list"),
 }
-ORCHESTRATOR_TOOLS = ("box_summary", "run_metrics", "hole_history")
+HOLE_TOOLS = ("hole_trends", "hole_log", "box_summary")
+ORCHESTRATOR_TOOLS = ("box_summary", "run_metrics", "hole_trends", "hole_finding", "hole_log")
 
 AREA_NAMES = {"lab": "Lab", "safety": "Safety & geotechnics", "plant": "Plant",
               "finance": "Finance"}  # fmt: skip
@@ -353,6 +419,20 @@ def _say(name: str, args: dict, result: object) -> str:
     if name == "hole_history":
         n = len(r.get("earlier_boxes", []))
         return f"Read the hole history: {n} earlier approved box{'es' if n != 1 else ''}"
+    if name == "hole_log":
+        n = len(r.get("boxes_in_log", []))
+        zones = len(r.get("weak_zones", []))
+        return (f"Read the hole log by depth: {n} approved box{'es' if n != 1 else ''}, "
+                f"{zones} weak zone{'s' if zones != 1 else ''}")  # fmt: skip
+    if name == "hole_trends":
+        trends = r.get("trends", [])
+        if not trends:
+            return "Read the trends along the hole: none reaches this box"
+        return "Read the trends along the hole: " + "; ".join(t["summary"] for t in trends)
+    if name == "hole_finding":
+        if "note" in r:
+            return "Looked for the hole agent's finding: there is none verified"
+        return f"Read the hole agent's finding: “{r['title']}”"
     if name == "count_samples":
         return (f"Counted {r['samples']} assay samples in {r['from_m']:.2f} to "
                 f"{r['to_m']:.2f} m")  # fmt: skip
@@ -376,8 +456,13 @@ def run_agent(
     submit: type[T],
     log: Log,
     actor: str,
+    effort: Effort | None = None,
 ) -> T:
-    """Tool loop until the agent calls its submit tool with valid arguments."""
+    """Tool loop until the agent calls its submit tool with valid arguments.
+
+    Only the listed tools and the submit tool exist for the agent: any other name is
+    refused (a closed tool list). ``effort`` counts the model turns.
+    """
     defs = [t.definition() for t in tools]
     schema = submit.model_json_schema()
     schema.pop("title", None)
@@ -389,6 +474,8 @@ def run_agent(
     ]
     for _ in range(MAX_TURNS):
         response = client.respond({"model": model, "input": history, "tools": defs})
+        if effort is not None:
+            effort.turns += 1
         output = response.get("output", [])
         calls = [o for o in output if o.get("type") == "function_call"]
         history += output
@@ -422,54 +509,288 @@ def run_agent(
     raise AgentError(f"{actor}: no valid {submit_name} after {MAX_TURNS} turns")
 
 
-Verifier = Callable[[AreaKey, Draft, BoxReview, Prices, list[BoxReview]], list[Check]]
+# verify.verify(area, draft, box, prices, history, trends)
+Verifier = Callable[..., list[Check]]
+# verify.check_finding(finding, trends, box, history)
+FindingCheck = Callable[[HoleFinding, list[HoleTrend], BoxReview, list[BoxReview]], list[Check]]
+# verify.check_routing(routing, signals)
+RoutingCheck = Callable[[Routing, RoutingSignals], list[Check]]
+# (what is judged, its text, the approved record, effort) -> verdict
+Judge = Callable[[str, str, dict, Effort], JudgeVerdict]
+
+ACTION_WORDS = {
+    "oriented_core": "asking for oriented core in the next runs",
+    "warn_geotech": "warning geotechnics before the next run",
+    "sample_contact": "sampling across the contact",
+    "none": "no action",
+}
+
+JUDGE_ROLE = (
+    "You are the judge. Code already checked every number of the text below against "
+    "geometry.py; do not recompute numbers. Your job is the words: check every factual "
+    "statement the text makes about the rock, the core, the hole or its trends against "
+    "the record the geologist approved. One claim per statement. For each, say whether "
+    "the record backs it and cite where (the run and field, the trend, the geologist's "
+    "comment), or say what is missing. A recommendation is judged only on what it "
+    "asserts about the rock. A reading stated as possible (for example a possible fault "
+    "zone) is backed when the record shows what it rests on (a weak zone, intense "
+    "fracturing, a drop in RQD). Be strict: what the record does not state is not "
+    "backed (for example 'visible sulfides' needs a description that shows sulfides). "
+    "Then call submit_verdict."
+)
 
 
-def route(client, toolbox: Toolbox, log: Log) -> tuple[Routing, str]:
+def record_for_judge(toolbox: Toolbox, reason: str | None = None) -> dict:
+    """What the judge compares against: the approved box, the hole and the verified steps."""
+    runs = []
+    for i, r in enumerate(toolbox.box.runs):
+        d = r.description
+        runs.append({
+            **toolbox.run_metrics(RunArg(run=i + 1)),
+            "lithology": d.lithology if d else None,
+            "alteration": d.alteration if d else None,
+            "mineralization": d.mineralization if d else None,
+            "anomalies": [f"{a.type.value}: {a.explanation}" for a in d.anomalies] if d else [],
+            "geologist_comment": r.comment,
+        })  # fmt: skip
+    record = {
+        "box": {"hole_id": toolbox.box.hole_id, "box_number": toolbox.box.box_number,
+                "runs": runs},
+        "trends_found_by_code": [t.summary for t in toolbox.trends],
+        "earlier_boxes": toolbox.hole_history(NoArg())["earlier_boxes"],
+        "price_table_notice": toolbox.prices.notice,
+    }  # fmt: skip
+    if toolbox.finding is not None:
+        record["hole_agent_finding"] = toolbox.finding.model_dump()
+    if toolbox.lab_draft is not None:
+        record["verified_lab_request"] = toolbox.lab_draft.model_dump()
+    if reason:
+        record["why_the_orchestrator_sent_it"] = reason
+    return record
+
+
+def spark_judge(client, log: Log) -> Judge:
+    """Muse Spark as a judge, through the same closed tool loop (no tools, one submit)."""
+
+    def judge(what: str, text: str, record: dict, effort: Effort) -> JudgeVerdict:
+        facts = json.dumps(record, ensure_ascii=False)
+        prompt = f"{JUDGE_ROLE}\n\nWhat you judge: {what}.\n\n{text}\n\nApproved record:\n{facts}"
+        return run_agent(client, MUSE_SPARK_MODEL_ID, prompt, [], "submit_verdict",
+                         "Submit one verdict per claim.", JudgeVerdict, log, "judge",
+                         effort)  # fmt: skip
+
+    return judge
+
+
+@dataclass
+class Attempt:
+    result: BaseModel
+    checks: list[Check]
+    verdict: JudgeVerdict | None
+    ok: bool
+
+
+def _plural(n: int, one: str, many: str | None = None) -> str:
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def _reasons(checks: list[Check], verdict: JudgeVerdict | None, judge_error: str | None):
+    out = [c.detail or c.name for c in checks if not c.ok]
+    if verdict is not None:
+        out += [f"“{c.claim}” is not backed by the record: {c.evidence}"
+                for c in verdict.claims if not c.supported]  # fmt: skip
+    if judge_error:
+        out.append(f"the judge could not run ({judge_error})")
+    return out
+
+
+def cost(label: str, e: Effort, judged: bool = True) -> str:
+    """The cost of a verified result, as the decision log says it."""
+    verifying = e.check_s + e.judge_s
+    parts = f"{e.check_s:.2f} s code" + (f", {e.judge_s:.1f} s judge" if judged else "")
+    return (f"{label}: {_plural(e.attempts, 'attempt')}, {_plural(e.turns, 'model turn')}, "
+            f"{e.work_s:.1f} s writing and {verifying:.1f} s verifying ({parts})")  # fmt: skip
+
+
+def two_layers(
+    label: str,
+    actor: str,
+    model: str,
+    write: Callable[[str], T],
+    base: str,
+    check: Callable[[T], list[Check]],
+    text_of: Callable[[T], str],
+    judge: Judge,
+    record: Callable[[], dict],
+    effort: Effort,
+    log: Log,
+    keep: Callable[[Attempt], None],
+) -> str | None:
+    """Write, check with code, then judge; at most MAX_ATTEMPTS. None when it passed,
+    else why it needs a person. The judge only runs when every check passed, so it
+    never passes what verify.py rejected."""
+    prompt, reasons = base, []
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        effort.attempts = attempt
+        t = time.monotonic()
+        result = write(prompt)
+        effort.work_s += time.monotonic() - t
+        t = time.monotonic()
+        checks = check(result)
+        effort.check_s += time.monotonic() - t
+        failed = [c for c in checks if not c.ok]
+        log("verifier", "check", f"{label}, attempt {attempt}: {len(checks) - len(failed)} of "
+            f"{len(checks)} checks passed" + (": " + "; ".join(c.detail for c in failed)
+                                               if failed else ""))  # fmt: skip
+        verdict, judge_error = None, None
+        if not failed:
+            t = time.monotonic()
+            try:
+                verdict = judge(label, text_of(result), record(), effort)
+            except Exception as exc:  # the judge is a model call: say so, do not pass
+                judge_error = f"{type(exc).__name__}: {str(exc)[:160]}"
+                log("judge", "error", f"{label}: the judge could not run ({judge_error})",
+                    MUSE_SPARK_MODEL_ID)  # fmt: skip
+            effort.judge_s += time.monotonic() - t
+            if verdict is not None:
+                bad = [c for c in verdict.claims if not c.supported]
+                n = len(verdict.claims)
+                log("judge", "judge", f"{label}: {n - len(bad)} of {_plural(n, 'claim')} backed "
+                    "by the approved record" + (": " + "; ".join(
+                        f"“{c.claim}”, {c.evidence}" for c in bad) if bad else ""),
+                    MUSE_SPARK_MODEL_ID)  # fmt: skip
+        ok = not failed and verdict is not None and verdict.ok
+        keep(Attempt(result, checks, verdict, ok))
+        if ok:
+            return None
+        reasons = _reasons(checks, verdict, judge_error)
+        if attempt < MAX_ATTEMPTS:
+            log(actor, "retry", f"Attempt {attempt} sent back with "
+                f"{_plural(len(reasons), 'reason')} to fix", model)  # fmt: skip
+            notes = "\n".join(f"- {r}" for r in reasons)
+            prompt = (f"{base}\n\nYour previous attempt failed verification. Fix these "
+                      f"points and submit again:\n{notes}")  # fmt: skip
+    why = f"Needs review: {MAX_ATTEMPTS} attempts failed. " + "; ".join(reasons)
+    log(actor, "escalate", why, model)
+    return why
+
+
+def run_hole_agent(
+    client, toolbox: Toolbox, finding_check: FindingCheck, judge: Judge, log: Log,
+    report: HoleReport, save: Callable[[], None],
+) -> None:  # fmt: skip
+    """The hole agent reads code's trends and proposes one action, verified in two layers."""
+    tools = [toolbox.tools()[n] for n in HOLE_TOOLS]
+
+    def write(prompt: str) -> HoleFinding:
+        f = run_agent(client, report.model, prompt, tools, "submit_finding",
+                      "Submit the trends you rely on and the action you propose.",
+                      HoleFinding, log, "hole", report.effort)  # fmt: skip
+        log("hole", "finding", f"“{f.title}”, proposing {ACTION_WORDS[f.action]}", report.model)
+        return f
+
+    def keep(a: Attempt) -> None:
+        report.finding, report.checks, report.judge, report.verified = (
+            a.result, a.checks, a.verdict, a.ok)  # fmt: skip
+        save()
+
+    def text_of(f: HoleFinding) -> str:
+        return (f"Title: {f.title}\n{f.body}\nProposed action: {ACTION_WORDS[f.action]}. "
+                f"{f.action_reason}")  # fmt: skip
+
+    report.escalation = two_layers(
+        "Hole finding", "hole", report.model, write, f"{COMMON}\n\n{HOLE_ROLE}",
+        lambda f: finding_check(f, toolbox.trends, toolbox.box, toolbox.history),
+        text_of, judge, lambda: record_for_judge(toolbox), report.effort, log, keep,
+    )  # fmt: skip
+    report.status = "ready" if report.verified else "needs_review"
+    if report.verified:
+        toolbox.finding = report.finding
+
+
+def route_once(client, toolbox: Toolbox, prompt: str, log: Log, effort: Effort):
     """Muse Wonder decides; if it fails, Muse Spark 1.3 does the same job."""
     tools = [toolbox.tools()[n] for n in ORCHESTRATOR_TOOLS]
-    prompt = f"{COMMON}\n\n{ORCHESTRATOR}"
     for model in (MUSE_WONDER_MODEL_ID, MUSE_SPARK_MODEL_ID):
-        log("orchestrator", "model", f"{model} is reading the box", model)
+        log("orchestrator", "model", f"{model} is reading the box and the hole", model)
         try:
             routing = run_agent(client, model, prompt, tools, "route_box",
                                 "Submit the decision for every area.", Routing, log,
-                                "orchestrator")  # fmt: skip
+                                "orchestrator", effort)  # fmt: skip
         except Exception as exc:  # Wonder is in preview: fall back, say so
             log("orchestrator", "error", f"{model} failed: {str(exc)[:200]}", model)
-            continue
-        missing = set(AREAS) - {r.area for r in routing.routes}
-        if missing:
-            names = ", ".join(AREA_NAMES[a] for a in sorted(missing))
-            log("orchestrator", "error", f"{model} left out {names}", model)
             continue
         return routing, model
     raise AgentError("Neither Muse Wonder nor Muse Spark produced a routing.")
 
 
+def route(
+    client, toolbox: Toolbox, signals: RoutingSignals, routing_check: RoutingCheck, log: Log,
+    handoffs: Handoffs,
+) -> bool:  # fmt: skip
+    """The orchestrator routes; code checks the routing before any area agent writes."""
+    base, effort = f"{COMMON}\n\n{ORCHESTRATOR}", handoffs.routing_effort
+    prompt, reasons = base, []
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        effort.attempts = attempt
+        t = time.monotonic()
+        routing, model = route_once(client, toolbox, prompt, log, effort)
+        effort.work_s += time.monotonic() - t
+        handoffs.routing, handoffs.orchestrator_model = routing, model
+        for r in routing.routes:
+            verdict = "applies" if r.applies else "does not apply"
+            log("orchestrator", "route", f"{AREA_NAMES[r.area]} {verdict}: {r.reason}", model)
+        t = time.monotonic()
+        checks = routing_check(routing, signals)
+        effort.check_s += time.monotonic() - t
+        handoffs.routing_checks = checks
+        failed = [c for c in checks if not c.ok]
+        log("verifier", "check", f"Routing, attempt {attempt}: {len(checks) - len(failed)} of "
+            f"{len(checks)} areas agree with the record" + (": " + "; ".join(
+                c.detail for c in failed) if failed else ""))  # fmt: skip
+        if not failed:
+            handoffs.routing_verified = True
+            return True
+        reasons = [c.detail for c in failed]
+        if attempt < MAX_ATTEMPTS:
+            log("orchestrator", "retry", f"Routing sent back with "
+                f"{_plural(len(reasons), 'reason')} to weigh", model)  # fmt: skip
+            notes = "\n".join(f"- {r}" for r in reasons)
+            prompt = (f"{base}\n\nCode checked your previous routing against the approved "
+                      f"record and refused it:\n{notes}\nRoute again.")  # fmt: skip
+    handoffs.routing_verified = False
+    handoffs.escalation = (f"Routing needs review: {MAX_ATTEMPTS} attempts failed. "
+                           + "; ".join(reasons))  # fmt: skip
+    log("orchestrator", "escalate", handoffs.escalation, handoffs.orchestrator_model)
+    return False
+
+
 def write_draft(
-    client, area: AreaKey, toolbox: Toolbox, reason: str, verifier: Verifier, log: Log,
-    slot: AreaDraft, save: Callable[[], None],
+    client, area: AreaKey, toolbox: Toolbox, reason: str, verifier: Verifier, judge: Judge,
+    log: Log, slot: AreaDraft, save: Callable[[], None],
 ) -> None:  # fmt: skip
-    """One area agent: draft, verify, and one retry with the failed checks."""
+    """One area agent: draft, then verify.py and the judge, at most three attempts."""
     tools = [toolbox.tools()[n] for n in AREA_TOOLS[area]]
     base = f"{COMMON}\n\n{AREA_ROLES[area]}\n\nWhy the orchestrator sent you this box: {reason}"
-    prompt = base
-    for attempt in (1, 2):
-        draft = run_agent(client, slot.model, prompt, tools, "submit_draft",
-                          "Submit your draft.", Draft, log, area)  # fmt: skip
-        checks = verifier(area, draft, toolbox.box, toolbox.prices, toolbox.history)
-        failed = [c for c in checks if not c.ok]
-        slot.draft, slot.checks, slot.verified = draft, checks, bool(checks) and not failed
-        log(area, "draft", f"“{draft.title}”", slot.model)
-        log("verifier", "check", f"{area}: {len(checks) - len(failed)} of {len(checks)} checks"
-            " passed" + (": " + "; ".join(c.detail for c in failed) if failed else ""))  # fmt: skip
-        if slot.verified or attempt == 2:
-            break
-        log(area, "retry", "sent back with the failed checks", slot.model)
-        notes = "\n".join(f"- {c.name}: {c.detail}" for c in failed)
-        prompt = f"{base}\n\nYour previous draft failed these checks. Fix them:\n{notes}"
-    slot.status = "ready" if slot.verified else "rejected"
+
+    def write(prompt: str) -> Draft:
+        d = run_agent(client, slot.model, prompt, tools, "submit_draft", "Submit your draft.",
+                      Draft, log, area, slot.effort)  # fmt: skip
+        log(area, "draft", f"“{d.title}”", slot.model)
+        return d
+
+    def keep(a: Attempt) -> None:
+        slot.draft, slot.checks, slot.judge, slot.verified = a.result, a.checks, a.verdict, a.ok
+        save()
+
+    slot.escalation = two_layers(
+        f"{AREA_NAMES[area]} draft", area, slot.model, write, base,
+        lambda d: verifier(area, d, toolbox.box, toolbox.prices, toolbox.history,
+                           toolbox.trends),
+        lambda d: f"Title: {d.title}\n{d.body}", judge,
+        lambda: record_for_judge(toolbox, reason), slot.effort, log, keep,
+    )  # fmt: skip
+    slot.status = "ready" if slot.verified else "needs_review"
     save()
 
 
@@ -480,34 +801,62 @@ def draft_handoffs(
     verifier: Verifier,
     prices: Prices | None = None,
     save: Callable[[Handoffs], None] = lambda h: None,
+    *,
+    judge: Judge | None = None,
+    finding_check: FindingCheck | None = None,
+    routing_check: RoutingCheck | None = None,
 ) -> Handoffs:
-    """Route an approved box and write the drafts. Saves after every step."""
+    """Hole agent, routing and drafts for an approved box. Saves after every step."""
+    if finding_check is None or routing_check is None:
+        from coresight import verify  # verify.py imports this module
+
+        finding_check = finding_check or verify.check_finding
+        routing_check = routing_check or verify.check_routing
     handoffs = Handoffs()
     persist = lambda: save(handoffs)  # noqa: E731
     log = Log(handoffs, persist)
     toolbox = Toolbox(box, history, prices or load_prices())
+    judge = judge or spark_judge(client, log)
     try:
-        handoffs.routing, handoffs.orchestrator_model = route(client, toolbox, log)
-        for r in handoffs.routing.routes:
-            verdict = "applies" if r.applies else "does not apply"
-            log("orchestrator", "route", f"{AREA_NAMES[r.area]} {verdict}: {r.reason}",
-                handoffs.orchestrator_model)  # fmt: skip
+        report = HoleReport(model=MUSE_SPARK_MODEL_ID, trends=toolbox.trends)
+        handoffs.hole = report
+        handoffs.signals = hole.routing_signals(history, box, toolbox.trends)
+        found = "; ".join(t.summary for t in toolbox.trends)
+        log("hole", "model", f"Code found {_plural(len(toolbox.trends), 'trend')} along the "
+            f"hole{': ' + found if found else ''}. The hole agent is reading them",
+            report.model)  # fmt: skip
+        try:
+            run_hole_agent(client, toolbox, finding_check, judge, log, report, persist)
+        except Exception as exc:
+            report.status, report.error = "failed", f"{type(exc).__name__}: {str(exc)[:200]}"
+            log("hole", "error", report.error, report.model)
+        if report.effort.attempts:
+            log("hole", "cost", cost("Hole agent", report.effort), report.model)
+        routed = route(client, toolbox, handoffs.signals, routing_check, log, handoffs)
+        log("orchestrator", "cost", cost("Routing", handoffs.routing_effort, judged=False),
+            handoffs.orchestrator_model)  # fmt: skip
+        if not routed:
+            handoffs.status = "done"
+            persist()
+            return handoffs
         applies = {r.area: r for r in handoffs.routing.routes if r.applies}
         for area in AREAS:
             if area not in applies:
                 continue
             if area == "finance" and toolbox.lab_draft is None:
-                log("finance", "error", "skipped: there is no verified lab request to price")
+                log("finance", "error", "Skipped: there is no verified lab request to price")
                 continue
             slot = AreaDraft(area=area, model=MUSE_SPARK_MODEL_ID)
             handoffs.drafts.append(slot)
             persist()
             try:
-                write_draft(client, area, toolbox, applies[area].reason, verifier, log,
+                write_draft(client, area, toolbox, applies[area].reason, verifier, judge, log,
                             slot, persist)  # fmt: skip
             except Exception as exc:
                 slot.status, slot.error = "failed", f"{type(exc).__name__}: {str(exc)[:200]}"
                 log(area, "error", slot.error, slot.model)
+            if slot.effort.attempts:
+                log(area, "cost", cost(f"{AREA_NAMES[area]} agent", slot.effort), slot.model)
             if area == "lab" and slot.verified:
                 toolbox.lab_draft = slot.draft
         handoffs.status = "done"
@@ -517,16 +866,27 @@ def draft_handoffs(
     return handoffs
 
 
-def approve_draft(box: BoxReview, area: AreaKey) -> AreaDraft:
-    """A person approves one draft. It is marked approved; nothing is sent."""
+def approve_draft(box: BoxReview, area: AreaKey, override: bool = False) -> AreaDraft:
+    """A person approves one draft. It is marked approved; nothing is sent.
+
+    A draft that failed verification three times reaches the person marked with why;
+    they may still approve it, but only explicitly (``override``), and the log says so.
+    """
     slot = next((d for d in box.handoffs.drafts if d.area == area), None) if box.handoffs else None
     if slot is None:
         raise ValueError(f"There is no {area} draft for this box.")
-    if slot.status != "ready" or not slot.verified:
+    if slot.status == "needs_review":
+        if not override:
+            raise ValueError("This draft failed verification three times. Read why, then "
+                             "approve it explicitly if it is right.")  # fmt: skip
+    elif slot.status != "ready" or not slot.verified:
         raise ValueError("Only a draft that passed every check can be approved.")
     now = datetime.now(UTC)
-    slot.status, slot.approved_at = "approved", now
+    over = slot.status == "needs_review"
+    slot.status, slot.approved_at, slot.approved_over_checks = "approved", now, over
+    what = (f"{AREA_NAMES[area]} draft approved by the geologist although it failed "
+            "verification" if over else f"{AREA_NAMES[area]} draft approved")  # fmt: skip
     box.handoffs.log.append(AgentEvent(at=now, actor="geologist", kind="approve",
-        text=f"{AREA_NAMES[area]} draft approved. Not sent: CoreSight has no outbound "
-             "channel; the area receives it through the mine's own process."))  # fmt: skip
+        text=f"{what}. Not sent: CoreSight has no outbound channel; the area receives it "
+             "through the mine's own process."))  # fmt: skip
     return slot

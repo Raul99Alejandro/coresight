@@ -123,6 +123,24 @@ def test_approving_a_box_runs_the_agents_and_drafts_are_approved_one_by_one(tmp_
     assert r.status_code == 400 and "no lab draft" in r.json()["detail"]
 
 
+def test_a_draft_that_needs_review_is_approved_only_explicitly(tmp_path):
+    def escalated(box, history, save):
+        h = Handoffs(status="done", orchestrator_model="muse-wonder-1.0")
+        h.drafts.append(AreaDraft(area="safety", model="muse-spark-1.3", status="needs_review",
+                                  draft=Draft(title="Ground alert", body="Fair."),
+                                  escalation="Needs review: 3 attempts failed. x"))  # fmt: skip
+        save(h)
+
+    c = client(tmp_path, handoffs=escalated)
+    bid = upload(c).json()["id"]
+    c.post(f"/api/boxes/{bid}/approve")
+    r = c.post(f"/api/boxes/{bid}/drafts/safety/approve")
+    assert r.status_code == 400 and "three times" in r.json()["detail"]
+    r = c.post(f"/api/boxes/{bid}/drafts/safety/approve", json={"override": True})
+    d = r.json()["handoffs"]["drafts"][0]
+    assert d["status"] == "approved" and d["approved_over_checks"]
+
+
 def test_agents_need_an_approved_box_and_a_crash_is_reported(tmp_path):
     def crash(box, history, save):
         raise RuntimeError("muse-wonder-1.0 500")

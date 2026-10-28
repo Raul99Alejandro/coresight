@@ -155,6 +155,12 @@ class Job(BaseModel):
     context: dict = Field(default_factory=dict)
 
 
+class DraftApproval(BaseModel):
+    """A person approving a draft; override only for one that failed verification 3 times."""
+
+    override: bool = False
+
+
 Analyzer = Callable[[bytes, Job, review.Reporter], Analysis]
 Transcriber = Callable[[bytes], tuple[str, int]]
 HandoffRunner = Callable[[BoxReview, list[BoxReview], Callable[[Handoffs], None]], object]
@@ -599,10 +605,16 @@ def create_app(
         return start_handoffs(box_id)
 
     @app.post("/api/boxes/{box_id}/drafts/{area}/approve")
-    def approve_draft(box_id: str, area: Literal["lab", "safety", "plant", "finance"]) -> BoxReview:
+    def approve_draft(
+        box_id: str,
+        area: Literal["lab", "safety", "plant", "finance"],
+        body: DraftApproval | None = None,
+    ) -> BoxReview:
+        override = bool(body and body.override)
+
         def change(b: BoxReview) -> None:
             try:
-                agents.approve_draft(b, area)
+                agents.approve_draft(b, area, override=override)
             except ValueError as exc:
                 raise ReviewError(str(exc)) from None
 

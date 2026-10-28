@@ -431,6 +431,26 @@ button.metric:hover{background:var(--fill-2)}
 .draft .df{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:4px;flex-wrap:wrap}
 .draft .df .sent{font-size:13px;color:var(--ok);display:inline-flex;align-items:center;gap:6px}
 .draft.pending{opacity:.75}
+.judge{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:var(--model-soft)}
+.judge .ct{font-size:12px;color:var(--model-ink);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.judge .ch{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2)}
+.judge .ch i{flex:none;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:10.5px;font-weight:700;color:#fff;background:var(--ok);margin-top:2px}
+.judge .ch.bad i{background:var(--bad)}
+.judge .ch small{color:var(--ink-3)}
+.effort{font-size:12.5px;color:var(--ink-3)}
+.review{padding:10px 12px;border-radius:12px;background:var(--bad-soft);font-size:13px;color:var(--ink)}
+.review b{color:var(--bad)}
+.hole-agent{padding:20px 22px;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;animation:rise .35s var(--ease-out)}
+.hole-agent .dh{display:flex;align-items:center;gap:10px}
+.hole-agent .dh .area{font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.hole-agent .dh .act{margin-left:auto;font-size:12px;font-weight:500;padding:1px 8px;border-radius:99px;background:var(--model-soft);color:var(--model-ink);white-space:nowrap}
+.hole-agent h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.hole-agent .body{margin:0;color:var(--ink-2);font-size:14px;white-space:pre-wrap}
+.trends{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:var(--code-soft);font-size:13px;color:var(--ink-2)}
+.trends .ct{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.hole-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.route-check{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--hair);font-size:13px;color:var(--ink-2)}
+.route-check.bad{background:var(--bad-soft)}
 .dlog{margin-top:16px;overflow:hidden}
 .dlog summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 20px;font-weight:600}
 .dlog summary::-webkit-details-marker{display:none}
@@ -444,6 +464,8 @@ button.metric:hover{background:var(--fill-2)}
 .ev .what code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}
 .ev.k-error .what{color:var(--bad)}
 .ev.k-approve .what{color:var(--ok)}
+.ev.k-escalate .what{color:var(--bad);font-weight:500}
+.ev.k-cost .what{color:var(--ink-3)}
 .ev .g.chip{width:26px;height:26px;border-radius:8px}
 .rule2{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:14px 18px;border-radius:14px;background:var(--fill);font-size:13.5px;color:var(--ink-2)}
 .rule2 b{color:var(--ink);font-weight:600}
@@ -562,7 +584,8 @@ const STATUS = {ready:"Under review",approved:"Approved",processing:"Analyzing",
 const MODEL = {"muse-spark-1.3":"Muse Spark 1.3","muse-wonder-1.0":"Muse Wonder"};
 const AREA = {lab:"Lab", safety:"Safety & geotechnics", plant:"Plant", finance:"Finance"};
 const AREA_ORDER = ["lab", "safety", "plant", "finance"];
-const CHECK_NAME = {intervals:"Intervals inside this box", figures:"Figures equal geometry.py", numbers:"Every number traceable to a tool", prices:"Prices from the table only"};
+const CHECK_NAME = {intervals:"Intervals inside this box", figures:"Figures equal geometry.py", numbers:"Every number traceable to a tool", prices:"Prices from the table only", trends:"Every trend cited was found by code", action:"The action follows from the trends cited"};
+const ACTION = {oriented_core:"Ask for oriented core", warn_geotech:"Warn geotechnics before the next run", sample_contact:"Sample across the contact", none:"No action"};
 const I = {
   mic:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5V15"/></svg>',
   edit:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10.5 2.5l3 3-8 8H2.5v-3z"/></svg>',
@@ -652,6 +675,8 @@ function evGlyph(e) {
   if (e.actor === "verifier") return ["code", "verify.py"];
   if (e.actor === "geologist") return ["human", "Geologist"];
   if (e.actor === "orchestrator") return ["wonder", MODEL[e.model] || "Orchestrator"];
+  if (e.actor === "judge") return ["spark", "Judge"];
+  if (e.actor === "hole") return ["spark", "Hole agent"];
   return ["spark", AREA[e.actor] || e.actor];
 }
 function eventHTML(e) {
@@ -663,8 +688,34 @@ function eventHTML(e) {
 function checksHTML(d) {
   if (!d.checks.length) return "";
   const ok = d.checks.filter((c) => c.ok).length;
-  return `<div class="checks"><div class="ct">${glyph("code", 13)}verify.py, deterministic: ${ok} of ${d.checks.length} checks passed</div>
+  return `<div class="checks"><div class="ct">${glyph("code", 13)}1. verify.py, deterministic: ${ok} of ${d.checks.length} checks passed</div>
     ${d.checks.map((c) => `<div class="ch ${c.ok ? "" : "bad"}"><i>${c.ok ? "✓" : "!"}</i><span>${esc(CHECK_NAME[c.name] || c.name)}${c.detail ? ` <small>${esc(c.detail)}</small>` : ""}</span></div>`).join("")}</div>`;
+}
+function judgeHTML(d) {
+  if (!d.checks.length) return "";
+  if (!d.judge) return d.checks.every((c) => c.ok) ? "" : `<div class="judge"><div class="ct">${glyph("spark", 13)}2. Muse Spark as a judge: not run, the code checks failed first</div></div>`;
+  const ok = d.judge.claims.filter((c) => c.supported).length;
+  return `<div class="judge"><div class="ct">${glyph("spark", 13)}2. Muse Spark as a judge: ${ok} of ${d.judge.claims.length} claims backed by the approved record</div>
+    ${d.judge.claims.map((c) => `<div class="ch ${c.supported ? "" : "bad"}"><i>${c.supported ? "✓" : "!"}</i><span>${esc(c.claim)} <small>${esc(c.evidence)}</small></span></div>`).join("")}</div>`;
+}
+function effortHTML(e, judged = true) {
+  if (!e || !e.attempts) return "";
+  const verifying = e.check_s + e.judge_s;
+  return `<div class="effort">${plural(e.attempts, "attempt")} of 3, ${plural(e.turns, "model turn")}, ${e.work_s.toFixed(1)} s writing and ${verifying.toFixed(1)} s verifying (${e.check_s.toFixed(2)} s code${judged ? `, ${e.judge_s.toFixed(1)} s judge` : ""})</div>`;
+}
+function holeHTML(h) {
+  const r = h.hole; if (!r) return "";
+  const trends = r.trends.length
+    ? r.trends.map((t) => `<div>${esc(t.summary)}</div>`).join("")
+    : "<div>No trend along the hole reaches this box.</div>";
+  const f = r.finding;
+  const state = r.status === "needs_review" ? `<div class="review"><b>Needs review.</b> ${esc(r.escalation || "")}</div>`
+    : r.status === "failed" ? `<div class="review"><b>The hole agent stopped.</b> ${esc(r.error || "")}</div>` : "";
+  const body = f ? `<h3>${esc(f.title)}</h3><p class="body">${esc(f.body)}</p><p class="body"><b>${esc(ACTION[f.action])}.</b> ${esc(f.action_reason)}</p>`
+    : `<h3>${r.status === "working" ? "Reading the hole…" : "No finding"}</h3>`;
+  return `<section class="card hole-agent"><div class="dh">${glyph("spark", 18, "model")}<div><span class="area">Hole agent</span><br><span class="src model">${esc(MODEL[r.model] || r.model)} with tools</span></div>${f ? `<span class="act">${esc(ACTION[f.action])}</span>` : ""}</div>
+    <div class="trends"><div class="ct">${glyph("code", 13)}Trends found by code (hole.py, numbers from geometry.py)</div>${trends}</div>
+    ${body}${state}<div class="hole-cols">${checksHTML(r)}${judgeHTML(r)}</div>${effortHTML(r.effort)}</section>`;
 }
 function draftHTML(d) {
   const x = d.draft;
@@ -675,33 +726,40 @@ function draftHTML(d) {
     ${x.lines.map((l) => `<tr><td>${esc(l.code)}</td><td class="num">${l.samples}</td><td class="num">${usd(l.unit_usd)}</td><td class="num">${usd(l.total_usd)}</td></tr>`).join("")}
     ${x.total_usd != null ? `<tr class="total"><td colspan="3">Total (example prices)</td><td class="num">${usd(x.total_usd)}</td></tr>` : ""}</table>` : "";
   const foot = d.status === "approved"
-    ? `<span class="sent">${glyph("human", 16, "human")}Approved ${hhmm(d.approved_at)}. Not sent: it goes out through the mine's own process.</span>`
+    ? `<span class="sent">${glyph("human", 16, "human")}Approved ${hhmm(d.approved_at)}${d.approved_over_checks ? " although it failed verification" : ""}. Not sent: it goes out through the mine's own process.</span>`
     : d.status === "rejected" ? `<span class="muted">Failed the checks twice. It cannot be approved; retry the agents or write it by hand.</span>`
+    : d.status === "needs_review" ? `<button class="btn" data-override="${d.area}">Approve anyway</button><span class="muted">Read why it failed first. Nothing is sent automatically.</span>`
     : `<button class="btn primary" data-approve="${d.area}" ${d.verified ? "" : "disabled"}>Approve draft</button><span class="muted">Nothing is sent automatically.</span>`;
+  const review = d.status === "needs_review" || (d.status === "approved" && d.approved_over_checks) ? `<div class="review"><b>Needs review.</b> ${esc(d.escalation || "")}</div>` : "";
   return `<section class="card draft"><div class="dh"><span class="g chip model"><svg width="18" height="18" aria-hidden="true"><use href="#g-spark"/></svg></span>
       <div><span class="area">${AREA[d.area]}</span><br><span class="src model">${esc(MODEL[d.model] || d.model)} with tools</span></div>
       <span class="prio ${x.priority}">${cap(x.priority)} priority</span></div>
     <h3>${esc(x.title)}</h3><p class="body">${esc(x.body)}</p>${iv ? `<div class="chips">${iv}</div>` : ""}${lines}
-    ${checksHTML(d)}<div class="df">${foot}</div></section>`;
+    ${review}${checksHTML(d)}${judgeHTML(d)}${effortHTML(d.effort)}<div class="df">${foot}</div></section>`;
 }
 function agentsHTML(b) {
   const h = b.handoffs;
-  const head = `<div class="section"><h2>Area agents</h2><p>An orchestrator decided who needs to hear about this box. Every draft is checked by code. Nothing is sent.</p></div>`;
+  const head = `<div class="section"><h2>Agents</h2><p>A hole agent reads the trends along the hole, an orchestrator decides who needs to hear about this box, and area agents write drafts. Each step is verified before the next: first by code, then by Muse Spark as a judge, at most three attempts. Nothing is sent.</p></div>`;
   if (!h) return `${head}<section class="card agents-working"><div><b>The agents have not run for this box.</b></div><button class="btn" id="agents-retry" style="margin-left:auto">Run the agents</button></section>`;
   const routes = h.routing ? Object.fromEntries(h.routing.routes.map((r) => [r.area, r])) : {};
   const routeTiles = AREA_ORDER.map((a) => { const r = routes[a];
     return `<div class="route ${r && r.applies ? "on" : ""}"><div class="rh">${AREA[a]}<span class="rtag">${!r ? "…" : r.applies ? "Applies" : "Not needed"}</span></div><p>${r ? esc(r.reason) : "Waiting for the orchestrator."}</p></div>`; }).join("");
   const last = h.log[h.log.length - 1];
-  const working = agentsWorking(b) ? `<section class="card agents-working" style="margin-bottom:16px">${glyph(h.routing ? "spark" : "wonder", 22, "model work", true)}<div><b>${h.routing ? "The area agents are writing their drafts" : "The orchestrator is reading the box"}</b><small>${last ? esc(last.text.slice(0, 140)) : "Starting…"}</small></div></section>` : "";
+  const step = !h.hole || h.hole.status === "working" ? "The hole agent is reading the hole" : !h.routing_checks.length && !h.routing ? "The orchestrator is reading the box and the hole" : h.routing_verified ? "The area agents are writing their drafts" : "Code is checking the routing";
+  const working = agentsWorking(b) ? `<section class="card agents-working" style="margin-bottom:16px">${glyph(h.routing ? "spark" : "wonder", 22, "model work", true)}<div><b>${step}</b><small>${last ? esc(last.text.slice(0, 160)) : "Starting…"}</small></div></section>` : "";
   const failed = h.status === "failed" ? banner(`The agents stopped: ${h.error || "unknown error"}`, '<button class="btn" id="agents-retry">Retry</button>') : "";
   const fallback = h.orchestrator_model && h.orchestrator_model !== "muse-wonder-1.0" ? " (plan B: Muse Wonder failed)" : "";
   const orch = `${glyph("wonder", 15, "model")}<span>${h.orchestrator_model ? `Routed by <b>${esc(MODEL[h.orchestrator_model] || h.orchestrator_model)}</b>${fallback}` : "Muse Wonder decides which areas apply"}</span>`;
   const n = h.log.length, tools = h.log.filter((e) => e.kind === "tool").length;
-  return `${head}${failed}${working}
-    <section class="card agents"><div class="routes">${routeTiles}</div><div class="route-foot">${orch}<span class="grow"></span><span>${tools} tool call${tools === 1 ? "" : "s"}, ${n} log entries</span></div></section>
+  const rc = h.routing_checks || [], rok = rc.filter((c) => c.ok).length;
+  const routeCheck = h.routing_verified == null ? "" : h.routing_verified
+    ? `<div class="route-check">${glyph("code", 15, "code")}<span>Routing checked by code before anyone drafted: ${rok} of ${rc.length} areas agree with the approved record. ${effortHTML(h.routing_effort, false).replace(/<[^>]+>/g, "")}</span></div>`
+    : `<div class="route-check bad">${glyph("code", 15, "code")}<span><b>${esc(h.escalation || "Routing needs review.")}</b> No area agent wrote a draft; retry the agents or route by hand.</span></div>`;
+  return `${head}${failed}${working}${holeHTML(h)}
+    <section class="card agents"><div class="routes">${routeTiles}</div>${routeCheck}<div class="route-foot">${orch}<span class="grow"></span><span>${tools} tool call${tools === 1 ? "" : "s"}, ${n} log entries</span></div></section>
     ${h.drafts.length ? `<div class="drafts">${h.drafts.map(draftHTML).join("")}</div>` : ""}
     ${n ? `<details class="card dlog" ${S.open.agentLog ? "open" : ""}><summary>Decision log <small>every tool call, draft and check, in order</small><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 6 4 4 4-4"/></svg></summary>${h.log.map(eventHTML).join("")}</details>` : ""}
-    <div class="rule2">${glyph("human", 18, "human")}<div><b>Agents Rule of Two (Meta).</b> These agents read model output about the photo and private mine data (hole history, prices). They have no tool that sends or changes anything, so a person approves every draft and sends it through the mine's own channels.</div></div>`;
+    <div class="rule2">${glyph("human", 18, "human")}<div><b>Agents Rule of Two (Meta).</b> These agents read model output about the photo and private mine data (hole history, prices). Each has a closed list of read-only tools and none sends or changes anything, so a person approves every draft and sends it through the mine's own channels.</div></div>`;
 }
 function bindAgents() {
   const el = $("agents"); if (!el) return;
@@ -710,6 +768,12 @@ function bindAgents() {
     const area = x.dataset.approve;
     if (!(await confirmBox(`Approve the ${AREA[area]} draft?`, "It is marked approved in CoreSight. Nothing is sent: it goes to the area through the mine's own process.", "Approve draft"))) return;
     try { S.box = await api(`/api/boxes/${S.box.id}/drafts/${area}/approve`, {method:"POST"}); el.innerHTML = agentsHTML(S.box); bindAgents(); toast(`${AREA[area]} draft approved, not sent`); }
+    catch (e) { toast(e.message); }
+  }));
+  el.querySelectorAll("[data-override]").forEach((x) => (x.onclick = async () => {
+    const area = x.dataset.override, d = S.box.handoffs.drafts.find((y) => y.area === area);
+    if (!(await confirmBox(`Approve the ${AREA[area]} draft although it failed verification?`, `${d.escalation || ""} Approve it only if you checked it is right. Nothing is sent.`, "Approve anyway"))) return;
+    try { S.box = await api(`/api/boxes/${S.box.id}/drafts/${area}/approve`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({override:true})}); el.innerHTML = agentsHTML(S.box); bindAgents(); toast(`${AREA[area]} draft approved over the checks, not sent`); }
     catch (e) { toast(e.message); }
   }));
   const retry = $("agents-retry");
