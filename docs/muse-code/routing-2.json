@@ -70,7 +70,7 @@
   },
   {
    "tool": "read_skill",
-   "result": "<read-skill-result name=\"bundled:durable-test-collateral\" status=\"ok\">\n<metadata>\npath: C:\\Users\\raula\\.local\\share\\muse\\skills\\bundled\\muse-core~v1\\skills/durable-test-collateral/SKILL.md\nlocator: file://C:\\Users\\raula\\.local\\share\\muse\\skills\\bundled\\muse-core~v1\\skills/durable-test-collateral/SKILL.md\nsource: bundled\nbytes_returned: 5072\nbytes_total: 5072\ntruncated: false\nnote: a skill body nam ..."
+   "result": "<read-skill-result name=\"bundled:durable-test-collateral\" status=\"ok\">\n<metadata>\npath: <home>\\.local\\share\\muse\\skills\\bundled\\muse-core~v1\\skills/durable-test-collateral/SKILL.md\nlocator: file://<home>\\.local\\share\\muse\\skills\\bundled\\muse-core~v1\\skills/durable-test-collateral/SKILL.md\nsource: bundled\nbytes_returned: 5072\nbytes_total: 5072\ntruncated: false\nnote: a skill body nam ..."
   },
   {
    "tool": "read_file",
