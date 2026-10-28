@@ -50,6 +50,17 @@ class Fold:
 _TOL = 1e-9
 
 
+def _validate_errors(errors: Sequence[RunError]) -> None:
+    seen: set[tuple[RunKey, Candidate]] = set()
+    for e in errors:
+        if not math.isfinite(e.error):
+            raise ValueError(f"non-finite error for {e.candidate} on {(e.box, e.run)}")
+        key = ((e.box, e.run), e.candidate)
+        if key in seen:
+            raise ValueError(f"duplicate error for {e.candidate} on {(e.box, e.run)}")
+        seen.add(key)
+
+
 def _dist(a: Candidate, b: Candidate) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
@@ -75,7 +86,8 @@ def _abs_error(
 
 def mae_of(errors: Sequence[RunError], candidate: Candidate, runs: Iterable[RunKey]) -> float:
     """Mean |error| of ``candidate`` over ``runs``; ValueError if a run is missing or none."""
-    wanted = list(runs)
+    _validate_errors(errors)
+    wanted = sorted(set(runs))
     if not wanted:
         raise ValueError("no runs")
     found: dict[RunKey, float] = {}
@@ -95,7 +107,8 @@ def mae_of(errors: Sequence[RunError], candidate: Candidate, runs: Iterable[RunK
 
 def fit(errors: Sequence[RunError], runs: Iterable[RunKey] | None, default: Candidate) -> Candidate:
     """The candidate with the lowest MAE over ``runs`` (every run when None)."""
-    train = sorted({(e.box, e.run) for e in errors}) if runs is None else list(runs)
+    _validate_errors(errors)
+    train = sorted({(e.box, e.run) for e in errors}) if runs is None else sorted(set(runs))
     if not train:
         return default
     by_cand: dict[Candidate, dict[RunKey, float]] = {}
@@ -104,7 +117,7 @@ def fit(errors: Sequence[RunError], runs: Iterable[RunKey] | None, default: Cand
     need = set(train)
     eligible = [c for c, per_run in by_cand.items() if need <= per_run.keys()]
     if not eligible:
-        return default
+        raise ValueError("no eligible candidate for the training runs")
     maes: dict[Candidate, float] = {}
     for c in eligible:
         per_run = by_cand[c]
@@ -129,6 +142,7 @@ def fit(errors: Sequence[RunError], runs: Iterable[RunKey] | None, default: Cand
 
 def leave_one_box_out(errors: Sequence[RunError], default: Candidate) -> list[Fold]:
     """One fold per box, in sorted order: fit on the other boxes, score the held-out one."""
+    _validate_errors(errors)
     grouped = _runs_by_box(errors)
     boxes = sorted(grouped)
     if len(boxes) < 2:
@@ -155,6 +169,7 @@ def learning_curve(
     errors: Sequence[RunError], default: Candidate
 ) -> list[tuple[int, float, float]]:
     """(n corrected runs, pooled held-out MAE with the default, pooled MAE after n)."""
+    _validate_errors(errors)
     grouped = _runs_by_box(errors)
     boxes = sorted(grouped)
     if len(boxes) < 2:

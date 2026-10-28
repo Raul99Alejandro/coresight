@@ -1,0 +1,67 @@
+{
+ "tool": "Muse Code Muse Code 1.4.14",
+ "command": "muse exec --contributor-mode off --disable-approval --model muse-spark-1.3 --max-model-steps 40 --json --prompt-file <prompt>",
+ "session_id": "01a1846d-5cd8-7fd3-9770-6ad32a239c2d",
+ "model": "muse-spark-1.3",
+ "model_calls": 14,
+ "usage": {
+  "input_tokens": 571752,
+  "cached_tokens": 518333,
+  "output_tokens": 16123,
+  "calls": 14
+ },
+ "prompt": "Round 2. Update `mae_of`, `fit`, `leave_one_box_out` and `learning_curve` in `src/coresight/learning.py` (you wrote them in an earlier session) so that every test in `tests/test_learning.py` passes, including the five new tests at the end of the file.\n\nContext:\n- A read-only reviewer found what the first tests did not catch. We turned the findings into tests and new rules in the docstring of `tests/test_learning.py`: training runs with no eligible candidate raise; the training runs are a set (a run given twice counts once, order does not matter); two errors for the same (box, run, candidate) raise; NaN or inf anywhere in the errors raises, even on a run or candidate that is not used; a candidate that must be scored on a held-out run it has no error for raises.\n- Read the docstring of `tests/test_learning.py` first (the rules), then the tests, then `src/coresight/learning.py`.\n\nRules:\n- Edit only `src/coresight/learning.py`: the bodies of the four functions and your private helpers. A single validation helper that every public function calls first is fine. Keep the module docstring, the dataclasses and the signatures as they are.\n- Do not change the tests, other modules or any config.\n- Standard library only. Install nothing.\n- Do not read or print `.env` or anything under `data/cache` or `data/reviews`. Do not make network calls.\n- Match the style of the surrounding code: type hints, small helpers, comments only where the logic is not obvious. Lines up to 100 characters.\n\nWhen done, run:\n- `.venv\\Scripts\\python -m pytest -q tests/test_learning.py`\n- `.venv\\Scripts\\python -m ruff check .`\n\nIterate until both are green, then reply with a short summary of what changed.\n",
+ "steps": [
+  {
+   "tool": "read_file",
+   "result": "Read text file `tests/test_learning.py`.\n1|\"\"\"The learning loop (point F): the spec coresight.learning is built to.\n2|\n3|The geologist's corrections give, for every corrected run, its true RQD. The\n4|caller segments each box with every candidate pair of profile thresholds\n5|(min_contrast, min_crossing) and computes RQD with geometry.py; this module\n6|only receives the errors (RQD found - RQD after ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/learning.py`.\n1|\"\"\"The learning loop (point F): a site's corrections tune its profile thresholds.\n2|\n3|The profile layer of segmentation cuts a piece where a thin dark line crosses\n4|the core; each such cut is an uncertain break, counted as natural. Two\n5|thresholds decide when a dip becomes a cut (segmentation.ProfileThresholds):\n6|``min_contrast`` (how dark) and ``m ..."
+  },
+  {
+   "tool": "powershell",
+   "result": "tool failed: environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready\nThe execution environment is broken: the command was never started and every later command will fail the same way. Do not retry and do not fabricate command output; report this environment failure.",
+   "failed": "environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready"
+  },
+  {
+   "tool": "powershell"
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 50-53\n--- original\n+++ updated\n@@\n-_TOL = 1e-9\n-\n-\n-def _dist(a: Candidate, b: Candidate) -> float:\n+_TOL = 1e-9\n+\n+\n+def _validate_errors(errors: Sequence[RunError]) -> None:\n+    seen: set[tuple[RunKey, Candidate]] = set()\n+    for e in errors:\n+        if not math.isfinite(e.error):\n+            raise ValueError(f\"non-finite error for {e.candidate} on {(e.box, e.run) ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 87-89\n--- original\n+++ updated\n@@\n-def mae_of(errors: Sequence[RunError], candidate: Candidate, runs: Iterable[RunKey]) -> float:\n-    \"\"\"Mean |error| of ``candidate`` over ``runs``; ValueError if a run is missing or none.\"\"\"\n-    wanted = list(runs)\n+def mae_of(errors: Sequence[RunError], candidate: Candidate, runs: Iterable[RunKey]) -> float:\n+    \"\"\"Mean |error| of ` ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 108-119\n--- original\n+++ updated\n@@\n-def fit(errors: Sequence[RunError], runs: Iterable[RunKey] | None, default: Candidate) -> Candidate:\n-    \"\"\"The candidate with the lowest MAE over ``runs`` (every run when None).\"\"\"\n-    train = sorted({(e.box, e.run) for e in errors}) if runs is None else list(runs)\n-    if not train:\n-        return default\n-    by_cand: dict[Cand ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 143-145\n--- original\n+++ updated\n@@\n-def leave_one_box_out(errors: Sequence[RunError], default: Candidate) -> list[Fold]:\n-    \"\"\"One fold per box, in sorted order: fit on the other boxes, score the held-out one.\"\"\"\n-    grouped = _runs_by_box(errors)\n+def leave_one_box_out(errors: Sequence[RunError], default: Candidate) -> list[Fold]:\n+    \"\"\"One fold per box, in sorte ..."
+  },
+  {
+   "tool": "edit_file",
+   "result": "edited\nchanged lines: lines 171-172\n--- original\n+++ updated\n@@\n-    \"\"\"(n corrected runs, pooled held-out MAE with the default, pooled MAE after n).\"\"\"\n-    grouped = _runs_by_box(errors)\n+    \"\"\"(n corrected runs, pooled held-out MAE with the default, pooled MAE after n).\"\"\"\n+    _validate_errors(errors)\n+    grouped = _runs_by_box(errors)\n"
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/learning.py`.\n1|\"\"\"The learning loop (point F): a site's corrections tune its profile thresholds.\n2|\n3|The profile layer of segmentation cuts a piece where a thin dark line crosses\n4|the core; each such cut is an uncertain break, counted as natural. Two\n5|thresholds decide when a dip becomes a cut (segmentation.ProfileThresholds):\n6|``min_contrast`` (how dark) and ``m ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/learning.py`.\n1|\"\"\"The learning loop (point F): a site's corrections tune its profile thresholds.\n2|\n3|The profile layer of segmentation cuts a piece where a thin dark line crosses\n4|the core; each such cut is an uncertain break, counted as natural. Two\n5|thresholds decide when a dip becomes a cut (segmentation.ProfileThresholds):\n6|``min_contrast`` (how dark) and ``m ..."
+  },
+  {
+   "tool": "powershell",
+   "result": "tool failed: environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready\nThe execution environment is broken: the command was never started and every later command will fail the same way. Do not retry and do not fabricate command output; report this environment failure.",
+   "failed": "environment failure: sandbox enforcement unavailable: windows_elevated setup_required: sandbox users are not ready"
+  }
+ ],
+ "final_answer": "Done — updated [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py).\n\nWhat changed:\n- Added `_validate_errors` checking the whole error list for non-finite values and duplicate `(box, run, candidate)` keys. All four public functions call it first, so unused runs/candidates and single-box cases still raise.\n- `mae_of` and `fit` dedupe runs with `sorted(set(runs))`, so duplicates count once and order is stable.\n- `fit` now raises `ValueError` when training runs exist but no candidate covers all of them, instead of returning the default.\n\nVerification not run: shell is broken in this session (`muse.powershell` fails with sandbox setup error, escalated run denied with approval disabled), so I could not execute `pytest` or `ruff`. I traced all 23 tests by hand against the new logic and they should pass.Round 2 update to [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py) is in place.\n\nWhat changed:\n- Added `_validate_errors`: rejects any non-finite error and any duplicate `(box, run, candidate)` key. All four public functions (`mae_of`, `fit`, `leave_one_box_out`, `learning_curve`) call it first, so unused runs/candidates and single-box inputs still raise.\n- `mae_of` and `fit` treat runs as a set via `sorted(set(runs))`, so a run given twice counts once and order does not affect the result.\n- `fit` raises `ValueError` when training runs are non-empty but no candidate covers all of them, instead of falling back to the default. Empty training still returns the default.\n\nHeld-out scoring already raised on missing errors through `mae_of`/`_abs_error`, so no change was needed there beyond the shared validation.\n\nVerification: I confirmed the edited file contents, but I could not run `.venv\\Scripts\\python -m pytest -q tests/test_learning.py` or `.venv\\Scripts\\python -m ruff check .` — shell execution fails in this session with `sandbox enforcement unavailable: windows_elevated setup_required`. Please run those two commands locally; I traced all tests in `tests/test_learning.py` by hand and they should pass.",
+ "note": "Builder of the learning loop, round 2 (point F), from the reviewer's findings turned into tests. Built from the `muse exec --json` event stream; Muse's own context (personal rules and skills catalog) is left out; encrypted reasoning is not included. Its Windows sandbox could not start PowerShell, so Muse Code did not run pytest itself; we ran it (23 of 23 green, ruff clean)."
+}
