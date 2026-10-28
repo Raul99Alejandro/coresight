@@ -184,3 +184,46 @@ def test_locate_row_asks_for_grounding_with_a_schema_and_caches_it(tmp_path):
     assert body["model"] == "muse-spark-1.3"
     assert body["text"]["format"]["name"] == "RowLocation"
     assert "0 to 1000 grid" in body["input"][0]["content"][0]["text"]
+
+
+# The credit watch (point G): every request that reached the API, and every cache hit
+
+
+def test_every_request_and_cache_hit_is_logged_without_prompts(tmp_path):
+    from coresight.meta_client import usage_summary
+
+    def handler(request):
+        usage = {"input_tokens": 120, "output_tokens": 30}
+        return httpx.Response(200, json={"output": [], "usage": usage})
+
+    client = MetaClient(api_key="k", cache_dir=tmp_path, transport=httpx.MockTransport(handler))
+    body = {"model": "muse-wonder-1.0", "input": "secret prompt"}
+    client.respond(body)
+    client.respond(body)  # same request: from the cache
+    entries = client.usage.entries()
+    assert [e.get("cached", False) for e in entries] == [False, True]
+    assert entries[0]["status"] == 200 and entries[0]["input_tokens"] == 120
+    assert "secret" not in (tmp_path / "usage.jsonl").read_text()
+    wonder = usage_summary(entries)["hour"]["muse-wonder-1.0"]
+    assert (wonder["calls"], wonder["cached"], wonder["output_tokens"]) == (1, 1, 30)
+
+
+def test_rate_limits_and_old_calls_are_counted_apart():
+    from coresight.meta_client import usage_summary
+
+    now = 1_000_000.0
+    entries = [
+        {"at": now - 10, "model": "sam-3.1", "status": 429, "seconds": 0.2},
+        {"at": now - 20, "model": "sam-3.1", "status": 200, "seconds": 3.0},
+        {"at": now - 7200, "model": "sam-3.1", "status": 200, "seconds": 2.0},
+    ]
+    s = usage_summary(entries, now)
+    assert s["hour"]["sam-3.1"]["calls"] == 2 and s["hour"]["sam-3.1"]["rate_limited"] == 1
+    assert s["day"]["sam-3.1"]["calls"] == 3 and s["all"]["sam-3.1"]["seconds"] == 5.2
+
+
+def test_without_a_cache_dir_nothing_is_logged():
+    client = MetaClient(api_key="k", cache_dir=None, transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json={"usage": {}})))  # fmt: skip
+    client.respond({"model": "m"})
+    assert client.usage is None

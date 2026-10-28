@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>CoreSight ops</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f7f8;--surface:#fff;--ink:#16181c;--ink-2:#50555e;--ink-3:#8a909a;--hair:rgba(22,24,28,.08);--fill:rgba(22,24,28,.045);
+  --accent:#9a6a12;--ok:#2e7d59;--bad:#c2392f;--warn:#df8530;--sh:0 1px 2px rgba(16,18,22,.04),0 12px 32px -12px rgba(16,18,22,.14),0 0 0 1px var(--hair)}
+@media (prefers-color-scheme:dark){:root{--bg:#111214;--surface:#18191c;--ink:#eef0f2;--ink-2:#b4b9c1;--ink-3:#80868f;--hair:rgba(255,255,255,.08);
+  --fill:rgba(255,255,255,.05);--accent:#d39a3a;--ok:#4fb386;--bad:#ef6b60;--sh:0 0 0 1px var(--hair)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Geist",system-ui,sans-serif;font-feature-settings:"tnum" 1}
+main{max-width:980px;margin:0 auto;padding:36px 16px 64px}
+h1{margin:0 0 4px;font-size:28px;font-weight:600;letter-spacing:-.02em}
+h2{margin:32px 0 12px;font-size:18px;font-weight:600}
+p.sub{margin:0;color:var(--ink-2)}
+.card{background:var(--surface);border-radius:16px;box-shadow:var(--sh);padding:6px 16px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:right;font-weight:500;color:var(--ink-3);padding:10px 8px;white-space:nowrap}
+td{text-align:right;padding:10px 8px;border-top:1px solid var(--hair);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+.bad{color:var(--bad);font-weight:600}
+.caps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.cap{background:var(--surface);border-radius:14px;box-shadow:var(--sh);padding:14px 16px}
+.cap b{display:block;font-size:22px;font-weight:600}
+.cap span{color:var(--ink-2);font-size:13.5px}
+.meter{height:6px;border-radius:9px;background:var(--fill);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ok);border-radius:9px}
+.meter i.low{background:var(--warn)} .meter i.out{background:var(--bad)}
+.seg{display:inline-flex;background:var(--fill);border-radius:10px;padding:3px;margin-top:16px}
+.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:13.5px;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(16,18,22,.12)}
+form{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+input{font:inherit;height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--hair);background:var(--surface);color:var(--ink);min-width:0;flex:1;max-width:340px}
+button.go{height:38px;padding:0 16px;border-radius:10px;border:0;background:var(--accent);color:#fff;font:inherit;font-weight:500;cursor:pointer}
+.err{color:var(--bad);margin-top:12px}
+.muted{color:var(--ink-3);font-size:13.5px;margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Credit watch</h1>
+  <p class="sub">Requests that reached Meta Model API, answers served from the cache, and what is left of each demo cap. Not linked from the app.</p>
+  <form id="login" hidden><input id="token" type="password" placeholder="Ops token" autocomplete="off" aria-label="Ops token"><button class="go">Open</button></form>
+  <div id="err" class="err" hidden></div>
+  <div id="out" hidden>
+    <h2>Demo caps, right now</h2>
+    <div class="caps" id="caps"></div>
+    <h2>Models</h2>
+    <div class="seg" role="group" aria-label="Window"><button data-w="hour" aria-pressed="true">Last hour</button><button data-w="day" aria-pressed="false">Last 24 h</button><button data-w="all" aria-pressed="false">Since the cache began</button></div>
+    <div class="card" style="margin-top:12px"><table><thead><tr><th>Model</th><th>Calls</th><th>From cache</th><th>Errors</th><th>429</th><th>Input tokens</th><th>Output tokens</th><th>Seconds</th></tr></thead><tbody id="models"></tbody></table></div>
+    <h2>Boxes</h2>
+    <div class="caps" id="boxes"></div>
+    <p class="muted" id="when"></p>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let data = null, win = "hour";
+const key = () => { try { return sessionStorage.getItem("ops-token"); } catch { return null; } };
+const fmt = (n) => Number(n).toLocaleString("en-US");
+
+async function load() {
+  const token = key();
+  if (!token) { $("login").hidden = false; return; }
+  const res = await fetch("/api/ops/usage", { headers: { "X-Ops-Token": token } });
+  if (!res.ok) {
+    try { sessionStorage.removeItem("ops-token"); } catch {}
+    $("err").hidden = false; $("err").textContent = res.status === 403 ? "Wrong token." : `The server answered ${res.status}.`;
+    $("login").hidden = false; return;
+  }
+  data = await res.json(); $("err").hidden = true; $("login").hidden = true; $("out").hidden = false; render();
+}
+
+function render() {
+  $("caps").innerHTML = Object.entries(data.limits).map(([k, v]) => {
+    const share = v.left / v.per_hour, cls = share <= 0 ? "out" : share < .25 ? "low" : "";
+    return `<div class="cap"><b>${v.left} left</b><span>${k}, ${v.per_hour} per hour</span><div class="meter"><i class="${cls}" style="width:${Math.max(0, share) * 100}%"></i></div></div>`;
+  }).join("");
+  const rows = Object.entries(data.usage[win]).sort((a, b) => b[1].calls - a[1].calls);
+  $("models").innerHTML = rows.length ? rows.map(([m, u]) => `<tr><td>${m}</td><td>${fmt(u.calls)}</td><td>${fmt(u.cached)}</td><td class="${u.errors ? "bad" : ""}">${u.errors}</td><td class="${u.rate_limited ? "bad" : ""}">${u.rate_limited}</td><td>${fmt(u.input_tokens)}</td><td>${fmt(u.output_tokens)}</td><td>${fmt(u.seconds)}</td></tr>`).join("")
+    : `<tr><td colspan="8" style="text-align:left;color:var(--ink-3)">Nothing in this window.</td></tr>`;
+  $("boxes").innerHTML = Object.entries(data.boxes).map(([k, v]) => `<div class="cap"><b>${v}</b><span>${k}</span></div>`).join("") + `<div class="cap"><b>${data.uploads}</b><span>uploaded by visitors</span></div>`;
+  $("when").textContent = `Read at ${new Date().toLocaleTimeString()}. Refreshes every 30 s.`;
+}
+
+$("login").addEventListener("submit", (e) => { e.preventDefault(); try { sessionStorage.setItem("ops-token", $("token").value); } catch {} load(); });
+document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+  win = b.dataset.w; document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b)); render();
+}));
+load(); setInterval(() => key() && load(), 30000);
+</script>
+</body>
+</html>

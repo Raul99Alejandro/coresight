@@ -71,7 +71,9 @@ a{color:inherit;text-decoration:none}
 .logo .a{fill:var(--accent)} .logo .b{fill:var(--ink)}
 .switch{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 10px 0 12px;border-radius:10px;border:0;background:transparent;cursor:pointer;color:var(--ink-2);font-weight:500;transition:background .2s}
 .switch:hover{background:var(--fill);color:var(--ink)}
-.switch svg{width:14px;height:14px;opacity:.7}
+.switch svg{width:14px;height:14px;opacity:.7;flex:none}
+.switch{min-width:0}
+#switch-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
 .grow{flex:1}
 .pill{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 11px 0 9px;border-radius:99px;font-size:13.5px;font-weight:500}
 .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
@@ -390,10 +392,91 @@ button.metric:hover{background:var(--fill-2)}
   .how{grid-template-columns:1fr}
 }
 @media (max-width:640px){
-  .bar{gap:6px;padding:0 12px}.logo span,.bar .label{display:none}
+  .bar{gap:4px;padding:0 10px}.logo span,.bar .label{display:none}.logo{margin-right:0}
+  #switch-label{max-width:34vw}.switch{padding:0 6px}.pill{font-size:0;gap:0;width:28px;padding:0;justify-content:center}
+  .section{flex-direction:column;align-items:flex-start;gap:4px}
   .page{padding:24px 16px 60px}.hero h1{font-size:27px}.row2{grid-template-columns:1fr}
   .drawer{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:88vh;transform:translateY(105%)}
 }
+/* landing (point G): a real box being read, then the hole */
+.landing{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:44px;align-items:center;margin:28px 0 8px}
+.lead .eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--accent-ink);font-weight:500;font-size:14px;margin-bottom:14px}
+.lead h1{margin:0 0 14px;font-size:46px;line-height:1.06;font-weight:600;letter-spacing:-.035em;text-wrap:balance}
+.lead p{margin:0 0 26px;color:var(--ink-2);font-size:17px;max-width:44ch}
+.lead .actions{display:flex;gap:10px;flex-wrap:wrap}
+.lead .btn svg{width:15px;height:15px}
+.showcase{margin:0;padding:10px}
+.showcase .tray{min-height:120px}
+.showcase .tray svg{pointer-events:none}
+.sc-row{fill:none;stroke:rgba(255,255,255,.55);stroke-dasharray:6 6;opacity:0;animation:fadein .5s var(--ease-out) forwards}
+.sc-piece{fill:rgba(157,140,240,.16);stroke:#b9adf6;opacity:0;animation:pop .45s var(--ease-out) forwards}
+.sc-break{opacity:0;animation:fadein .35s var(--ease-out) forwards}
+.sc-marker{opacity:0;animation:fadein .4s var(--ease-out) forwards}
+@keyframes fadein{to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:scaleX(.6)}to{opacity:1;transform:none}}
+.sc-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:10px 4px 2px}
+.sc-step{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:11px;color:var(--ink-3);transition:background .35s,color .35s;min-width:0}
+.sc-step b{font-weight:600;font-size:13.5px;color:inherit;line-height:1.25}
+.sc-step.on{background:var(--fill);color:var(--ink)}
+.sc-cap{margin:2px 10px 0;min-height:22px;color:var(--ink-2);font-size:14px}
+.sc-rqd{display:flex;gap:6px;flex-wrap:wrap;padding:4px 8px 6px;min-height:34px;align-items:center}
+.sc-rqd span{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:99px;background:var(--fill);font-size:13px;font-weight:500;opacity:0;transform:translateY(4px);transition:opacity .35s,transform .35s var(--ease-out)}
+.sc-rqd span.on{opacity:1;transform:none}
+.sc-rqd i{width:8px;height:8px;border-radius:50%}
+.sc-rqd .grow{opacity:1;background:none;padding:0}
+.layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:56px}
+.layer{padding:20px;border-radius:18px;background:var(--surface);box-shadow:var(--sh-1)}
+.layer .lh{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.layer h3{margin:0;font-size:16px;font-weight:600}
+.layer p{margin:0;color:var(--ink-2);font-size:14.5px}
+.layer details{margin-top:12px;border-top:1px solid var(--hair);padding-top:10px}
+.layer summary{cursor:pointer;list-style:none;color:var(--accent-ink);font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.layer summary::-webkit-details-marker{display:none}
+.layer summary svg{width:12px;height:12px;transition:transform .25s var(--ease)}
+.layer details[open] summary svg{transform:rotate(90deg)}
+.layer ul{margin:10px 0 0;padding:0 0 0 18px;color:var(--ink-2);font-size:13.5px}
+.layer li{margin:4px 0}
+.layer code{font-size:12.5px;background:var(--fill);padding:1px 5px;border-radius:5px}
+.peek{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,6fr);gap:0;margin-top:22px;overflow:hidden}
+.peek .pk-text{padding:28px}
+.peek h2{margin:0 0 8px;font-size:22px;font-weight:600;letter-spacing:-.015em}
+.peek p{margin:0 0 18px;color:var(--ink-2)}
+.peek .pk-stats{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:20px}
+.peek .pk-stats b{display:block;font-size:24px;font-weight:600;letter-spacing:-.02em}
+.peek .pk-stats span{color:var(--ink-3);font-size:13px}
+.peek .hole3d{min-height:340px;border-radius:0;box-shadow:none;background:var(--fill)}
+.no-measure{display:flex;gap:14px;align-items:center;margin-top:22px;padding:18px 20px}
+.no-measure b{font-weight:600}
+.no-measure span{color:var(--ink-2);font-size:14.5px}
+.no-measure .btn{margin-left:auto}
+@media (max-width:900px){
+  .landing{grid-template-columns:1fr;gap:28px;margin-top:8px}.lead h1{font-size:36px}
+  .layers{grid-template-columns:1fr}.peek{grid-template-columns:1fr}.sc-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .lead h1{font-size:31px}.lead p{font-size:16px}.no-measure{flex-wrap:wrap}.no-measure .btn{margin-left:0}
+  .peek .pk-text{padding:20px}.peek .hole3d{min-height:300px}
+}
+
+/* the 60-second tour (point G): a live script for the video */
+.tour{position:fixed;z-index:70;right:24px;bottom:24px;width:min(400px,calc(100vw - 32px));background:var(--raised);border-radius:18px;box-shadow:var(--sh-3);padding:16px 18px 14px;
+  animation:rise .35s var(--ease-out)}
+.tour .t-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.tour .t-top small{color:var(--ink-3);font-size:13px;font-weight:500}
+.tour .t-bar{display:flex;gap:4px;flex:1}
+.tour .t-bar i{flex:1;height:3px;border-radius:3px;background:var(--fill-2);transition:background .3s}
+.tour .t-bar i.on{background:var(--accent)}
+.tour h3{margin:0 0 4px;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.tour p{margin:0;color:var(--ink-2);font-size:14.5px}
+.tour .t-wait{display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:13.5px;margin-top:8px;min-height:20px}
+.tour .t-actions{display:flex;gap:8px;margin-top:12px;align-items:center}
+.tour .t-actions .grow{flex:1}
+.tour-spot{position:relative;z-index:5;box-shadow:0 0 0 3px var(--accent),0 0 0 9999px rgba(16,18,22,.26)!important;border-radius:18px;transition:box-shadow .35s var(--ease-out)}
+.btn.tour-spot{border-radius:11px}
+.drawer.tour-spot{position:fixed;z-index:41}
+.tour-spot{scroll-margin-top:84px}
+.drawer.on ~ .tour{right:auto;left:24px}
+@media (max-width:640px){.tour{right:16px;left:16px;bottom:16px;width:auto}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
 /* area agents (stage 6) */
@@ -445,7 +528,7 @@ button.metric:hover{background:var(--fill-2)}
 .review{padding:10px 12px;border-radius:12px;background:var(--bad-soft);font-size:13px;color:var(--ink)}
 .review b{color:var(--bad)}
 .hole-agent{padding:20px 22px;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;animation:rise .35s var(--ease-out)}
-.hole-agent .dh{display:flex;align-items:center;gap:10px}
+.hole-agent .dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .hole-agent .dh .area{font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
 .hole-agent .dh .act{margin-left:auto;font-size:12px;font-weight:500;padding:1px 8px;border-radius:99px;background:var(--model-soft);color:var(--model-ink);white-space:nowrap}
 .hole-agent h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
@@ -546,6 +629,7 @@ a.run{color:inherit}
   <span class="pill" id="pill" hidden></span>
   <div class="grow"></div>
   <button class="btn plain" id="export" hidden aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v7.5m0 0 3-3m-3 3-3-3M3 12.5h10"/></svg><span class="label">Export</span></button>
+  <button class="btn plain" id="tour-top" aria-label="60-second tour"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.4v9.2a.6.6 0 0 0 .9.5l7.3-4.6a.6.6 0 0 0 0-1L5.9 2.9a.6.6 0 0 0-.9.5Z"/></svg><span class="label">Tour</span></button>
   <button class="btn plain" id="new-top"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 3v10M3 8h10"/></svg><span class="label">New box</span></button>
   <button class="btn primary" id="approve" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m3.5 8.5 3 3 6-7"/></svg>Approve</button>
 </header>
@@ -896,14 +980,14 @@ function renderHole() {
 /* 3D: a cylinder per row, coloured by Deere class, along the trace (an example unless surveyed) */
 let H3 = null;
 function stop3D() { if (H3) { cancelAnimationFrame(H3.raf); H3.ro.disconnect(); H3.controls.dispose(); H3.renderer.dispose(); H3 = null; } }
-async function draw3D() {
-  const el = $("hole3d"); if (!el) return;
+async function draw3D(el = $("hole3d"), h = S.hole) {
+  if (!el || !h) return;
   let THREE, OrbitControls;
   try { THREE = await import("three"); ({OrbitControls} = await import("three/addons/controls/OrbitControls.js")); }
   catch { el.querySelector(".h3-load").textContent = "The 3D view could not load. The log by depth is complete without it."; return; }
-  if ($("hole3d") !== el) return;
+  if (!el.isConnected) return;
   stop3D();
-  const h = S.hole, rows = holeRows(h), css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const rows = holeRows(h), css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const col = Object.fromEntries(Object.entries(QUALITY).map(([k, v]) => [k, css(v.slice(4, -1))]));
   const az = h.trace.azimuth_deg * Math.PI / 180, dip = h.trace.dip_deg * Math.PI / 180;
   const dir = new THREE.Vector3(Math.sin(az) * Math.cos(dip), Math.sin(dip), -Math.cos(az) * Math.cos(dip)).normalize();
@@ -985,7 +1069,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeMen
 $("switch").onclick = (e) => {
   const m = $("boxes-menu");
   if (m.classList.contains("on")) return closeMenus();
-  m.innerHTML = `${S.holes.length ? `<h4>Drill holes</h4>${S.holes.map((h) => `<a role="menuitem" href="#/hole/${encodeURIComponent(h.hole_id)}"><span class="dot approved"></span><div>${esc(h.hole_id)}<small>Box${h.boxes_in_log.length > 1 ? "es" : ""} ${h.boxes_in_log.join(", ")}, ${h.from_m.toFixed(2)} to ${h.to_m.toFixed(2)} m</small></div></a>`).join("")}<hr>` : ""}${S.boxes.length ? `<h4>Your boxes</h4>${S.boxes.map((b) => `<a role="menuitem" href="#/box/${esc(b.id)}"><span class="dot ${esc(b.status)}"></span><div>${esc(b.hole_id)}, box ${esc(b.box_number)}<small>${STATUS[b.status]}</small></div></a>`).join("")}<hr>` : ""}
+  m.innerHTML = `${S.holes.length ? `<h4>Drill holes</h4>${S.holes.map((h) => `<a role="menuitem" href="#/hole/${encodeURIComponent(h.hole_id)}"><span class="dot approved"></span><div>${esc(h.hole_id)}<small>Box${h.boxes_in_log.length > 1 ? "es" : ""} ${h.boxes_in_log.join(", ")}, ${h.from_m.toFixed(2)} to ${h.to_m.toFixed(2)} m</small></div></a>`).join("")}<hr>` : ""}${S.boxes.length ? `<h4>Recent boxes</h4>${S.boxes.filter((b) => b.hole_id !== "NOT-A-CORE-BOX").slice(0, 8).map((b) => `<a role="menuitem" href="#/box/${esc(b.id)}"><span class="dot ${esc(b.status)}"></span><div>${esc(b.hole_id)}, box ${esc(b.box_number)}<small>${STATUS[b.status]}</small></div></a>`).join("")}<hr>` : ""}
     <h4>Public samples</h4>${S.samples.map((s) => `<button role="menuitem" data-sample="${esc(s.name)}"><span class="dot"></span><div>${esc(s.title)}<small>${esc(s.credit)}</small></div></button>`).join("")}`;
   openMenu(m, e.currentTarget);
 };
@@ -1009,7 +1093,7 @@ async function startSample(name) {
 
 /* routing */
 function route() {
-  clearTimeout(S.poll); S.error = null; closeDrawer(true); stop3D();
+  clearTimeout(S.poll); clearTimeout(S.scTimer); S.error = null; closeDrawer(true); stop3D(); Tour.unspot(true);
   document.querySelectorAll("dialog[open]").forEach((d) => d.close());
   const m = location.hash.match(/^#\/box\/([a-z0-9]+)/i), hm = location.hash.match(/^#\/hole\/(.+)$/);
   if (!hm) S.hole = null;
@@ -1063,19 +1147,93 @@ function renderRefused(b) {
   $("sample").onclick = () => S.samples.length && startSample(S.samples[0].name);
 }
 
-/* home */
+/* home (point G): a real box read by the models, then the hole it belongs to */
+const PLAY = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.4v9.2a.6.6 0 0 0 .9.5l7.3-4.6a.6.6 0 0 0 0-1L5.9 2.9a.6.6 0 0 0-.9.5Z"/></svg>';
+const SC_STEPS = [
+  ["cv", "OpenCV", "Finds the tray and sets the scale in cm"],
+  ["sam", "Spark and SAM 3.1", "Spark points at the core, SAM cuts every piece"],
+  ["code", "geometry.py", "RQD, recovery and fractures, by code"],
+  ["human", "The geologist", "Checks the breaks, corrects, approves"],
+];
+async function loadShowcase() {
+  if (S.show) return S.show;
+  try {
+    const sc = await api("/api/showcase");
+    const [box, hole] = await Promise.all([sc.box ? api(`/api/boxes/${sc.box}`) : null, sc.hole_id ? api(`/api/holes/${encodeURIComponent(sc.hole_id)}`) : null]);
+    S.show = {...sc, boxData:box, holeData:hole};
+  } catch { S.show = {box:null, agents_box:null, hole_id:null}; }
+  return S.show;
+}
 function renderHome() {
   renderBar();
-  $("page").innerHTML = `<div class="empty">${S.error ? banner(S.error) : ""}
-    <h1>Log a core box from one photo</h1>
-    <p>CoreSight measures every piece, computes RQD, recovery and fracture frequency per run, and drafts a description. You check it, correct it and approve it.</p>
-    <div class="actions"><button class="btn primary" id="h-new">Log a new box</button>${S.samples[0] ? `<button class="btn" data-sample="${esc(S.samples[0].name)}">Try a sample box</button>` : ""}${S.holes[0] ? `<a class="btn" href="#/hole/${encodeURIComponent(S.holes[0].hole_id)}">See a drill hole</a>` : ""}</div>
-    <div class="how">
-      <div><b>Measured, not guessed</b><span>SAM 3.1 finds the pieces. RQD, TCR and fracture frequency come from deterministic code.</span></div>
-      <div><b>Described for you</b><span>Muse Spark drafts lithology, alteration and mineralization for every run.</span></div>
-      <div><b>Reviewed by you</b><span>Type or dictate corrections. Every change is kept next to the original.</span></div>
-    </div></div>`;
+  const sample = S.samples.find((x) => x.name === "nevada-u12g-box3") || S.samples[0];
+  $("page").innerHTML = `${S.error ? banner(S.error) : ""}
+    <section class="landing">
+      <div class="lead">
+        <span class="eyebrow">${glyph("sam", 16)}Drill core logging from one photo</span>
+        <h1>From a photo of a core box to a logged drill hole.</h1>
+        <p>Meta's models see the core, deterministic code measures it, and a geologist signs every number. When a photo is not a core box, CoreSight says so instead of measuring.</p>
+        <div class="actions"><button class="btn primary" id="h-tour">${PLAY}Take the 60-second tour</button>${sample ? `<button class="btn" data-sample="${esc(sample.name)}">Try a sample box</button>` : ""}<button class="btn plain" id="h-new">Log your own box</button></div>
+      </div>
+      <figure class="card showcase" id="showcase"><div class="tray" id="sc-tray"><div class="tray-wait"><div>${glyph("cv", 36, "code work")}<span>Loading a real box</span></div></div></div>
+        <div class="sc-steps">${SC_STEPS.map(([g, t], i) => `<div class="sc-step" data-step="${i}">${glyph(g, 18)}<b>${t}</b></div>`).join("")}</div>
+        <p class="sc-cap" id="sc-cap" aria-live="polite"></p>
+        <div class="sc-rqd" id="sc-rqd"></div></figure>
+    </section>
+    <section class="layers">
+      ${layer("sam", "Models perceive", "SAM 3.1 finds every piece of core. Muse Spark points at the core and at what is not core, describes each run and judges the agents' drafts. Muse Wonder routes the work.",
+        ["Muse Spark marks cards, wax and run blocks; SAM 3.1 cuts with those boxes", "Tap the photo and SAM 3.1 cuts that piece again", "Muse Glimmer can describe the core offline, at the mine"])}
+      ${layer("code", "Code calculates", "RQD, recovery and fracture frequency come from geometry.py, never from a model. Every number traces back to it.",
+        ["Deere's RQD: intact pieces of 10 cm or more over the run length", "Doubtful breaks count as natural and are listed for review", "Every photo passes a gate first: no tray, no scale, no number"])}
+      ${layer("human", "The geologist decides", "Every correction is kept next to the original. Agents draft alerts for the lab, safety, the plant and finance, and nothing is sent without a person.",
+        ["Corrections typed or dictated (Muse Voice Transcribe)", "Drafts checked by code, then by Muse Spark as a judge, three attempts at most", "Export the log and every correction as CSV"])}
+    </section>
+    <section class="card peek" id="peek" hidden></section>
+    <section class="card no-measure">${glyph("cv", 22)}<div><b>It knows when not to measure.</b><br><span>Upload a screenshot, a selfie or a box without a scale, and it refuses with the reason. Nothing is measured.</span></div><button class="btn" id="h-refuse">See it refuse a screenshot</button></section>`;
   $("h-new").onclick = () => openNew();
+  $("h-tour").onclick = () => Tour.start();
+  $("h-refuse").onclick = () => Tour.start(0, true);
+  loadShowcase().then(paintShowcase);
+}
+function layer(g, title, text, more) {
+  return `<div class="layer"><div class="lh">${glyph(g, 22)}<h3>${title}</h3></div><p>${text}</p>
+    <details><summary>${I.chev}How</summary><ul>${more.map((m) => `<li>${m}</li>`).join("")}</ul></details></div>`;
+}
+function paintShowcase(sh) {
+  const tray = $("sc-tray"); if (!tray) return;
+  const b = sh.boxData;
+  if (!b || !b.tray) { $("showcase").hidden = true; return; }
+  const T = b.tray, ppc = T.px_per_cm, k = T.width / 760, rowH = T.rows[0][1] - T.rows[0][0], inset = rowH * .07;
+  let s = "", n = 0;
+  const t0 = 0.4, tp = 1.5, tb = 3.2;
+  T.rows.forEach(([y1, y2], i) => (s += `<rect class="sc-row" x="${4 * k}" y="${y1 + 2}" width="${T.width - 8 * k}" height="${y2 - y1 - 4}" rx="${6 * k}" stroke-width="${1.4 * k}" style="animation-delay:${t0 + i * .12}s"/>`));
+  const pieces = b.runs.flatMap((r) => r.pieces), step = Math.min(.05, 1.4 / Math.max(pieces.length, 1));
+  b.runs.forEach((r) => r.pieces.forEach((p, pi) => {
+    const [y1, y2] = T.rows[p.row], x1 = p.start_cm * ppc, x2 = p.end_cm * ppc, ya = y1 + inset, yb = y2 - inset, d = tp + n++ * step;
+    s += `<rect class="sc-piece" x="${x1 + k}" y="${ya}" width="${Math.max(x2 - x1 - 2 * k, 1)}" height="${yb - ya}" rx="${4 * k}" stroke-width="${1.2 * k}" style="animation-delay:${d}s;transform-origin:${x1}px 0"/>`;
+    if (pi < r.pieces.length - 1) s += `<line class="sc-break" x1="${x2}" x2="${x2}" y1="${ya - inset / 2}" y2="${yb + inset / 2}" stroke="${BREAK_COLOR[p.break_after]}" stroke-width="${3 * k}" stroke-linecap="round" ${p.break_after === "mechanical" ? `stroke-dasharray="${5 * k} ${4 * k}"` : ""} style="animation-delay:${tb + n * .015}s"/>`;
+  }));
+  T.markers.forEach(([row, x]) => { const [y1, y2] = T.rows[row]; s += `<rect class="sc-marker" x="${x * ppc - 3 * k}" y="${y1 + inset / 2}" width="${6 * k}" height="${y2 - y1 - inset}" rx="${3 * k}" fill="#e07be8" style="animation-delay:${tb}s"/>`; });
+  tray.innerHTML = `<img alt="${esc(b.hole_id)} box ${esc(b.box_number)}, straightened by CoreSight" src="/api/boxes/${b.id}/tray.jpg"><svg viewBox="0 0 ${T.width} ${T.height}" preserveAspectRatio="none" aria-hidden="true">${s}</svg>`;
+  const credit = (S.samples.find((x) => b.source.startsWith(x.title)) || {}).credit || "";
+  $("sc-rqd").innerHTML = b.runs.map((r, i) => `<span style="transition-delay:${i * .15}s"><i style="background:${QUALITY[r.log.rock_quality]}"></i>Run ${i + 1}: RQD ${r.log.rqd_pct.toFixed(0)}%</span>`).join("")
+    + `<span class="grow"></span><a class="btn sm plain" href="#/box/${b.id}">Open this box</a>`;
+  $("showcase").title = `${b.hole_id}, box ${b.box_number}. ${credit}`;
+  const steps = [...document.querySelectorAll(".sc-step")], at = [t0, tp, tb + .6, tb + 2.2];
+  clearTimeout(S.scTimer);
+  const light = (i) => { if (!$("showcase")) return; steps.forEach((x, j) => x.classList.toggle("on", j === i)); $("sc-cap").textContent = `${SC_STEPS[i][2]}.`;
+    if (i === 2) document.querySelectorAll("#sc-rqd span").forEach((x) => x.classList.add("on")); if (i < 3) S.scTimer = setTimeout(() => light(i + 1), (at[i + 1] - at[i]) * 1000); };
+  S.scTimer = setTimeout(() => light(0), t0 * 1000);
+  const h = sh.holeData;
+  if (h && h.intervals.length) {
+    const worst = h.zones.length ? `${h.zones.length} weak zone${h.zones.length > 1 ? "s" : ""}` : "No weak zone";
+    $("peek").hidden = false;
+    $("peek").innerHTML = `<div class="pk-text"><h2>Then the drill hole</h2><p>Approved boxes join by depth into one hole. A hole agent reads the trends between boxes and proposes who should know.</p>
+      <div class="pk-stats"><div><b>${h.boxes.filter((x) => x.in_log).length}</b><span>approved boxes</span></div><div><b>${(h.to_m - h.from_m).toFixed(1)} m</b><span>of hole logged</span></div><div><b>${esc(worst)}</b><span>flagged by code</span></div></div>
+      <a class="btn" href="#/hole/${encodeURIComponent(h.hole_id)}">See the whole hole</a></div>
+      <div class="hole3d" id="peek3d"><div class="h3-load">Loading the 3D view</div><div class="h3-note"><span>${esc(h.trace.note)}</span></div></div>`;
+    draw3D($("peek3d"), h);
+  }
 }
 
 /* live analysis: the photo transforms as each model works */
@@ -1520,7 +1678,7 @@ function openNew(error = null) {
     <h2 id="new-title">Log a new box</h2><p>One photo of a core tray, taken from above with the whole tray in view.</p>
     <label class="drop" id="drop" for="photo">${photo ? `<img alt="Selected photo" src="${URL.createObjectURL(photo)}"><b>${esc(photo.name)}</b><span>Click to choose another</span>`
       : `<b>Drop the photo here or click to choose it</b><span>JPG or PNG, up to 20 MB</span>`}</label>
-    <input class="sr" type="file" id="photo" accept="image/jpeg,image/png">
+    <input class="sr" type="file" id="photo" accept="image/jpeg,image/png,image/webp">
     <div class="row2"><div class="ctl"><label for="hole">Hole</label><input id="hole" placeholder="DDH-104" autocomplete="off"></div>
       <div class="ctl"><label for="boxn">Box number</label><input id="boxn" type="number" min="1" placeholder="12"></div></div>
     <div class="ctl"><label for="runs">Runs in this box, in metres</label><textarea id="runs" rows="2" placeholder="118.20-121.20, 121.20-124.20"></textarea><small>From and to of every run, in order, as written on the run blocks.</small></div>
@@ -1533,7 +1691,7 @@ function openNew(error = null) {
     <div class="m-actions"><button class="btn" type="button" id="n-cancel">Cancel</button><button class="btn primary" type="submit" id="go">Log this box</button></div></form>`;
   if (vals) Object.entries(vals).forEach(([k, v]) => ($(k).value = v));
   const drop = $("drop");
-  $("photo").onchange = (e) => { photo = e.target.files[0] || null; openNew(); };
+  $("photo").onchange = (e) => { photo = e.target.files[0] || null; openNew(photo && photo.size > 20 * 2 ** 20 ? "The photo is larger than 20 MB." : undefined); };
   drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
   drop.ondragleave = () => drop.classList.remove("over");
   drop.ondrop = (e) => { e.preventDefault(); photo = e.dataTransfer.files[0] || null; openNew(); };
@@ -1552,6 +1710,77 @@ async function submitNew(e) {
   try { const box = await api("/api/boxes", {method:"POST", body:f}); photo = null; $("new-dialog").close(); location.hash = `#/box/${box.id}`; loadLists(); }
   catch (err) { openNew(err.message); }
 }
+
+/* the 60-second tour (point G): every step is the real product, and the script of the video */
+function waitFor(test, ms = 30000) {
+  return new Promise((done) => { const t0 = Date.now(); const tick = () => { const v = test(); if (v || Date.now() - t0 > ms) return done(v); setTimeout(tick, 150); }; tick(); });
+}
+const Tour = {
+  i: -1, el: null, token: 0,
+  steps: [
+    {title:"It knows when not to measure", text:"A screenshot goes in. Calibration finds no tray slats, so there is no scale, and Muse Spark says what the photo shows. CoreSight refuses it with the reasons: SAM never runs and no RQD is made up.",
+      async go() { const b = await api("/api/tour/not-a-box", {method:"POST"}); location.hash = `#/box/${b.id}`; return "#page .gate"; }},
+    {title:"A real core box", text:"Nevada Test Site, drill hole U12G, box 3: public domain. OpenCV straightens the tray and sets the scale, then the models work row by row, live.",
+      async go() { const b = await api("/api/samples/nevada-u12g-box3", {method:"POST"}); Tour.sample = b.id; location.hash = `#/box/${b.id}`; return "#page .tray-card"; }},
+    {title:"Spark points, SAM cuts", text:"Muse Spark marks the core and what is not core: cards, wax, wooden blocks. SAM 3.1 cuts each piece inside those boxes. These are its masks.",
+      async go() { await Tour.onSample(); setView("masks"); return "#page .tray-card"; }},
+    {title:"Code measures, the geologist corrects", text:"geometry.py turns the pieces into RQD per run: no model touches the number. Tap the photo where a break is wrong and SAM cuts that piece again; the RQD is recalculated.",
+      async go() { await Tour.onSample(); setView("pieces"); if (!$("to-check")) return "#page .log"; $("to-check").click(); return "#drawer"; }},
+    {title:"Approve", text:"Approving locks the box and starts the agents. Here we leave it under review: the next step shows a box approved before.",
+      async go() { await Tour.onSample(); closeDrawer(); return $("approve").hidden ? null : "#approve"; }},
+    {title:"Agents, verified in two layers", text:"A hole agent reads the trends between boxes, Muse Wonder decides who needs to know, and area agents draft. Code checks first, then Muse Spark as a judge, three attempts at most, then a person. Nothing is sent.",
+      async go() { const sh = await loadShowcase(); if (!sh.agents_box) return null; location.hash = `#/box/${sh.agents_box}`; return "#agents"; }},
+    {title:"From boxes to a drill hole", text:"Approved boxes join by depth into one hole, with weak zones flagged by code. The 3D trace is an example; every number in it is measured.",
+      async go() { const sh = await loadShowcase(); if (!sh.hole_id) return null; location.hash = `#/hole/${encodeURIComponent(sh.hole_id)}`; return "#hole3d"; }},
+  ],
+  async onSample() {
+    if (!Tour.sample) return;
+    if (!location.hash.includes(Tour.sample)) location.hash = `#/box/${Tour.sample}`;
+    await waitFor(() => S.box && S.box.id === Tour.sample && S.box.status !== "processing" && $("tray"), 60000);
+  },
+  start(i = 0, only = false) { Tour.only = only; Tour.sample = null; Tour.show(i); },
+  async show(i) {
+    const st = Tour.steps[i]; if (!st) return Tour.end();
+    Tour.i = i; const token = ++Tour.token;
+    Tour.unspot(); Tour.card(st, true);
+    let sel = null;
+    try { sel = await st.go(); if (sel) await waitFor(() => document.querySelector(sel)); }
+    catch (e) { if (token === Tour.token) Tour.card(st, false, e.message); return; }
+    if (token !== Tour.token) return;
+    Tour.card(st, false);
+    Tour.sel = sel; Tour.keep();
+    const el = sel && document.querySelector(sel);
+    if (el && !el.closest(".bar,.drawer")) el.scrollIntoView({behavior:"smooth", block:el.offsetHeight > innerHeight * .6 ? "start" : "center"});
+  },
+  keep() { // the page redraws as the analysis ends: put the spotlight back on the new element
+    clearInterval(Tour.timer); if (!Tour.sel) return;
+    const on = () => { const el = document.querySelector(Tour.sel); if (el && el !== Tour.spot) { Tour.unspot(true); el.classList.add("tour-spot"); Tour.spot = el; } };
+    on(); Tour.timer = setInterval(on, 300);
+  },
+  unspot(keepSel) { if (Tour.spot) Tour.spot.classList.remove("tour-spot"); Tour.spot = null; if (!keepSel) { Tour.sel = null; clearInterval(Tour.timer); } },
+  card(st, waiting, error) {
+    if (!Tour.el) { Tour.el = document.createElement("div"); Tour.el.className = "tour"; Tour.el.setAttribute("role", "dialog"); Tour.el.setAttribute("aria-label", "60-second tour"); document.body.appendChild(Tour.el); }
+    const n = Tour.steps.length, last = Tour.only || Tour.i === n - 1;
+    Tour.el.innerHTML = `<div class="t-top"><small>${Tour.only ? "Input gate" : `${Tour.i + 1} of ${n}`}</small>${Tour.only ? '<span class="grow"></span>' : `<div class="t-bar">${Tour.steps.map((_, j) => `<i class="${j <= Tour.i ? "on" : ""}"></i>`).join("")}</div>`}<button class="btn plain icon sm" id="t-close" aria-label="Close the tour">${I.close}</button></div>
+      <h3>${st.title}</h3><p>${st.text}</p>
+      <div class="t-wait">${error ? `<span style="color:var(--bad)">${esc(error)}</span>` : waiting ? `${glyph("cv", 16, "code work")}Opening it live` : ""}</div>
+      <div class="t-actions">${!Tour.only && Tour.i > 0 ? '<button class="btn sm" id="t-back">Back</button>' : ""}<span class="grow"></span>
+        <button class="btn sm primary" id="t-next">${last ? "Done" : "Next"}</button></div>`;
+    $("t-close").onclick = () => Tour.end();
+    $("t-next").onclick = () => (last ? Tour.end() : Tour.show(Tour.i + 1));
+    if ($("t-back")) $("t-back").onclick = () => Tour.show(Tour.i - 1);
+    if (!waiting) $("t-next").focus({preventScroll:true});
+  },
+  end() { Tour.token++; Tour.unspot(); if (Tour.el) Tour.el.remove(); Tour.el = null; Tour.i = -1; },
+};
+function setView(v) { const x = $("seg") && $("seg").querySelector(`[data-view="${v}"]`); if (x && x.getAttribute("aria-selected") !== "true") x.click(); }
+document.addEventListener("keydown", (e) => {
+  if (Tour.i < 0 || e.target.closest("input,textarea,select,dialog")) return;
+  if (e.key === "Escape") Tour.end();
+  else if (e.key === "ArrowRight" && !Tour.only) Tour.show(Tour.i + 1);
+  else if (e.key === "ArrowLeft" && !Tour.only && Tour.i > 0) Tour.show(Tour.i - 1);
+});
+$("tour-top").onclick = () => Tour.start();
 
 addEventListener("resize", placeThumb);
 loadLists().then(route);

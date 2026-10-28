@@ -52,6 +52,7 @@ from coresight.schemas import (
     BreakKind,
     Correction,
     DescriptionField,
+    GateReason,
     GateResult,
     GeologyDescription,
     Interval,
@@ -83,10 +84,83 @@ class Analysis:
     runs: list[RunReview]
 
 
+PHOTO_FORMATS = "Upload a JPG, PNG or WebP photo of the core box."
+_OTHER_FORMATS = [  # magic bytes of files people upload by mistake, and what to say
+    ((b"GIF87a", b"GIF89a"), "a GIF"),
+    ((b"%PDF",), "a PDF document"),
+    ((b"II*\0", b"MM\0*"), "a TIFF file"),
+    ((b"BM",), "a BMP file"),
+]
+
+
+def _jpeg_size(data: bytes) -> tuple[int, int] | None:
+    """Width and height from the first SOF marker, without decoding the image."""
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF:
+            return None
+        marker = data[i + 1]
+        if marker == 0xFF:  # fill byte
+            i += 1
+            continue
+        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:  # no length
+            i += 2
+            continue
+        length = int.from_bytes(data[i + 2 : i + 4], "big")
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            h = int.from_bytes(data[i + 5 : i + 7], "big")
+            w = int.from_bytes(data[i + 7 : i + 9], "big")
+            return w, h
+        i += 2 + length
+    return None
+
+
+def photo_size(data: bytes) -> tuple[int, int]:
+    """Width and height of a JPG, PNG or WebP read from its header, before decoding.
+
+    A small file can declare a huge image (a decompression bomb): the size is
+    checked here so cv2 never allocates it. Anything else is refused with what
+    it looks like, so the message says what to do.
+    """
+    if len(data) < 32 and data.startswith((b"\xff\xd8", b"\x89PNG", b"RIFF")) or not data:
+        raise ReviewError(f"The file is empty or cut short. {PHOTO_FORMATS}")
+    size = None
+    if data[:3] == b"\xff\xd8\xff":
+        size = _jpeg_size(data)
+    elif data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+        size = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        chunk = data[12:16]
+        le = lambda a, b: int.from_bytes(data[a:b], "little")  # noqa: E731
+        if chunk == b"VP8X":
+            size = 1 + le(24, 27), 1 + le(27, 30)
+        elif chunk == b"VP8 ":
+            size = le(26, 28) & 0x3FFF, le(28, 30) & 0x3FFF
+        elif chunk == b"VP8L":
+            bits = le(21, 25)
+            size = (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+    elif data[4:8] == b"ftyp":
+        raise ReviewError("This is a HEIC photo (iPhone). Export it as JPG and upload it again.")
+    else:
+        for magics, what in _OTHER_FORMATS:
+            if data.startswith(magics):
+                msg = f"This is {what}, not a photo CoreSight can read. {PHOTO_FORMATS}"
+                raise ReviewError(msg)
+    if size is None:
+        raise ReviewError(f"The photo could not be read. {PHOTO_FORMATS}")
+    return size
+
+
 def decode_photo(data: bytes) -> np.ndarray:
+    w, h = photo_size(data)
+    if max(w, h) > MAX_PHOTO_SIDE_PX:
+        raise ReviewError(
+            f"The photo is {w} x {h} px; the limit is {MAX_PHOTO_SIDE_PX} px on a side. "
+            "Resize it (a phone photo at full size is fine)."
+        )
     image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
-    if image is None:
-        raise ReviewError("The photo could not be read. Upload a JPG or PNG of the core box.")
+    if image is None:  # the header was fine, the rest is damaged
+        raise ReviewError(f"The photo is damaged and could not be read. {PHOTO_FORMATS}")
     if max(image.shape[:2]) > MAX_PHOTO_SIDE_PX:
         raise ReviewError(f"The photo is larger than {MAX_PHOTO_SIDE_PX} px on a side.")
     if min(image.shape[:2]) < 400:
@@ -234,10 +308,12 @@ def analyze(
         trays = find_trays(image, box_length_cm, n_rows=n_rows, max_trays=tray_index + 1)
     except CalibrationError as exc:
         report.stage("calibration", status="failed", detail=f"No tray with {n_rows} rows found")
-        raise ReviewError(
-            f"No core tray with {n_rows} rows was found, so the photo has no scale. Take the photo"
-            " from above with the whole tray in view, the slats visible and no strong glare."
-        ) from exc
+        found = f"No core tray with {n_rows} rows was found, so the photo has no scale."
+        msg = (f"{found} Take the photo from above with the whole tray in view, the slats"
+               " visible and no strong glare.")  # fmt: skip
+        reason = GateReason(signal="calibration", value=0.0, detail=found)
+        report.gate(GateResult(ok=False, reasons=[reason], message=msg))  # the page says why
+        raise ReviewError(msg) from exc
     if tray_index >= len(trays):
         report.stage("calibration", status="failed", detail=f"Tray {tray_index + 1} not found")
         raise ReviewError(f"Tray {tray_index + 1} was not found in the photo.")

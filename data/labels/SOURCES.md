@@ -109,4 +109,5 @@ Use them and the photos only for evaluation (day 9), never in the deployed demo,
 | File | Source | License | Changes |
 |---|---|---|---|
 | `screenshot_glyphs.jpg` | Our own screenshot of the CoreSight visual guide (`outputs/models_glyphs.png`), the one a judge could upload | Ours | Resized to 1000 px wide |
+| `data/demo/not_a_core_box.jpg` | The same screenshot, served by the 60-second tour (`POST /api/tour/not-a-box`) so the gate refuses it live | Ours | Copy of `tests/data/screenshot_glyphs.jpg` |
 | `potter_closeup.jpg` | `commons_potter_27.jpg` above (James St. John) | CC BY 2.0 | Resized to 1000 px wide |

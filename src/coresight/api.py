@@ -24,6 +24,9 @@ approved one by one and is never sent.
 
 GET /api/holes/{hole_id} joins the approved boxes of one drill hole by depth
 (coresight.hole, numbers from geometry.log_hole): the hole view and its 3D.
+- CORESIGHT_OPS_TOKEN: opens GET /api/ops/usage and the /ops page (the credit
+  watch: calls, cache hits, tokens and 429s per model, what is left of each cap).
+  Unset, both answer 404.
 - META_API_KEY in .env, read by meta_client.
 
 The samples are public photos only (Onkalo, CC BY-SA 4.0, and Nevada Test Site,
@@ -35,12 +38,13 @@ from __future__ import annotations
 
 import base64
 import csv
+import hmac
 import io
 import os
 import threading
 import time
 import uuid
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
@@ -48,12 +52,14 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import cv2
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from coresight import agents, hole, review
 from coresight.labeling import PieceSheet, sheet_markers
+from coresight.meta_client import DEFAULT_CACHE_DIR, UsageLog, usage_summary
 from coresight.pipeline import export_csv
 from coresight.review import Analysis, ReviewError, ReviewStore
 from coresight.schemas import (
@@ -141,6 +147,10 @@ SAMPLES = {
         ),
     ]
 }
+
+
+SHOWCASE = "nevada-u12g-box3"  # the dramatic sample: poor rock, wax, cards (home and tour)
+NOT_A_BOX = ROOT / "data" / "demo" / "not_a_core_box.jpg"  # ours: the icon sheet of the page
 
 
 class Job(BaseModel):
@@ -255,18 +265,59 @@ class StoreReporter(review.Reporter):
 class RateLimit:
     """At most ``limit`` events in the last hour, shared by all visitors."""
 
-    def __init__(self, limit: int) -> None:
-        self.limit, self.events, self._lock = limit, deque(), threading.Lock()
+    def __init__(self, limit: int, window_s: float = 3600) -> None:
+        self.limit, self.window_s = limit, window_s
+        self.events, self._lock = deque(), threading.Lock()
+
+    def _drop_old(self, now: float) -> None:
+        while self.events and now - self.events[0] > self.window_s:
+            self.events.popleft()
+
+    def left(self) -> int:
+        with self._lock:
+            self._drop_old(time.monotonic())
+            return self.limit - len(self.events)
 
     def take(self, what: str) -> None:
         now = time.monotonic()
         with self._lock:
-            while self.events and now - self.events[0] > 3600:
-                self.events.popleft()
+            self._drop_old(now)
             if len(self.events) >= self.limit:
                 msg = f"The demo allows {self.limit} {what} per hour. Retry later."
                 raise HTTPException(429, msg)
             self.events.append(now)
+
+
+class VisitorLimit:
+    """At most ``limit`` uploads per visitor (client address) in ten minutes.
+
+    The hourly cap protects the credits; this one keeps one visitor who clicks
+    "Analyze" many times in a row from using the whole hour for everybody.
+    """
+
+    WINDOW_S = 600
+
+    def __init__(self, limit: int) -> None:
+        self.limit, self.events, self._lock = limit, {}, threading.Lock()
+
+    def take(self, visitor: str) -> None:
+        now = time.monotonic()
+        with self._lock:
+            for key in list(self.events):  # forget visitors gone quiet
+                kept = [t for t in self.events[key] if now - t <= self.WINDOW_S]
+                if kept:
+                    self.events[key] = kept
+                else:
+                    del self.events[key]
+            mine = self.events.setdefault(visitor, [])
+            if len(mine) >= self.limit:
+                wait = int(self.WINDOW_S - (now - mine[0])) // 60 + 1
+                raise HTTPException(
+                    429,
+                    f"You started {self.limit} analyses in 10 minutes. Wait {wait} min, or open a"
+                    " sample box meanwhile (they are already analysed).",
+                )
+            mine.append(now)
 
 
 def parse_runs(text: str) -> list[Interval]:
@@ -337,12 +388,15 @@ def create_app(
     handoff_runner: HandoffRunner = meta_handoffs,
     background: bool = True,
     sam_client: Callable[[], object] = meta_sam_client,
+    usage_path: Path = DEFAULT_CACHE_DIR / "usage.jsonl",
 ) -> FastAPI:
     store = store or ReviewStore(Path(os.getenv("CORESIGHT_DATA_DIR", ROOT / "data" / "reviews")))
     analyses = RateLimit(int(os.getenv("CORESIGHT_MAX_ANALYSES_PER_HOUR", "30")))
     dictations = RateLimit(int(os.getenv("CORESIGHT_MAX_DICTATIONS_PER_HOUR", "120")))
     handoff_runs = RateLimit(int(os.getenv("CORESIGHT_MAX_HANDOFFS_PER_HOUR", "30")))
     sam_points = RateLimit(int(os.getenv("CORESIGHT_MAX_SAM_POINTS_PER_HOUR", "300")))
+    sample_runs = RateLimit(int(os.getenv("CORESIGHT_MAX_SAMPLES_PER_HOUR", "200")))
+    visitors = VisitorLimit(int(os.getenv("CORESIGHT_MAX_ANALYSES_PER_VISITOR", "5")))
     pool = ThreadPoolExecutor(max_workers=2)
     edit_lock = threading.Lock()
 
@@ -361,6 +415,12 @@ def create_app(
     async def review_error(_: Request, exc: ReviewError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
+    @app.exception_handler(RequestValidationError)
+    async def bad_field(_: Request, exc: RequestValidationError) -> JSONResponse:
+        """'box_number: Input should be greater than or equal to 1', one sentence per field."""
+        parts = [f"{e['loc'][-1]}: {e['msg']}" for e in exc.errors()]
+        return JSONResponse({"detail": ". ".join(parts) + "."}, status_code=422)
+
     def run_job(box_id: str, photo: bytes, job: Job) -> None:
         box = store.get(box_id)
         try:
@@ -374,9 +434,16 @@ def create_app(
             box.error = f"The analysis failed ({type(exc).__name__}: {str(exc)[:200]}). Retry."
         store.save(box)
 
-    def start(photo: bytes, job: Job, hole_id: str, box_number: int, source: str) -> BoxReview:
+    def start(
+        photo: bytes, job: Job, hole_id: str, box_number: int, source: str, visitor: str | None
+    ) -> BoxReview:
+        """``visitor`` None: a sample (cached answers, its own larger cap)."""
         review.decode_photo(photo)  # a bad photo fails now, not in the background
-        analyses.take("analyses")
+        if visitor is None:
+            sample_runs.take("sample analyses")
+        else:
+            visitors.take(visitor)
+            analyses.take("analyses")
         box = BoxReview(
             id=uuid.uuid4().hex[:12],
             hole_id=hole_id,
@@ -406,6 +473,60 @@ def create_app(
             store.save(box)
             return box
 
+    @app.get("/api/ops/usage")
+    def ops_usage(x_ops_token: Annotated[str | None, Header()] = None) -> dict:
+        """The credit watch, for us and not for the judges: CORESIGHT_OPS_TOKEN in the header.
+
+        Without the setting the route does not exist (404), so nobody finds it by trying.
+        """
+        token = os.getenv("CORESIGHT_OPS_TOKEN")
+        if not token:
+            raise HTTPException(404, "Not Found")
+        if not x_ops_token or not hmac.compare_digest(x_ops_token.encode(), token.encode()):
+            raise HTTPException(403, "Wrong token.")
+        boxes = store.all()
+        caps = {"analyses": analyses, "sample analyses": sample_runs, "dictations": dictations,
+                "agent runs": handoff_runs, "SAM taps": sam_points}  # fmt: skip
+        return {
+            "usage": usage_summary(UsageLog(usage_path).entries()),
+            "limits": {k: {"per_hour": v.limit, "left": v.left()} for k, v in caps.items()},
+            "boxes": dict(Counter(b.status for b in boxes)),
+            "uploads": sum(b.source == "upload" for b in boxes),
+        }
+
+    @app.get("/ops")
+    def ops_page() -> FileResponse:
+        return FileResponse(WEB_DIR / "ops.html", headers={"X-Robots-Tag": "noindex"})
+
+    @app.get("/api/showcase")
+    def showcase() -> dict:
+        """What the home page and the 60-second tour show: real boxes, never made up.
+
+        box: the newest box of the showcase sample with pieces (any status but failed);
+        agents_box: the newest approved sample box whose agents finished, one with a hole
+        finding first; hole_id: its hole. Uploads are never shown to other visitors.
+        """
+        title = SAMPLES[SHOWCASE].title
+        samples = [b for b in store.all() if b.source != "upload" and b.status != "failed"]
+        mine = [b for b in samples if b.source.startswith(title) and b.runs]
+        finished = [b for b in samples if b.status == "approved" and b.handoffs
+                    and b.handoffs.status == "done"]  # fmt: skip
+        finished.sort(key=lambda b: bool(b.handoffs.hole and b.handoffs.hole.finding), reverse=True)
+        agents_box = finished[0] if finished else None
+        return {
+            "box": mine[0].id if mine else None,
+            "agents_box": agents_box.id if agents_box else None,
+            "hole_id": agents_box.hole_id if agents_box else None,
+        }
+
+    @app.post("/api/tour/not-a-box", status_code=202)
+    def tour_not_a_box() -> BoxReview:
+        """The tour's first step: CoreSight refuses a screenshot, live (calibration, no model)."""
+        job = Job(box_length_cm=100, runs=[Interval(from_m=1, to_m=2)], first_starts_in_box=True,
+                  tray_index=0)  # fmt: skip
+        source = "Tour: a screenshot of CoreSight's own icon sheet, not a core box"
+        return start(NOT_A_BOX.read_bytes(), job, "NOT-A-CORE-BOX", 1, source, None)
+
     @app.get("/api/health")
     def health() -> dict:
         return {"ok": True}
@@ -434,10 +555,11 @@ def create_app(
             context={"hole_id": label.hole_id, "box": label.box_number},
         )
         photo = (ROOT / s.photo).read_bytes()
-        return start(photo, job, label.hole_id, label.box_number, f"{s.title}. {s.credit}")
+        return start(photo, job, label.hole_id, label.box_number, f"{s.title}. {s.credit}", None)
 
     @app.post("/api/boxes", status_code=202)
     async def analyze_upload(
+        request: Request,
         photo: Annotated[UploadFile, File()],
         hole_id: str = Form(..., min_length=1, max_length=60),
         box_number: int = Form(..., ge=1),
@@ -458,7 +580,10 @@ def create_app(
             n_rows=n_rows,
             context={"hole_id": hole_id, "box": box_number},
         )
-        return start(data, job, hole_id, box_number, "upload")
+        # nginx sets X-Real-IP to the address it saw (X-Forwarded-For can be forged)
+        visitor = request.headers.get("x-real-ip") or (request.client and request.client.host)
+        visitor = visitor or "unknown"
+        return start(data, job, hole_id, box_number, "upload", visitor)
 
     @app.get("/api/boxes")
     def list_boxes() -> list[dict]:

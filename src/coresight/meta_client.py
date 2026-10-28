@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -293,6 +294,75 @@ def sam_cache_key(image_png: bytes, prompt: str) -> str:
     return h.hexdigest()
 
 
+class UsageLog:
+    """Every request to Meta Model API and every answer read from the cache instead.
+
+    One JSON line each in ``<cache_dir>/usage.jsonl`` (the cache volume in
+    production), read by the credit watch (GET /api/ops/usage). Only the model,
+    the status, the seconds and the tokens: never a prompt, an image or the key.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self._lock = threading.Lock()
+
+    def add(self, model: str, **fields) -> None:
+        entry = {"at": round(time.time(), 1), "model": model, **fields}
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+
+    def entries(self) -> list[dict]:
+        if not self.path.exists():
+            return []
+        with self._lock:
+            lines = self.path.read_text(encoding="utf-8").splitlines()
+        out = []
+        for line in lines:
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError:  # a line cut by a crash: skip it
+                continue
+        return out
+
+
+def usage_summary(entries: list[dict], now: float | None = None) -> dict:
+    """Calls, cache hits, errors, tokens and seconds per model, last hour / 24 h / all."""
+    now = time.time() if now is None else now
+    windows = {"hour": 3600, "day": 86400, "all": float("inf")}
+    out: dict = {}
+    for name, span in windows.items():
+        models: dict = {}
+        for e in entries:
+            if now - e["at"] > span:
+                continue
+            m = models.setdefault(e["model"], {"calls": 0, "cached": 0, "errors": 0,
+                                               "rate_limited": 0, "input_tokens": 0,
+                                               "output_tokens": 0, "seconds": 0.0})  # fmt: skip
+            if e.get("cached"):
+                m["cached"] += 1
+                continue
+            m["calls"] += 1
+            status = e.get("status", 200)
+            m["errors"] += status >= 400
+            m["rate_limited"] += status == 429
+            m["input_tokens"] += e.get("input_tokens") or 0
+            m["output_tokens"] += e.get("output_tokens") or 0
+            m["seconds"] = round(m["seconds"] + (e.get("seconds") or 0), 1)
+        out[name] = models
+    return out
+
+
+def _request_model(request: httpx.Request) -> str:
+    if request.url.path.endswith(TRANSCRIBE_PATH):
+        return VOICE_MODEL_ID
+    try:
+        return json.loads(request.content).get("model", "unknown")
+    except (ValueError, AttributeError):
+        return "unknown"
+
+
 class MetaClient:
     def __init__(
         self,
@@ -313,12 +383,39 @@ class MetaClient:
         self._sleep = sleep
         if not self.api_key:
             raise RuntimeError("META_API_KEY must be set in .env")
+        self.usage = UsageLog(Path(cache_dir) / "usage.jsonl") if cache_dir else None
         self._http = httpx.Client(
             base_url=self.base_url,
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=180,
             transport=transport,
+            event_hooks={"request": [self._started], "response": [self._answered]},
         )
+
+    def _started(self, request: httpx.Request) -> None:
+        request.extensions["coresight_t0"] = time.perf_counter()
+
+    def _answered(self, response: httpx.Response) -> None:
+        """The credit watch: one line per request that reached the API."""
+        if self.usage is None:
+            return
+        request = response.request
+        model = _request_model(request)
+        tokens: dict = {}
+        if model != SAM_MODEL_ID and response.status_code < 400:  # SAM streams: no body yet
+            response.read()
+            try:
+                usage = response.json().get("usage") or {}
+                tokens = {k: usage.get(k) for k in ("input_tokens", "output_tokens")}
+            except (ValueError, AttributeError):
+                pass
+        t0 = request.extensions.get("coresight_t0")
+        seconds = round(time.perf_counter() - t0, 2) if t0 else None
+        self.usage.add(model, status=response.status_code, seconds=seconds, **tokens)
+
+    def _hit(self, model: str) -> None:
+        if self.usage is not None:
+            self.usage.add(model, cached=True)
 
     def _with_retries(self, call: Callable[[], str]) -> str:
         """Run ``call``; on a transient failure wait backoff_s * 2**attempt and retry."""
@@ -341,6 +438,7 @@ class MetaClient:
         if self.cache_dir is not None:
             path = Path(self.cache_dir) / "sam" / f"{sam_cache_key(image_png, prompt)}.txt"
             if path.exists():
+                self._hit(SAM_MODEL_ID)
                 return path.read_text(encoding="utf-8")
         text = self._with_retries(lambda: self._sam_request(image_png, prompt))
         if path is not None:
@@ -418,9 +516,16 @@ class MetaClient:
                 raise error(f"Muse Spark {resp.status_code}: {resp.text}")
             return _output_text(resp.json())
 
-        return cached_description(
-            self.cache_dir, self.model, prompt, image_png, lambda: self._with_retries(call)
-        )
+        fetched = []
+
+        def fetch() -> str:
+            fetched.append(True)
+            return self._with_retries(call)
+
+        description = cached_description(self.cache_dir, self.model, prompt, image_png, fetch)
+        if not fetched:
+            self._hit(MUSE_SPARK_MODEL_ID)
+        return description
 
     def check_tray(self, image_png: bytes) -> TrayCheck:
         """Muse Spark on the whole photo: is it a core tray at all? (the input gate).
@@ -433,6 +538,7 @@ class MetaClient:
         ).hexdigest()
         path = self.cache_dir / "tray_check" / f"{name}.json" if self.cache_dir else None
         if path and path.exists():
+            self._hit(MUSE_SPARK_MODEL_ID)
             return TrayCheck.model_validate_json(path.read_text(encoding="utf-8"))
         body = {
             "model": MUSE_SPARK_MODEL_ID,
@@ -480,6 +586,7 @@ class MetaClient:
         ).hexdigest()
         path = self.cache_dir / "locate" / f"{name}.json" if self.cache_dir else None
         if path and path.exists():
+            self._hit(MUSE_SPARK_MODEL_ID)
             return RowLocation.model_validate_json(path.read_text(encoding="utf-8"))
         body = {
             "model": MUSE_SPARK_MODEL_ID,
@@ -525,6 +632,7 @@ class MetaClient:
         key = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
         path = self.cache_dir / "responses" / f"{key}.json" if self.cache_dir else None
         if path and path.exists():
+            self._hit(body.get("model", "unknown"))
             return json.loads(path.read_text(encoding="utf-8"))
 
         def call() -> str:

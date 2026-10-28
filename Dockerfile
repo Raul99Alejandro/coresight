@@ -16,6 +16,7 @@ COPY data/labels/ONK-DTPH5.1_box05.json data/labels/ONK-DTPH5.1_box06.json data/
 COPY data/labels/pieces/ONK-DTPH5.1_box05.json data/labels/pieces/ONK-DTPH5.1_box06.json data/labels/pieces/U12G-GF-GT2_box01.json data/labels/pieces/U12G-GF-GT2_box03.json ./data/labels/pieces/
 COPY data/raw/commons_onkalo_1.jpg data/raw/commons_nts_u12g_1.jpg data/raw/commons_nts_u12g_2.jpg ./data/raw/
 COPY data/prices_example.json ./data/
+COPY data/demo/not_a_core_box.jpg ./data/demo/
 
 RUN mkdir -p /app/data/reviews /app/data/cache && chown -R coresight /app/data
 USER coresight

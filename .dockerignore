@@ -15,5 +15,6 @@
 !data/raw/commons_nts_u12g_1.jpg
 !data/raw/commons_nts_u12g_2.jpg
 !data/prices_example.json
+!data/demo/not_a_core_box.jpg
 **/__pycache__
 **/*.egg-info
