@@ -19,7 +19,7 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | 4. Description: lithology, alteration, mineralization, anomaly flags | `pipeline.describe`, `meta_client` | Muse Spark, Pydantic-validated JSON |
 | 5. Review: geologist corrects breaks, pieces and descriptions by typing, by voice or by tapping the photo (SAM 3.1 point prompts); numbers are recalculated by the geometry engine; corrections are kept next to the original; CSV export | `api.py`, `review.py`, `web/index.html` | FastAPI, Muse Voice Transcribe, SAM 3.1 |
 | 6. Hole view: the approved boxes of one drill hole joined by depth; RQD, TCR, fracture frequency and Deere class by run and by 1 m interval; gaps and overlaps between boxes; weak zones; a 3D of the hole | `hole.py`, `geometry.log_hole`, `web/index.html` | Deterministic Python, three.js |
-| 7. Area agents: an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each agent drafts, a human approves | `pipeline.draft_handoffs` | Muse Wonder (orchestrator), Muse Spark with tools |
+| 7. Agents: a hole agent reads the trends between boxes and proposes an action; an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each area agent drafts; every step is verified by code and by Muse Spark as a judge; a human approves | `agents.py`, `verify.py`, `hole.hole_trends` | Muse Wonder (orchestrator), Muse Spark with tools and as a judge |
 
 Stage 4 can also run on Muse Glimmer on the mine's own hardware (offline mode), with the same validated output.
 
@@ -123,6 +123,26 @@ The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These four commits were
 
 Not built before kickoff: calibration, SAM segmentation of rows into pieces, wiring the geometry engine to real photos, Muse Spark descriptions and anomaly flags, the review UI and CSV export, the lab and safety hand-offs, the evaluation, and the demo.
 
+## Agents
+
+When the geologist approves a box, three kinds of agents run, each with a closed list of read-only tools. None of them can send or change anything.
+
+1. **Hole agent** (Muse Spark). Code first finds the trends along the hole that reach this box (`hole.hole_trends`): an RQD drop from the box above, a weak zone of the hole log, a change of rock at the contact, sulfides that appear or end. Every number comes from `geometry.py`. The agent reads them with its tools and proposes one action from a closed list: ask for oriented core, warn geotechnics before the next run, sample across the contact, or none.
+2. **Orchestrator** (Muse Wonder, Muse Spark as plan B). It reads the box, the hole and the hole agent's finding and decides which areas should hear about the box, and why. Its prompt says what each area does and holds no routing rules.
+3. **Area agents** (Muse Spark): lab, safety and geotechnics, plant and finance write drafts with their own tools.
+
+How it is verified, in the words of Meta's Agents 102 workshop:
+
+- **Mandatory verification inside the submit step.** Verification is not a tool the agent may call. Every submission (`submit_finding`, `route_box`, `submit_draft`) goes through it before anyone sees the result.
+- **Verify at milestones.** The hole agent's finding is checked before the orchestrator reads it. The routing is checked before any area agent writes (`verify.check_routing`): the areas chosen must agree with what code knows about the box. Safety must apply when a drop or a weak zone reaches the box and cannot apply on good rock with no trend; lab must apply when the approved description shows sulfides; finance applies exactly when lab does. Everything the record leaves open is the orchestrator's call. Every draft is checked before a person sees it.
+- **Deterministic checks plus LLM as a judge.** First `verify.py`: intervals inside the box, figures equal to `geometry.py`, every number in the text traceable to a tool or a trend, prices from the table. Then, only if those pass, Muse Spark as a judge checks every text claim against the record the geologist approved ("visible sulfides" only if the description shows them), with a Pydantic-validated verdict per claim. The judge never runs on, and so never passes, what `verify.py` rejected.
+- **Max three attempts, then escalate to a human.** A failure goes back to the agent with the reasons of both layers. After three attempts the draft reaches the person marked "Needs review" with why; the routing stops and nobody drafts.
+- **Final human sign-off.** Even a verified draft waits for the geologist's approval, and approving only marks it in CoreSight: there is no outbound channel. A draft that failed three times can only be approved explicitly, and the log says so.
+- **Closed tool list.** Each agent sees only its own read-only tools; any other tool name is refused.
+- **The cost of verifying, shown.** The decision log says, in sentences, how many attempts and model turns each step took and how many seconds went to writing and to verifying (code and judge).
+
+Meta's Agents Rule of Two: the agents read model output about the photo and private mine data, and hold no tool that changes state or communicates outside.
+
 ## Built with Muse Code
 
 Five pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
@@ -153,7 +173,7 @@ The models work together. Where SAM 3.1 finds nothing with the phrase "stone", M
 The unit is a drill hole, not a photo. Approved boxes of the same hole join into one log by depth (`geometry.log_hole`): RQD, TCR, fracture frequency and Deere class by run and by 1 m interval, gaps and overlaps between boxes flagged, and weak zones (two or more consecutive 1 m intervals below RQD 50) marked. The hole view shows it as a depth column and in 3D. No public hole has a downhole survey, so the 3D uses an example orientation and says so on screen. Demo holes: Onkalo ONK-DTPH5.1 boxes 5 and 6, and Nevada U12G-GF-GT#2 boxes 1 and 3 (box 2 is not public and shows as a gap). A read-only `hole_log` tool gives the agents the hole by depth.
 
 Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
-In progress: the area agents (stage 6): orchestrator, four drafting agents and the verifier are built and tested with a simulated API. Day-by-day plan in `docs/PLAN.md`.
+The agents look at the hole, not only the box: approving a box that sits under better rock gives a trend alert from the hole agent, a verified routing and a safety draft verified in two layers (see Agents). Day-by-day plan in `docs/PLAN.md`.
 
 ## License
 

@@ -536,7 +536,9 @@ JUDGE_ROLE = (
     "zone) is backed when the record shows what it rests on (a weak zone, intense "
     "fracturing, a drop in RQD). Be strict: what the record does not state is not "
     "backed (for example 'visible sulfides' needs a description that shows sulfides). "
-    "Then call submit_verdict."
+    "Write each claim and its evidence in plain words for the geologist (\"run 2 "
+    "description: no visible mineralization\"), never field names, quotes of JSON or "
+    "code. Then call submit_verdict."
 )
 
 

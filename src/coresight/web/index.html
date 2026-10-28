@@ -437,6 +437,10 @@ button.metric:hover{background:var(--fill-2)}
 .judge .ch i{flex:none;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:10.5px;font-weight:700;color:#fff;background:var(--ok);margin-top:2px}
 .judge .ch.bad i{background:var(--bad)}
 .judge .ch small{color:var(--ink-3)}
+.judge summary{list-style:none;cursor:pointer}
+.judge summary::-webkit-details-marker{display:none}
+.judge summary small{margin-left:auto;text-decoration:underline}
+.judge[open] summary small{display:none}
 .effort{font-size:12.5px;color:var(--ink-3)}
 .review{padding:10px 12px;border-radius:12px;background:var(--bad-soft);font-size:13px;color:var(--ink)}
 .review b{color:var(--bad)}
@@ -695,8 +699,10 @@ function judgeHTML(d) {
   if (!d.checks.length) return "";
   if (!d.judge) return d.checks.every((c) => c.ok) ? "" : `<div class="judge"><div class="ct">${glyph("spark", 13)}2. Muse Spark as a judge: not run, the code checks failed first</div></div>`;
   const ok = d.judge.claims.filter((c) => c.supported).length;
-  return `<div class="judge"><div class="ct">${glyph("spark", 13)}2. Muse Spark as a judge: ${ok} of ${d.judge.claims.length} claims backed by the approved record</div>
-    ${d.judge.claims.map((c) => `<div class="ch ${c.supported ? "" : "bad"}"><i>${c.supported ? "✓" : "!"}</i><span>${esc(c.claim)} <small>${esc(c.evidence)}</small></span></div>`).join("")}</div>`;
+  const head = `${glyph("spark", 13)}2. Muse Spark as a judge: ${ok} of ${d.judge.claims.length} claims backed by the approved record`;
+  const claims = d.judge.claims.map((c) => `<div class="ch ${c.supported ? "" : "bad"}"><i>${c.supported ? "✓" : "!"}</i><span>${esc(c.claim)} <small>${esc(c.evidence)}</small></span></div>`).join("");
+  if (ok === d.judge.claims.length) return `<details class="judge"><summary class="ct">${head}<small>show the claims</small></summary>${claims}</details>`;
+  return `<div class="judge"><div class="ct">${head}</div>${claims}</div>`;
 }
 function effortHTML(e, judged = true) {
   if (!e || !e.attempts) return "";
