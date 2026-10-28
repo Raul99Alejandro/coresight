@@ -18,7 +18,8 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | 3. Geometry: piece lengths, RQD, fracture frequency, recovery | `geometry.py` | Deterministic Python, no LLM |
 | 4. Description: lithology, alteration, mineralization, anomaly flags | `pipeline.describe`, `meta_client` | Muse Spark, Pydantic-validated JSON |
 | 5. Review: geologist corrects breaks, pieces and descriptions by typing, by voice or by tapping the photo (SAM 3.1 point prompts); numbers are recalculated by the geometry engine; corrections are kept next to the original; CSV export | `api.py`, `review.py`, `web/index.html` | FastAPI, Muse Voice Transcribe, SAM 3.1 |
-| 6. Area agents: an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each agent drafts, a human approves | `pipeline.draft_handoffs` | Muse Wonder (orchestrator), Muse Spark with tools |
+| 6. Hole view: the approved boxes of one drill hole joined by depth; RQD, TCR, fracture frequency and Deere class by run and by 1 m interval; gaps and overlaps between boxes; weak zones; a 3D of the hole | `hole.py`, `geometry.log_hole`, `web/index.html` | Deterministic Python, three.js |
+| 7. Area agents: an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each agent drafts, a human approves | `pipeline.draft_handoffs` | Muse Wonder (orchestrator), Muse Spark with tools |
 
 Stage 4 can also run on Muse Glimmer on the mine's own hardware (offline mode), with the same validated output.
 
@@ -124,7 +125,7 @@ Not built before kickoff: calibration, SAM segmentation of rows into pieces, wir
 
 ## Built with Muse Code
 
-Four pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
+Five pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
@@ -132,7 +133,13 @@ Four pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against t
   - Round 3 (session `01a17f99-9b2b-7bd3-91e8-c08bf9dd5502`): runs numbered from 1 and failed checks explained in words.
 - `src/coresight/gate.py`, the input gate that refuses a photo that is not a core tray before anything is measured (session `01a17f99-8f2a-7be0-9d5a-d4e1efe7b717`). Spec: `tests/test_gate.py`.
 - `sam_prompt` and `grid_box_to_pixels` in `src/coresight/meta_client.py`, the builder of SAM 3.1 box and point prompts: our boxes and the geologist's taps become `<|box;...|>` and `<|point;...|>` tokens, with `w` and `h` of the image sent, at most 16 objects and whole pixels inside the image; Muse Spark's 0 to 1000 grid becomes an inclusive pixel box (session `01a17fc6-f402-7be3-981a-3577dbf7c4c5`). Spec: `tests/test_sam_prompts.py`, from the examples of the SAM docs and our smoke test.
-- Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`.
+- `pieces_at_depth` and `log_hole` in `src/coresight/geometry.py`, the drill hole by depth: boxes joined, gaps and overlaps, runs split between two boxes joined, RQD, TCR and fractures by run and by fixed interval, weak zones. Spec: `tests/test_hole.py`. The first piece with a builder and a reviewer, as Meta's Agents 102 workshop recommends:
+  - Builder, round 1 (session `01a183d3-a60a-74c3-b5ab-dd720838a11d`): all 29 tests green.
+  - Reviewer (session `01a183db-f694-7060-b8de-67eb8f826b4e`), a second Muse Code session with `--disable-write`: found real errors the tests missed (a natural break exactly on an interval boundary was lost; a box inside another gave a false gap; slivers at the edge lost core; overlapping runs of one box went through). We turned them into 13 new tests; we did not fix them by hand.
+  - Builder, round 2 (session `01a183e5-86e3-7391-89d7-257f02ae3408`): all 41 tests green. Fractures and recovered core now add up the same by run and by interval.
+  - Second reviewer (session `01a183ee-17c2-7872-965a-26e7a5a56b8d`): four more (rounding overlaps between runs of one box crashed, a gap inside a box got an interval with RQD 0, lost core between rejoined pieces counted as core, a break on a `3 * 0.3` boundary fell one interval low). Four new tests.
+  - Builder, round 3 (session `01a183f8-64f7-76f3-9315-8faf5fe87a2d`): all 46 tests green. Traces `hole-1` to `hole-3` and `hole-review-1` and `-2`.
+- Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`. Reviewers also run with `--disable-write`.
 - Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
 - Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
 - About `"model": "muse-spark-1.3-contributor"` in `verify-1.json` and `verify-2.json`: that is the model id Muse Code picks by default on this account when no `--model` is given. It is a catalog model, not the contributor mode: `--contributor-mode off` was set on every run and is a separate setting. We checked it with `muse model-profile show` and two one-line runs, one without `--model` (reports `muse-spark-1.3-contributor`) and one with `--model muse-spark-1.3` (reports `muse-spark-1.3`). From the gate on, every run passes `--model muse-spark-1.3`, and the traces say so.
@@ -142,6 +149,8 @@ Four pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against t
 Before measuring anything, an input gate checks three signals: how clearly calibration found the tray slats, Muse Spark's look at the whole photo (`is_core_tray`, validated with Pydantic) and the SAM 3.1 confidence. A screenshot, a selfie or core without a tray is refused with a clear message instead of getting an RQD.
 
 The models work together. Where SAM 3.1 finds nothing with the phrase "stone", Muse Spark boxes the core pieces of the row and SAM cuts them with those boxes. In the review, the geologist taps a piece on the photo: the tap goes to SAM 3.1 as a point prompt (a second tap marked "Not the piece" is a negative point), the piece is measured on the mask SAM returns, `geometry.py` recomputes the run, and the correction is kept with the source `sam-point` in the history and the CSV. It takes 3 to 4 s per tap; Split by hand stays as the fallback.
+
+The unit is a drill hole, not a photo. Approved boxes of the same hole join into one log by depth (`geometry.log_hole`): RQD, TCR, fracture frequency and Deere class by run and by 1 m interval, gaps and overlaps between boxes flagged, and weak zones (two or more consecutive 1 m intervals below RQD 50) marked. The hole view shows it as a depth column and in 3D. No public hole has a downhole survey, so the 3D uses an example orientation and says so on screen. Demo holes: Onkalo ONK-DTPH5.1 boxes 5 and 6, and Nevada U12G-GF-GT#2 boxes 1 and 3 (box 2 is not public and shows as a gap). A read-only `hole_log` tool gives the agents the hole by depth.
 
 Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
 In progress: the area agents (stage 6): orchestrator, four drafting agents and the verifier are built and tested with a simulated API. Day-by-day plan in `docs/PLAN.md`.

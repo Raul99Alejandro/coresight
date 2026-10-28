@@ -9,7 +9,7 @@ Reglas del VPS (`centro-de-mando/vault/analizac/_empresa/despliegue.md`):
 - Imágenes construidas en la PC y subidas con `docker save -o`, `scp` y `docker load -i` (Actions sigue bloqueado). Llevan `vps.keep=true` para que el prune nocturno no las borre.
 - `META_API_KEY` vive solo en `/etc/coresight.env` (modo 600), nunca en git ni en la imagen.
 
-La imagen solo lleva fotos públicas (Onkalo, Commons, CC BY-SA 4.0). El Kaggle (NC) no entra: `.dockerignore` es una lista blanca.
+La imagen solo lleva fotos públicas (Onkalo, Commons, CC BY-SA 4.0; Nevada U12G cajas 1 y 3, DOE, dominio público). El Kaggle (NC) no entra: `.dockerignore` es una lista blanca.
 
 ## Una sola vez
 1. DNS: registro A `coresight` -> IP del VPS en hPanel (analizac.com no tiene wildcard).
