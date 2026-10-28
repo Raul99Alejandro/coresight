@@ -1,0 +1,78 @@
+{
+ "tool": "Muse Code Muse Code 1.4.14",
+ "command": "muse exec --contributor-mode off --disable-write --disable-approval --model muse-spark-1.3 --max-model-steps 30 --json --prompt-file <prompt>",
+ "session_id": "01a18468-a270-7d61-8d57-23efb2b49741",
+ "model": "muse-spark-1.3",
+ "model_calls": 11,
+ "usage": {
+  "input_tokens": 522874,
+  "cached_tokens": 445034,
+  "output_tokens": 23160,
+  "calls": 11
+ },
+ "prompt": "You are reviewing code, not writing it. Do not edit any file.\n\nReview `mae_of`, `fit`, `leave_one_box_out` and `learning_curve` (and the private helpers next to them) in `src/coresight/learning.py` for correctness. Another Muse Code session wrote them against the tests in `tests/test_learning.py`, and all tests pass. Your job is to find what the tests do not catch.\n\nContext:\n- CoreSight turns photos of drill core trays into a geotechnical log reviewed by a geologist. Segmentation cuts a piece where a thin dark line crosses the core; two thresholds (`min_contrast`, `min_crossing`) decide when. The geologist's corrections give the true RQD of each corrected run. A script (`scripts/learn_thresholds.py`) segments every corrected box with every candidate pair, computes RQD with geometry.py and passes the errors to this module, which picks the pair a site should use and measures it with cross-validation by box (runs of one box share a photo, so a box is never in training and test at once).\n- The result goes in a public report and a chart: \"after n corrected runs the held-out RQD error goes from X to Y\". A bug that leaks a test box into training, or that scores the wrong candidate, would make that claim false.\n- Read in this order: the docstring of `tests/test_learning.py` (the rules), `src/coresight/learning.py`, the tests, then `scripts/learn_thresholds.py` (how production calls it).\n\nLook for:\n1. Leakage: any path where a run of the held-out box influences the fitted candidate, in `leave_one_box_out` or `learning_curve`.\n2. Ties: MAE or distance ties that float rounding breaks the wrong way, or an order that depends on dict or set iteration.\n3. Missing data: a candidate that lacks a run, a default absent from the errors, duplicate RunError rows for the same run and candidate, boxes with no complete runs. What raises, what silently passes, what should happen per the docstring.\n4. Non-finite errors: a NaN or inf that slips through without raising, or one that raises where the rules say it should not matter.\n5. The learning curve: the order of corrections, n beyond a fold's training runs, pooling over held-out runs, and whether the n = 0 point equals the default.\n6. Anything in `scripts/learn_thresholds.py` that misuses these functions or would make the report claim more than the numbers show.\n\nFor each finding give: the function and line, a concrete input, what the code returns, what it should return and why (cite the rule in the docstring). Say how sure you are. If something is a design choice the docstring states, it is not a bug.\n\nRules:\n- Read only. Do not edit, create or delete any file. Do not run git.\n- Do not read or print `.env` or anything under `data/cache` or `data/reviews`. Do not make network calls.\n- If you cannot run Python, reason from the code and say so.\n\nReply with: a one-line verdict (no real errors / real errors found), then the findings, most severe first.\n",
+ "steps": [
+  {
+   "tool": "read_file",
+   "result": "Read text file `tests/test_learning.py`.\n1|\"\"\"The learning loop (point F): the spec coresight.learning is built to.\n2|\n3|The geologist's corrections give, for every corrected run, its true RQD. The\n4|caller segments each box with every candidate pair of profile thresholds\n5|(min_contrast, min_crossing) and computes RQD with geometry.py; this module\n6|only receives the errors (RQD found - RQD after ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/learning.py`.\n1|\"\"\"The learning loop (point F): a site's corrections tune its profile thresholds.\n2|\n3|The profile layer of segmentation cuts a piece where a thin dark line crosses\n4|the core; each such cut is an uncertain break, counted as natural. Two\n5|thresholds decide when a dip becomes a cut (segmentation.ProfileThresholds):\n6|``min_contrast`` (how dark) and ``m ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `scripts/learn_thresholds.py`.\n1|\"\"\"The learning loop, measured (point F): do a site's corrections lower the RQD error?\n2|\n3|The geologist's corrections give each corrected run its true RQD. Here our\n4|hand labels of the public boxes play that role (Onkalo boxes 5 and 6, Nevada\n5|U12G boxes 1 and 3: the same labels as outputs/eval). The Kaggle set (NC) is\n6|never used: not to fit, n ..."
+  },
+  {
+   "tool": "search",
+   "result": ""
+  },
+  {
+   "tool": "search",
+   "result": ""
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `data/labels/ONK-DTPH5.1_box05.json`.\n1|{\n2|  \"hole_id\": \"ONK-DTPH5.1\",\n3|  \"box_number\": 5,\n4|  \"image\": \"data/raw/commons_onkalo_1.jpg\",\n5|  \"runs\": [\n6|    {\n7|      \"from_m\": 17.94,\n8|      \"to_m\": 20.71,\n9|      \"rqd_pct\": 98.3,\n10|      \"tcr_pct\": 100.0,\n11|      \"natural_fractures\": 10\n12|    },\n13|    {\n14|      \"from_m\": 20.71,\n15|      \"to_m\": 22.6,\n16|      \"rqd_pct\": 99. ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `data/labels/ONK-DTPH5.1_box06.json`.\n1|{\n2|  \"hole_id\": \"ONK-DTPH5.1\",\n3|  \"box_number\": 6,\n4|  \"image\": \"data/raw/commons_onkalo_1.jpg\",\n5|  \"runs\": [\n6|    {\n7|      \"from_m\": 22.6,\n8|      \"to_m\": 23.66,\n9|      \"rqd_pct\": 91.6,\n10|      \"tcr_pct\": 100.0,\n11|      \"natural_fractures\": 2\n12|    },\n13|    {\n14|      \"from_m\": 23.66,\n15|      \"to_m\": 26.7,\n16|      \"rqd_pct\": 100.0 ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/segmentation.py`.\n1|\"\"\"Stage 2, segmentation: pieces of core along one straightened row, in cm.\n2|\n3|Four methods, each a layer on the previous one, measurable for the ablation\n4|(docs/PLAN.md, day 9):\n5|\n6|- ``\"sam\"``: SAM 3.1 masks for the prompt \"stone\". Each mask becomes an\n7|  interval along the row; depth markers (magenta foam), slivers and objects\n8|  lying ins ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `data/labels/U12G-GF-GT2_box01.json`.\n1|{\n2|  \"hole_id\": \"U12G-GF-GT2\",\n3|  \"box_number\": 1,\n4|  \"image\": \"data/raw/commons_nts_u12g_1.jpg\",\n5|  \"runs\": [\n6|    {\n7|      \"from_m\": 0.0,\n8|      \"to_m\": 1.524,\n9|      \"rqd_pct\": 23.6,\n10|      \"tcr_pct\": 48.5,\n11|      \"natural_fractures\": 11\n12|    },\n13|    {\n14|      \"from_m\": 1.524,\n15|      \"to_m\": 3.078,\n16|      \"rqd_pct\": 15. ..."
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `data/labels/U12G-GF-GT2_box03.json`.\n1|{\n2|  \"hole_id\": \"U12G-GF-GT2\",\n3|  \"box_number\": 3,\n4|  \"image\": \"data/raw/commons_nts_u12g_2.jpg\",\n5|  \"runs\": [\n6|    {\n7|      \"from_m\": 5.791,\n8|      \"to_m\": 6.126,\n9|      \"rqd_pct\": 0.0,\n10|      \"tcr_pct\": 100.0,\n11|      \"natural_fractures\": 6\n12|    },\n13|    {\n14|      \"from_m\": 6.126,\n15|      \"to_m\": 7.65,\n16|      \"rqd_pct\": 23. ..."
+  },
+  {
+   "tool": "search",
+   "result": "src\\coresight\\pipeline.py:82:def build_logs("
+  },
+  {
+   "tool": "read_file",
+   "result": "Read text file `src/coresight/pipeline.py`.\n(59 line(s) above)\n60|    A ``spark+`` method prompts SAM with Muse Spark's boxes instead of \"stone\";\n61|    a ``fallback+`` method does so only for a row where \"stone\" finds nothing.\n62|    \"\"\"\n63|    rows, markers = [], []\n64|    for i, crop in enumerate(tray.row_crops(image)):\n65|        masks, not_core, _ = row_prompts(client, crop, method)\n66|       ..."
+  },
+  {
+   "tool": "search",
+   "result": ""
+  },
+  {
+   "tool": "search",
+   "result": "src\\coresight\\agents.py-172-            \"uncertain_breaks\": log.uncertain_breaks,\nsrc\\coresight\\agents.py-173-            \"rock_quality_deere\": rock_quality_class(log.rqd_pct),\nsrc\\coresight\\agents.py:174:            \"whole_run_in_photo\": log.complete,\nsrc\\coresight\\agents.py-175-            \"source\": \"geometry.py (deterministic), after the geologist's corrections\",\nsrc\\coresight\\agents.py-176-    ..."
+  },
+  {
+   "tool": "search",
+   "result": "src\\coresight\\calibration.py-59-\nsrc\\coresight\\calibration.py-60-\nsrc\\coresight\\calibration.py-61-@dataclass\nsrc\\coresight\\calibration.py:62:class Tray:\nsrc\\coresight\\calibration.py-63-    \"\"\"A detected core tray.\nsrc\\coresight\\calibration.py-64-\nsrc\\coresight\\calibration.py-65-    ``corners`` are top-left, top-right, bottom-right and bottom-left in the\nsrc\\coresight\\calibration.py-66-    original ..."
+  }
+ ],
+ "final_answer": "Real errors found — two report-level issues in the script plus silent data-handling gaps in `fit`/scoring the tests do not cover. I did not run Python; all findings are from reading code (no `.env`, `data/cache`, or `data/reviews` touched).\n\n1. Photo leakage in production CV — `scripts/learn_thresholds.py:55-60` + [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py:130)\n   - Concrete input: `BOXES` has `ONK-DTPH5.1_box05` (`tray_index=0`) and `ONK-DTPH5.1_box06` (`tray_index=1`); both label JSONs say `\"image\": \"data/raw/commons_onkalo_1.jpg\"` (verified). Fold `held_out=box05` trains on `box06` — same photo, same lighting/camera.\n   - What happens: `leave_one_box_out` correctly separates by box label, but train and test share a photo, so held-out MAE is optimistic for Onkalo. Nevada is clean (`u12g_1.jpg` vs `u12g_2.jpg`).\n   - Should be: leave-one-photo-out for Onkalo, or disclose it. Rule: test docstring “cross-validation by box, since runs of one box share a photo and a calibration” — the rationale fails when two boxes share one photo. Chart subtitle “Leave one box out within each site” is literally true but hides this.\n   - Sure: high.\n\n2. Pooled “after N corrected runs” overstates data efficiency — `scripts/learn_thresholds.py:133-143,177,185,193-196`\n   - Concrete input: each site curve’s `n` is per-site training runs; `pooled()` takes `n_max` across sites and caps the shorter site with `c[min(n, len(c)-1)]`. End point `n=2` uses ~2 Onkalo runs for the Onkalo model plus ~2 Nevada runs for the Nevada model (4+ corrections total), but the verdict prints “After 2 corrected runs the held-out RQD MAE goes from X to Y”.\n   - Should be: label x as “per site” or pool by total corrections; capping also freezes one site while x keeps growing, implying extra corrections helped when that site saw none.\n   - Sure: high on mislabelling; magnitude depends on complete-run counts.\n\n3. `fit` returns an unscored default when nothing is eligible — [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py:106-107)\n   - Concrete input: `errors=[RunError(\"a\",0,LOW,0.0)]`, `train={(\"a\",0),(\"a\",9)}`, `default=D` (or sparse: LOW has only `(b,0)`, HIGH only `(b,1)`, `train={(b,0),(b,1)}`). `eligible=[]` → returns `D` without raising.\n   - Should be: `ValueError` like `mae_of` on a missing run. Rule: “A candidate that lacks an error for any training run is not eligible” + “No training runs: the default” — the latter covers only empty train, not non-empty train with zero eligible. Returning `D` picks a candidate never scored on train.\n   - Sure: medium-high (spec silent on this case, but “lowest MAE” has no winner here). Not triggered by current production (dense — see 4).\n\n4. Train/test missing-data inconsistency; test name is misleading — [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py:147-148) vs `fit:105`, [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py:166-175)\n   - Concrete input: train on `b` fits LOW (has all train runs), but LOW lacks one held-out run in `a` → `mae_of`/`_abs_error` raise `ValueError` and the whole CV crashes. On train the same situation only disqualifies the candidate.\n   - Should be: spec is silent (“score … on the held-out box”), but crash-on-test vs disqualify-on-train is inconsistent; score the complete subset or disqualify instead of aborting. Note `tests/test_learning.py:149` “with_the_default_absent” actually includes `D` in both boxes, so true absence (which would raise in `mae_default`) is untested.\n   - Production reachability today is low (good news): `runs.py:127` shows `complete` depends only on markers, not the candidate, and `box_errors` filters only on `complete`, so current errors are dense per complete run. Any future per-candidate filtering re-arms this crash.\n   - Sure: medium.\n\n5. Duplicate rows silently last-win — [learning.py](D:\\Repos\\coresight\\src\\coresight\\learning.py:82-84), `102-103`, `164`\n   - Concrete input: `[RunError(\"a\",0,D,1.0), RunError(\"a\",0,D,99.0)]`, `mae_o ...",
+ "note": "Read-only reviewer of the learning loop (point F), `--disable-write`. Built from the `muse exec --json` event stream; Muse's own context (personal rules and skills catalog) is left out; encrypted reasoning is not included. It could not run Python and reasoned from the code."
+}
