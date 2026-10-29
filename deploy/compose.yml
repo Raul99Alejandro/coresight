@@ -11,6 +11,8 @@ services:
       CORESIGHT_MAX_ANALYSES_PER_HOUR: "20"
       CORESIGHT_MAX_DICTATIONS_PER_HOUR: "120"
       CORESIGHT_MAX_SAM_POINTS_PER_HOUR: "200"
+      # the tour's agents: Nevada box 1 with the geologist's corrections (two cards removed)
+      CORESIGHT_TOUR_AGENTS_BOX: "00aaf0cd3771"
     ports:
       - "127.0.0.1:8610:8000"  # Docker skips ufw: never publish on 0.0.0.0
     volumes:
