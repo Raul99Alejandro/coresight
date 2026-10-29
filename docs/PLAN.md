@@ -144,3 +144,9 @@ Lo que falta ya no es alcance: es producción y pulido.
 
 Orden de recorte: 6, 5, 8. Nunca 1 y 2.
 Video: seguir `docs/ANALISIS-3.md` sección 6. Abrir con el rechazo y cerrar con el barreno; partir los agentes con un corte ("about two minutes later"); no decir que Spark mejora a SAM en general.
+
+## Cuarto análisis (29 oct): antes del video
+
+Adoptado de `docs/ANALISIS-4.md`. Nota 8.4 (antes 7.8). 8 de 10 hallazgos del tercero resueltos.
+Antes de grabar: N1 (el paso 1 del recorrido no gasta el cupo de subidas), N2 (aviso o confirmación cuando la calibración es dudosa), N3 (la caja de los agentes con decisiones del geólogo), la tarjeta del paso 1 a menos de 1100 px y el brinco del selector de barreno. Borrar las cajas de prueba del VPS.
+El video sigue `docs/ANALISIS-3.md` sección 6 con los ajustes y la lista de tomas de `docs/ANALISIS-4.md` sección 5.
