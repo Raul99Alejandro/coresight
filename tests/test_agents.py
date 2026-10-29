@@ -510,3 +510,16 @@ def test_a_retry_continues_the_conversation_and_does_not_read_the_tools_again(bo
     assert any(i.get("type") == "function_call_output" and "rqd_pct" in i["output"]
                for i in retry)  # the run it read on attempt 1 is still there
     assert retry[-1]["content"][0]["text"].startswith("Your previous attempt failed")
+
+
+def test_each_agent_gets_its_no_argument_tools_in_the_first_message(box):
+    client = FakeClient([[call("submit_finding", NONE_FINDING)], [call("route_box", ONLY_SAFETY)],
+                         [call("submit_draft", SAFETY)]])  # fmt: skip
+    h = run(box, client)
+    first = [b["input"][0]["content"][0]["text"] for b in client.bodies]
+    assert "hole_trends: {" in first[0] and "box_summary: {" in first[0]
+    assert "hole_finding: {" in first[1]  # the orchestrator reads the verified finding
+    assert "run_metrics:" not in first[2]  # a tool with arguments is still called on demand
+    assert any(e.actor == "safety" and e.kind == "tool" and "Read the box" in e.text
+               for e in h.log)  # the log says what each agent was given
+    assert h.drafts[0].effort.turns == 2  # one draft, one verdict: no turn spent reading

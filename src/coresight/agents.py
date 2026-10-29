@@ -571,10 +571,27 @@ JUDGE_ROLE = (
     "Write each claim and its evidence in plain words for the geologist (\"run 2 "
     "description: no visible mineralization\"), never field names, quotes of JSON or "
     "code. Also judge the role: a draft proposes and never decides for the operation. "
-    "If the text tells anyone to stop, halt, suspend, wait or not continue drilling or "
-    "work, add that sentence as a claim, not backed, with the evidence \"a draft cannot "
-    "stop the operation; people in charge decide\". Then call submit_verdict."
+    "Proposing a review, a check or a warning is its job, also before the next run or "
+    "before further drilling: judge such a sentence only on what it says about the rock. "
+    "Only a sentence that orders work to stop, halt, be suspended or not go on (\"do not "
+    "drill until geotechnics clears it\") is a claim not backed, with the evidence \"a "
+    "draft cannot stop the operation; people in charge decide\". Then call submit_verdict."
 )
+
+
+def opening(toolbox: Toolbox, names: tuple[str, ...], log: Log, actor: str, model: str) -> str:
+    """The tools without arguments an agent always reads, given in its first message so it
+    does not spend model turns asking for them. Its tool list stays the same: it may call
+    any of them again, and run_metrics for one run. The log says what it was given."""
+    tools, parts = toolbox.tools(), []
+    for name in names:
+        if tools[name].args is not NoArg:
+            continue
+        result = tools[name].run(NoArg())
+        log(actor, "tool", _say(name, {}, result), model)
+        parts.append(f"{name}: {json.dumps(result, ensure_ascii=False)}")
+    return ("What your tools return now (call one again only if you need something else, "
+            "such as run_metrics for one run):\n" + "\n".join(parts))
 
 
 def record_for_judge(toolbox: Toolbox, reason: str | None = None) -> dict:
@@ -744,7 +761,8 @@ def run_hole_agent(
                 f"{f.action_reason}")  # fmt: skip
 
     report.escalation = two_layers(
-        "Hole finding", "hole", report.model, write, f"{COMMON}\n\n{HOLE_ROLE}",
+        "Hole finding", "hole", report.model, write,
+        f"{COMMON}\n\n{HOLE_ROLE}\n\n{opening(toolbox, HOLE_TOOLS, log, 'hole', report.model)}",
         lambda f: finding_check(f, toolbox.trends, toolbox.box, toolbox.history),
         text_of, judge, lambda: record_for_judge(toolbox), report.effort, log, keep,
         on_checked,
@@ -775,7 +793,8 @@ def route(
     handoffs: Handoffs,
 ) -> bool:  # fmt: skip
     """The orchestrator routes; code checks the routing before any area agent writes."""
-    base, effort = f"{COMMON}\n\n{ORCHESTRATOR}", handoffs.routing_effort
+    first = opening(toolbox, ORCHESTRATOR_TOOLS, log, "orchestrator", MUSE_WONDER_MODEL_ID)
+    base, effort = f"{COMMON}\n\n{ORCHESTRATOR}\n\n{first}", handoffs.routing_effort
     prompt, reasons = base, []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         effort.attempts = attempt
@@ -824,7 +843,8 @@ def write_draft(
     """One area agent: draft, then verify.py and the judge, at most three attempts."""
     tools = [toolbox.tools()[n] for n in AREA_TOOLS[area]]
     base = (f"{COMMON}\n\n{AREA_ROLES[area]} {DRAFT_ACTIONS}\n\nWhy the orchestrator sent "
-            f"you this box: {reason}")  # fmt: skip
+            f"you this box: {reason}\n\n"
+            f"{opening(toolbox, AREA_TOOLS[area], log, area, slot.model)}")  # fmt: skip
     conversation: list[dict] = []
 
     def write(prompt: str) -> Draft:
