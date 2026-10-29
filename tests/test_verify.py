@@ -206,3 +206,10 @@ def test_numbers_from_earlier_boxes_of_the_hole_are_traceable(box, prices):
 def test_runs_can_be_named_from_one(box, prices):
     draft = safety(body="Run 2 (11.0-12.5 m) is fair rock: RQD 56.7%.")
     assert by_name(verify("safety", draft, box, prices))["numbers"].ok
+
+
+def test_a_depth_written_with_two_decimals_matches_three(prices):
+    # the agents write 5.79 m as the page does; the log says 5.791 (19 ft)
+    b = make_box(make_run(PIECES, 5.791, 6.126))
+    draft = safety(body="Run 1 (5.79-6.13 m) is the top of the box.")
+    assert by_name(verify("safety", draft, b, prices))["numbers"].ok

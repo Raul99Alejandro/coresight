@@ -479,6 +479,7 @@ button.metric:hover{background:var(--fill-2)}
 .btn.tour-spot{border-radius:11px}
 .drawer.tour-spot{position:fixed;z-index:41}
 .tour-spot{scroll-margin-top:84px}
+body.touring{padding-bottom:280px} /* room to scroll what the card points at above it */
 .drawer.on ~ .tour{right:auto;left:24px}
 @media (max-width:640px){.tour{right:16px;left:16px;bottom:16px;width:auto}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
@@ -543,6 +544,7 @@ button.metric:hover{background:var(--fill-2)}
 .trends .ct{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px;margin-bottom:2px}
 .hole-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .route-check{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--hair);font-size:13px;color:var(--ink-2)}
+.lab-line{align-items:flex-start}.lab-line svg{margin-top:2px;flex:none}.lab-line a{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
 .route-check.bad{background:var(--bad-soft)}
 .dlog{margin-top:16px;overflow:hidden}
 .dlog summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 20px;font-weight:600}
@@ -608,7 +610,7 @@ button.metric:hover{background:var(--fill-2)}
   background:repeating-linear-gradient(135deg,var(--fill) 0 6px,transparent 6px 12px)}
 .hole-gap b{color:var(--ink-2);font-weight:600}
 a.run{color:inherit}
-.run .lith small{display:inline-block;margin-left:6px;font-size:12px;padding:0 7px;border-radius:99px;background:var(--bad-soft);color:var(--bad);vertical-align:1px}
+.run .lith small{display:inline-block;margin-left:2px;font-size:12px;padding:0 7px;border-radius:99px;background:var(--bad-soft);color:var(--bad);vertical-align:1px}
 .box-chips{display:flex;gap:8px;flex-wrap:wrap}
 .box-chip{display:inline-flex;align-items:center;gap:9px;padding:9px 14px 9px 12px;border-radius:12px;background:var(--surface);box-shadow:var(--sh-1);font-size:14px;transition:background .2s}
 .box-chip:hover{background:var(--fill)}
@@ -744,6 +746,11 @@ function seenHTML(r) {
     ${r.description_seconds != null ? `<div class="conf">Answered in ${secs(r.description_seconds)}</div>` : ""}</div></div>`;
 }
 
+// SAM counts pieces per row; a piece that crosses a run mark becomes one piece in each run
+function samDid(detail, inRuns) {
+  const m = detail.match(/^(\d+) pieces/);
+  return m && +m[1] !== inRuns ? `${detail}; ${inRuns} once cut at the run marks` : detail;
+}
 function ledgerHTML(b) {
   const st = Object.fromEntries(b.stages.map((s) => [s.key, s]));
   const edits = b.runs.flatMap((r, i) => r.corrections.map((c) => ({...c, run: i})));
@@ -762,7 +769,7 @@ function ledgerHTML(b) {
   return `<section class="card ledger">
     <div class="lhead"><span></span><span>Step</span><span>Did</span><span>Time</span><span>Cost</span><span>Reviewed</span></div>
     ${row("cv", "Calibration", "OpenCV, code", st.calibration.detail, st.calibration, "No cost", "")}
-    ${row("sam", "SAM 3.1", "Meta Model API", st.segmentation.detail, st.segmentation, money(st.segmentation.cost_usd), `${pieces} of ${pieces + removed} pieces kept`)}
+    ${row("sam", "SAM 3.1", "Meta Model API", samDid(st.segmentation.detail, pieces + removed), st.segmentation, money(st.segmentation.cost_usd), `${pieces} of ${pieces + removed} pieces kept`)}
     ${row("code", "geometry.py", "Deterministic code", st.geometry.detail, st.geometry, "No cost", recalcs ? `recalculated ${recalcs}×` : "")}
     ${row("spark", esc(st.description.name), "Meta Model API", st.description.detail, st.description, money(st.description.cost_usd), described ? `${described - changedFields} of ${described} fields kept` : "")}
     ${v.dictations ? row("voice", "Voice Transcribe", "Meta Model API", `${v.dictations} dictation${v.dictations > 1 ? "s" : ""}, ${(v.audio_ms / 1000).toFixed(1)} s of audio`, {seconds: v.seconds, actor: "code"}, money(v.audio_ms / 3600000 * 0.18), "edited before saving") : ""}
@@ -858,6 +865,13 @@ function agentStep(h) {
   const eta = left < 5 ? "almost done" : left < 55 ? `about ${Math.ceil(left / 10) * 10} s left` : `about ${Math.round(left / 60 * 2) / 2} min left`;
   return `Step ${i + 1} of 3: ${AGENT_STEPS[i][0].replace(/^The/, "the")}, ${eta}`;
 }
+// point 4, plan B: why lab and finance never run on the public samples, and where they are tested
+const TESTS = "https://github.com/Raul99Alejandro/coresight/blob/main/tests/";
+function labLine(routes) {
+  if (!routes.lab || routes.lab.applies || (routes.finance && routes.finance.applies)) return "";
+  const t = (f, l, name) => `<a href="${TESTS}${f}#L${l}" target="_blank" rel="noopener">${name}</a>`;
+  return `<div class="route-check lab-line">${glyph("code", 15, "code")}<span>Lab and finance run when sulfides are visible; no openly licensed full tray we found shows them. Their tests: ${t("test_verify_milestones.py", 208, "lab needs sulfides")}, ${t("test_verify_milestones.py", 229, "finance follows lab")}, ${t("test_agents.py", 459, "lab drafts, finance prices it")}.</span></div>`;
+}
 function agentsHTML(b) {
   const h = b.handoffs;
   const head = `<div class="section"><h2>Agents</h2><p>A hole agent reads the trends along the hole, an orchestrator decides who needs to hear about this box, and area agents write drafts. Each step is verified before the next: first by code, then by Muse Spark as a judge, at most three attempts. Nothing is sent.</p></div>`;
@@ -876,7 +890,7 @@ function agentsHTML(b) {
     ? `<div class="route-check">${glyph("code", 15, "code")}<span>Routing checked by code before anyone drafted: ${rok} of ${rc.length} areas agree with the approved record. ${effortHTML(h.routing_effort, false).replace(/<[^>]+>/g, "")}</span></div>`
     : `<div class="route-check bad">${glyph("code", 15, "code")}<span><b>${esc(h.escalation || "Routing needs review.")}</b> No area agent wrote a draft; retry the agents or route by hand.</span></div>`;
   return `${head}${failed}${working}${holeHTML(h)}
-    <section class="card agents"><div class="routes">${routeTiles}</div>${routeCheck}<div class="route-foot">${orch}<span class="grow"></span><span>${tools} tool call${tools === 1 ? "" : "s"}, ${n} log entries</span></div></section>
+    <section class="card agents"><div class="routes">${routeTiles}</div>${routeCheck}${labLine(routes)}<div class="route-foot">${orch}<span class="grow"></span><span>${tools} tool call${tools === 1 ? "" : "s"}, ${n} log entries</span></div></section>
     ${h.drafts.length ? `<div class="drafts">${h.drafts.map(draftHTML).join("")}</div>` : ""}
     ${n ? `<details class="card dlog" ${S.open.agentLog ? "open" : ""}><summary>Decision log <small>every tool call, draft and check, in order</small><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 6 4 4 4-4"/></svg></summary>${h.log.map(eventHTML).join("")}</details>` : ""}
     <div class="rule2">${glyph("human", 18, "human")}<div><b>Agents Rule of Two (Meta).</b> These agents read model output about the photo and private mine data (hole history, prices). Each has a closed list of read-only tools and none sends or changes anything, so a person approves every draft and sends it through the mine's own channels.</div></div>`;
@@ -945,8 +959,9 @@ function stripSVG(h) {
 
 function holeRow(h, r, i) {
   const c = QUALITY[r.rock_quality], tall = S.holeBy === "runs" ? Math.max(68, (r.to_m - r.from_m) * 34) : 60, id = holeBoxId(h, r.boxes[0]);
-  const flags = r.anomalies.map((a) => `<small>${esc(a.replace(/_/g, " "))}</small>`).join("");
-  return `<a class="run" role="listitem" ${id ? `href="#/box/${id}"` : ""} style="height:${tall}px" aria-label="${r.from_m} to ${r.to_m} m, box ${r.boxes.join(" and ")}">
+  const names = r.anomalies.map((a) => a.replace(/_/g, " ")), flags = names.map((a) => ` <small>${esc(a)}</small>`).join("");
+  const said = `${m2(r.from_m)} to ${m2(r.to_m)}, box ${r.boxes.join(" and ")}: RQD ${r.rqd_pct.toFixed(0)}%, ${r.rock_quality}${r.lithology ? `, ${r.lithology}` : ""}${names.length ? `. Flagged: ${names.join(", ")}` : ""}`;
+  return `<a class="run" role="listitem" ${id ? `href="#/box/${id}"` : ""} style="height:${tall}px" aria-label="${esc(said)}">
     <div class="depth"><b>${r.from_m.toFixed(2)} m</b><span>${r.to_m.toFixed(2)} m</span></div>
     <div class="column" style="background:${c}"></div>
     <div class="rqd"><div class="track"><i style="width:${r.rqd_pct}%;background:${c};animation-delay:${i * 50}ms"></i></div><b>${r.rqd_pct.toFixed(0)}%</b></div>
@@ -1179,6 +1194,7 @@ async function startSample(name) {
 
 /* routing */
 function route() {
+  if (Tour.i >= 0 && !Tour.busy && !Tour.stays(location.hash)) Tour.end(); // the visitor left the tour
   clearTimeout(S.poll); clearTimeout(S.scTimer); S.error = null; closeDrawer(true); stop3D(); Tour.unspot(true);
   document.querySelectorAll("dialog[open]").forEach((d) => d.close());
   const m = location.hash.match(/^#\/box\/([a-z0-9]+)/i), hm = location.hash.match(/^#\/hole\/(.+)$/);
@@ -1841,13 +1857,26 @@ const Tour = {
     Tour.i = i; const token = ++Tour.token;
     Tour.unspot(); Tour.card(st, true);
     let sel = null;
+    Tour.busy = true;
     try { sel = await st.go(); if (sel) await waitFor(() => document.querySelector(sel)); }
-    catch (e) { if (token === Tour.token) Tour.card(st, false, e.message); return; }
+    catch (e) { if (token === Tour.token) { Tour.busy = false; Tour.hash = location.hash; Tour.card(st, false, e.message); } return; }
     if (token !== Tour.token) return;
+    Tour.busy = false; Tour.hash = location.hash;
     Tour.card(st, false);
     Tour.sel = sel; Tour.keep();
     const el = sel && document.querySelector(sel);
     if (el && !el.closest(".bar,.drawer")) el.scrollIntoView({behavior:"smooth", block:el.offsetHeight > innerHeight * .6 ? "start" : "center"});
+    if (el && !el.closest(".bar,.drawer")) Tour.settle(() => token === Tour.token && Tour.clear(el));
+  },
+  // the page under the tour is the tour's while it shows it; the last step lets the visitor switch holes
+  stays(hash) { return hash === Tour.hash || (Tour.i === Tour.steps.length - 1 && hash.startsWith("#/hole/")); },
+  settle(then) { let y = -1; const tick = () => (scrollY === y ? then() : ((y = scrollY), setTimeout(tick, 150))); setTimeout(tick, 150); },
+  clear(el) { // scroll so the card does not cover what it points at
+    if (!Tour.el || !el.isConnected) return;
+    const r = el.getBoundingClientRect(), t = Tour.el.getBoundingClientRect();
+    if (r.right < t.left || r.left > t.right || r.bottom < t.top - 12) return;
+    const by = Math.min(r.bottom - t.top + 16, r.top - 84);
+    if (by > 0) scrollBy({top:by, behavior:"smooth"});
   },
   keep() { // the page redraws as the analysis ends: put the spotlight back on the new element
     clearInterval(Tour.timer); if (!Tour.sel) return;
@@ -1856,6 +1885,7 @@ const Tour = {
   },
   unspot(keepSel) { if (Tour.spot) Tour.spot.classList.remove("tour-spot"); Tour.spot = null; if (!keepSel) { Tour.sel = null; clearInterval(Tour.timer); } },
   card(st, waiting, error) {
+    document.body.classList.add("touring");
     if (!Tour.el) { Tour.el = document.createElement("div"); Tour.el.className = "tour"; Tour.el.setAttribute("role", "dialog"); Tour.el.setAttribute("aria-label", "60-second tour"); document.body.appendChild(Tour.el); }
     const n = Tour.steps.length, last = Tour.only || Tour.i === n - 1;
     Tour.el.innerHTML = `<div class="t-top"><small>${Tour.only ? "Input gate" : `${Tour.i + 1} of ${n}`}</small>${Tour.only ? '<span class="grow"></span>' : `<div class="t-bar">${Tour.steps.map((_, j) => `<i class="${j <= Tour.i ? "on" : ""}"></i>`).join("")}</div>`}<button class="btn plain icon sm" id="t-close" aria-label="Close the tour">${I.close}</button></div>
@@ -1868,13 +1898,14 @@ const Tour = {
     if ($("t-back")) $("t-back").onclick = () => Tour.show(Tour.i - 1);
     if (!waiting) $("t-next").focus({preventScroll:true});
   },
-  end() { Tour.token++; Tour.unspot(); if (Tour.el) Tour.el.remove(); Tour.el = null; Tour.i = -1; },
+  end() { Tour.token++; Tour.busy = false; Tour.hash = null; Tour.unspot(); if (Tour.el) Tour.el.remove(); Tour.el = null; Tour.i = -1; document.body.classList.remove("touring"); },
 };
 function setView(v) { const x = $("seg") && $("seg").querySelector(`[data-view="${v}"]`); if (x && x.getAttribute("aria-selected") !== "true") x.click(); }
 document.addEventListener("keydown", (e) => {
-  if (Tour.i < 0 || e.target.closest("input,textarea,select,dialog")) return;
-  if (e.key === "Escape") Tour.end();
-  else if (e.key === "ArrowRight" && !Tour.only) Tour.show(Tour.i + 1);
+  if (Tour.i < 0) return;
+  if (e.key === "Escape" && !document.querySelector("dialog[open]")) return Tour.end();
+  if (e.target.closest("input,textarea,select,dialog")) return;
+  if (e.key === "ArrowRight" && !Tour.only) Tour.show(Tour.i + 1);
   else if (e.key === "ArrowLeft" && !Tour.only && Tour.i > 0) Tour.show(Tour.i - 1);
 });
 $("tour-top").onclick = () => Tour.start();
