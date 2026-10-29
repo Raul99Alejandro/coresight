@@ -1,6 +1,8 @@
 """Hole agent, orchestrator and area agents with a simulated Model API (no network)."""
 
+import copy
 import json
+import threading
 
 import pytest
 from test_hole_view import box as hole_box
@@ -76,7 +78,7 @@ class FakeClient:
         self.turns, self.fail_models, self.bodies = list(turns), set(fail_models), []
 
     def respond(self, body):
-        self.bodies.append(body)
+        self.bodies.append(copy.deepcopy(body))  # the agent's conversation keeps growing
         if body["model"] in self.fail_models:
             raise RuntimeError(f"{body['model']} 500: upstream error")
         return {"output": self.turns.pop(0)}
@@ -103,7 +105,8 @@ class FakeJudge:
 
 
 def run(box, client, verifier=all_ok, history=(), **kw):
-    kw = {"judge": FakeJudge(), "finding_check": ok_checks, "routing_check": ok_checks} | kw
+    kw = {"judge": FakeJudge(), "finding_check": ok_checks, "routing_check": ok_checks,
+          "workers": 1} | kw  # one at a time: the scripted turns come in order
     return draft_handoffs(box, list(history), client, verifier, **kw)
 
 
@@ -248,7 +251,7 @@ def test_the_judge_runs_after_the_checks_pass_and_its_reasons_go_back(box):
     (d,) = h.drafts
     assert d.status == "ready" and d.verified and d.judge == BACKED
     assert d.effort.attempts == 2
-    retry = client.bodies[3]["input"][0]["content"][0]["text"]
+    retry = client.bodies[3]["input"][-1]["content"][0]["text"]
     assert "“Visible sulfides” is not backed by the record" in retry
     what, text, record = judge.asked[-1]
     assert what == "Safety & geotechnics draft" and "Fair rock" in text
@@ -269,7 +272,7 @@ def test_the_judge_never_sees_what_verify_rejected(box):
     client = FakeClient(turns)
     h = run(box, client, verifier=flaky, judge=judge)
     assert [a[0] for a in judge.asked] == ["Hole finding", "Safety & geotechnics draft"]
-    assert "Run 2 RQD is 56.7 %" in client.bodies[3]["input"][0]["content"][0]["text"]
+    assert "Run 2 RQD is 56.7 %" in client.bodies[3]["input"][-1]["content"][0]["text"]
     assert h.drafts[0].verified and h.drafts[0].effort.attempts == 2
 
 
@@ -326,7 +329,7 @@ def test_the_spark_judge_is_a_validated_submission(box):
              [call("submit_verdict", verdict)]]  # fmt: skip
     client = FakeClient(turns)
     h = draft_handoffs(box, [], client, all_ok, finding_check=ok_checks,
-                       routing_check=ok_checks)  # fmt: skip
+                       routing_check=ok_checks, workers=1)  # fmt: skip
     assert h.hole.verified and h.drafts[0].verified
     assert h.drafts[0].judge.claims[0].evidence == "run 2"
     judge_body = client.bodies[4]
@@ -431,3 +434,79 @@ def test_a_poor_box_below_a_good_one_gives_a_trend_alert_verified_in_two_layers(
     assert all(c.ok for c in d.checks) and d.judge.ok
     assert [a[0] for a in judge.asked] == ["Hole finding", "Safety & geotechnics draft"]
     assert judge.asked[1][2]["hole_agent_finding"]["action"] == "warn_geotech"
+
+
+class RoleClient:
+    """Scripted turns per agent, told apart by its role prompt: safe when agents run at once."""
+
+    def __init__(self, turns, meet=()):
+        self.turns = {who: list(t) for who, t in turns.items()}
+        self.bodies: dict[str, list] = {who: [] for who in turns}
+        barrier = threading.Barrier(len(meet), timeout=5) if meet else None
+        self.meet = {who: barrier for who in meet}
+
+    def respond(self, body):
+        first = body["input"][0]["content"][0]["text"]
+        roles = {"hole": agents.HOLE_ROLE, "orchestrator": agents.ORCHESTRATOR,
+                 **agents.AREA_ROLES}  # fmt: skip
+        who = next(w for w, role in roles.items() if role in first)
+        if who in self.meet and not self.bodies[who]:
+            self.meet[who].wait()  # only passes when the other agent is drafting too
+        self.bodies[who].append(copy.deepcopy(body))
+        return {"output": self.turns[who].pop(0)}
+
+
+def test_lab_safety_and_plant_draft_at_the_same_time_and_finance_waits_for_lab(box):
+    routes = {"routes": [
+        {"area": "lab", "applies": True, "reason": "sulfides"},
+        {"area": "safety", "applies": True, "reason": "fair rock"},
+        {"area": "plant", "applies": False, "reason": "-"},
+        {"area": "finance", "applies": True, "reason": "lab applies"}]}  # fmt: skip
+    client = RoleClient({
+        "hole": [[call("submit_finding", NONE_FINDING)]],
+        "orchestrator": [[call("route_box", routes)]],
+        "lab": [[call("submit_draft", LAB)]],
+        "safety": [[call("submit_draft", SAFETY)]],
+        "finance": [[call("lab_request", {})], [call("submit_draft", FINANCE)]],
+    }, meet=("lab", "safety"))  # fmt: skip
+    h = run(box, client, workers=4)
+    assert h.status == "done"
+    assert [(d.area, d.status) for d in h.drafts] == [
+        ("lab", "ready"), ("safety", "ready"), ("finance", "ready")]
+    lab_read = json.loads(client.bodies["finance"][1]["input"][-1]["output"])
+    assert lab_read["title"] == "Assay request"  # finance priced the verified lab request
+
+
+def test_the_routing_starts_while_the_judge_reads_and_is_dropped_if_the_judge_refuses(box):
+    second = NONE_FINDING | {"title": "Nothing along the hole, checked again"}
+    judge = FakeJudge(NOT_BACKED, BACKED)  # the first finding is refused, the second passes
+    client = RoleClient({
+        "hole": [[call("submit_finding", NONE_FINDING)], [call("submit_finding", second)]],
+        "orchestrator": [[call("hole_finding", {})], [call("route_box", ONLY_SAFETY)],
+                         [call("hole_finding", {})], [call("route_box", ONLY_SAFETY)]],
+        "safety": [[call("submit_draft", SAFETY)]],
+    })  # fmt: skip
+    h = run(box, client, judge=judge, workers=4)
+    assert h.hole.verified and h.hole.finding.title == second["title"]
+    assert h.routing_verified and h.drafts[0].status == "ready"
+    read = [json.loads(b["input"][-1]["output"])["title"] for b in client.bodies["orchestrator"]
+            if b["input"][-1].get("type") == "function_call_output"]  # fmt: skip
+    assert read == [NONE_FINDING["title"], second["title"]]  # two early routings, one kept
+    kinds = [e.kind for e in h.log]
+    assert kinds.count("drop") == 1
+    assert [e.at for e in h.log] == sorted(e.at for e in h.log)
+    assert sum(e.kind == "route" for e in h.log) == 4  # only the kept routing's four areas
+
+
+def test_a_retry_continues_the_conversation_and_does_not_read_the_tools_again(box):
+    turns = [[call("submit_finding", NONE_FINDING)], [call("route_box", ONLY_SAFETY)],
+             [call("run_metrics", {"run": 2})], [call("submit_draft", SAFETY)],
+             [call("submit_draft", SAFETY)]]  # fmt: skip
+    client = FakeClient(turns)
+    h = run(box, client, judge=FakeJudge(BACKED, NOT_BACKED, BACKED))
+    assert h.drafts[0].verified and h.drafts[0].effort.turns == 5  # 3 writing, 2 verdicts
+    retry = client.bodies[4]["input"]
+    assert retry[0] == client.bodies[2]["input"][0]  # the same role prompt, sent once
+    assert any(i.get("type") == "function_call_output" and "rqd_pct" in i["output"]
+               for i in retry)  # the run it read on attempt 1 is still there
+    assert retry[-1]["content"][0]["text"].startswith("Your previous attempt failed")

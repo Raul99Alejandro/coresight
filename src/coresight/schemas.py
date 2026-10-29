@@ -392,12 +392,20 @@ class DraftLine(_Strict):
     total_usd: float = Field(ge=0)
 
 
+# What a draft may propose: a closed list (point 7). Nothing in it stops the operation;
+# people in charge decide that. verify.check_role refuses words that do.
+DraftAction = Literal["check_support", "scale_and_inspect", "review_before_next_run",
+                      "warn_geotech", "oriented_core", "sample_contact", "send_to_lab",
+                      "plant_test"]  # fmt: skip
+
+
 class Draft(_Strict):
     """What an area agent submits. A draft only: nothing is sent."""
 
     title: str = Field(min_length=1)
     body: str = Field(min_length=1)
     priority: Literal["low", "normal", "high"] = "normal"
+    actions: list[DraftAction] = Field(default_factory=list)  # proposed, from the list
     intervals: list[Interval] = Field(default_factory=list)
     figures: list[DraftFigure] = Field(default_factory=list)
     lines: list[DraftLine] = Field(default_factory=list)
@@ -418,7 +426,7 @@ class AgentEvent(_Strict):
     at: datetime
     actor: str  # "orchestrator", an area, "verifier" or "geologist"
     kind: Literal["model", "route", "tool", "draft", "check", "retry", "error", "approve",
-                  "finding", "judge", "escalate", "cost"]
+                  "finding", "judge", "escalate", "cost", "drop"]
     text: str
     model: str | None = None
 

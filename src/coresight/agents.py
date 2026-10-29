@@ -36,10 +36,13 @@ All Meta calls go through meta_client.MetaClient.respond.
 
 from __future__ import annotations
 
+import copy
 import json
 import math
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -71,6 +74,7 @@ PRICES_PATH = Path(__file__).resolve().parents[2] / "data" / "prices_example.jso
 AREAS: tuple[AreaKey, ...] = ("lab", "safety", "plant", "finance")
 MAX_TURNS = 8
 MAX_ATTEMPTS = 3  # Agents 102: at most three attempts, then a person decides
+WORKERS = 4  # agents that run at the same time: early routing plus three areas
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -320,8 +324,24 @@ COMMON = (
     "name runs by their number (Run 1 is the first) or their depth, and write metrics as "
     "people read them (RQD 26.7 %, recovery 53.1 %, 4.2 fractures per metre), never as "
     "field names such as rqd_pct. You only write a draft: nothing you write is sent until "
-    "a person approves it."
+    "a person approves it. You propose, you never decide for the operation: never tell "
+    "anyone to stop, halt, suspend or not continue drilling or work; people in charge "
+    "decide that."
 )
+
+# What a draft may propose (schemas.DraftAction): a closed list, nothing that stops work.
+DRAFT_ACTION_WORDS = {
+    "check_support": "check ground support",
+    "scale_and_inspect": "scale loose ground and inspect the walls",
+    "review_before_next_run": "a geotechnical review before the next run",
+    "warn_geotech": "warn geotechnics",
+    "oriented_core": "ask for oriented core in the next runs",
+    "sample_contact": "sample across the contact",
+    "send_to_lab": "send the intervals to the lab",
+    "plant_test": "ask the plant for a test",
+}
+DRAFT_ACTIONS = ("Put what you propose in actions, from this list only: "
+                 + "; ".join(f"{k} ({v})" for k, v in DRAFT_ACTION_WORDS.items()) + ".")
 
 HOLE_ROLE = (
     "You are the hole agent. You look at the whole drill hole, not one box. Read the "
@@ -457,11 +477,15 @@ def run_agent(
     log: Log,
     actor: str,
     effort: Effort | None = None,
+    history: list[dict] | None = None,
 ) -> T:
     """Tool loop until the agent calls its submit tool with valid arguments.
 
     Only the listed tools and the submit tool exist for the agent: any other name is
-    refused (a closed tool list). ``effort`` counts the model turns.
+    refused (a closed tool list). ``effort`` counts the model turns. ``history``, when
+    given, is the agent's conversation so far and grows in place: a retry adds the
+    reasons to it, so the agent keeps the tool results it already read instead of
+    reading them again.
     """
     defs = [t.definition() for t in tools]
     schema = submit.model_json_schema()
@@ -469,9 +493,10 @@ def run_agent(
     defs.append({"type": "function", "name": submit_name, "description": submit_description,
                  "parameters": schema})  # fmt: skip
     by_name = {t.name: t for t in tools}
-    history: list[dict] = [
+    history = [] if history is None else history
+    history.append(
         {"type": "message", "role": "user", "content": [{"type": "input_text", "text": prompt}]}
-    ]
+    )
     for _ in range(MAX_TURNS):
         response = client.respond({"model": model, "input": history, "tools": defs})
         if effort is not None:
@@ -483,12 +508,17 @@ def run_agent(
             history.append({"type": "message", "role": "user", "content": [
                 {"type": "input_text", "text": f"Call {submit_name} to finish."}]})  # fmt: skip
             continue
+        submitted = None
         for call in calls:
             name = call.get("name")
             try:
                 args = json.loads(call.get("arguments") or "{}")
                 if name == submit_name:
-                    return submit.model_validate(args)
+                    submitted = submit.model_validate(args)
+                    result = {"received": "Verification runs next."}
+                    history.append({"type": "function_call_output", "call_id": call["call_id"],
+                                    "output": json.dumps(result)})  # fmt: skip
+                    continue
                 tool = by_name[name]
                 result = tool.run(tool.args.model_validate(args))
                 log(actor, "tool", _say(name, args, result), model)
@@ -506,6 +536,8 @@ def run_agent(
                 )
             history.append({"type": "function_call_output", "call_id": call["call_id"],
                             "output": json.dumps(result)})  # fmt: skip
+        if submitted is not None:
+            return submitted
     raise AgentError(f"{actor}: no valid {submit_name} after {MAX_TURNS} turns")
 
 
@@ -538,7 +570,10 @@ JUDGE_ROLE = (
     "backed (for example 'visible sulfides' needs a description that shows sulfides). "
     "Write each claim and its evidence in plain words for the geologist (\"run 2 "
     "description: no visible mineralization\"), never field names, quotes of JSON or "
-    "code. Then call submit_verdict."
+    "code. Also judge the role: a draft proposes and never decides for the operation. "
+    "If the text tells anyone to stop, halt, suspend, wait or not continue drilling or "
+    "work, add that sentence as a claim, not backed, with the evidence \"a draft cannot "
+    "stop the operation; people in charge decide\". Then call submit_verdict."
 )
 
 
@@ -627,10 +662,14 @@ def two_layers(
     effort: Effort,
     log: Log,
     keep: Callable[[Attempt], None],
+    on_checked: Callable[[T], None] | None = None,
 ) -> str | None:
     """Write, check with code, then judge; at most MAX_ATTEMPTS. None when it passed,
     else why it needs a person. The judge only runs when every check passed, so it
-    never passes what verify.py rejected."""
+    never passes what verify.py rejected. ``write`` continues one conversation, so a
+    retry sends only the reasons. ``on_checked`` sees a result code passed before the
+    judge reads it (the routing starts early on it, and is kept only if the judge
+    passes it too)."""
     prompt, reasons = base, []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         effort.attempts = attempt
@@ -646,6 +685,8 @@ def two_layers(
                                                if failed else ""))  # fmt: skip
         verdict, judge_error = None, None
         if not failed:
+            if on_checked is not None:
+                on_checked(result)
             t = time.monotonic()
             try:
                 verdict = judge(label, text_of(result), record(), effort)
@@ -670,8 +711,8 @@ def two_layers(
             log(actor, "retry", f"Attempt {attempt} sent back with "
                 f"{_plural(len(reasons), 'reason')} to fix", model)  # fmt: skip
             notes = "\n".join(f"- {r}" for r in reasons)
-            prompt = (f"{base}\n\nYour previous attempt failed verification. Fix these "
-                      f"points and submit again:\n{notes}")  # fmt: skip
+            prompt = ("Your previous attempt failed verification. Fix these points and "
+                      f"submit again:\n{notes}")  # fmt: skip
     why = f"Needs review: {MAX_ATTEMPTS} attempts failed. " + "; ".join(reasons)
     log(actor, "escalate", why, model)
     return why
@@ -680,14 +721,16 @@ def two_layers(
 def run_hole_agent(
     client, toolbox: Toolbox, finding_check: FindingCheck, judge: Judge, log: Log,
     report: HoleReport, save: Callable[[], None],
+    on_checked: Callable[[HoleFinding], None] | None = None,
 ) -> None:  # fmt: skip
     """The hole agent reads code's trends and proposes one action, verified in two layers."""
     tools = [toolbox.tools()[n] for n in HOLE_TOOLS]
+    conversation: list[dict] = []
 
     def write(prompt: str) -> HoleFinding:
         f = run_agent(client, report.model, prompt, tools, "submit_finding",
                       "Submit the trends you rely on and the action you propose.",
-                      HoleFinding, log, "hole", report.effort)  # fmt: skip
+                      HoleFinding, log, "hole", report.effort, conversation)  # fmt: skip
         log("hole", "finding", f"“{f.title}”, proposing {ACTION_WORDS[f.action]}", report.model)
         return f
 
@@ -704,6 +747,7 @@ def run_hole_agent(
         "Hole finding", "hole", report.model, write, f"{COMMON}\n\n{HOLE_ROLE}",
         lambda f: finding_check(f, toolbox.trends, toolbox.box, toolbox.history),
         text_of, judge, lambda: record_for_judge(toolbox), report.effort, log, keep,
+        on_checked,
     )  # fmt: skip
     report.status = "ready" if report.verified else "needs_review"
     if report.verified:
@@ -767,17 +811,25 @@ def route(
     return False
 
 
+def draft_text(d: Draft) -> str:
+    """What the judge reads of a draft: its words and the actions it proposes."""
+    proposed = "; ".join(DRAFT_ACTION_WORDS[a] for a in d.actions) or "none"
+    return f"Title: {d.title}\n{d.body}\nProposed actions: {proposed}."
+
+
 def write_draft(
     client, area: AreaKey, toolbox: Toolbox, reason: str, verifier: Verifier, judge: Judge,
     log: Log, slot: AreaDraft, save: Callable[[], None],
 ) -> None:  # fmt: skip
     """One area agent: draft, then verify.py and the judge, at most three attempts."""
     tools = [toolbox.tools()[n] for n in AREA_TOOLS[area]]
-    base = f"{COMMON}\n\n{AREA_ROLES[area]}\n\nWhy the orchestrator sent you this box: {reason}"
+    base = (f"{COMMON}\n\n{AREA_ROLES[area]} {DRAFT_ACTIONS}\n\nWhy the orchestrator sent "
+            f"you this box: {reason}")  # fmt: skip
+    conversation: list[dict] = []
 
     def write(prompt: str) -> Draft:
         d = run_agent(client, slot.model, prompt, tools, "submit_draft", "Submit your draft.",
-                      Draft, log, area, slot.effort)  # fmt: skip
+                      Draft, log, area, slot.effort, conversation)  # fmt: skip
         log(area, "draft", f"“{d.title}”", slot.model)
         return d
 
@@ -789,7 +841,7 @@ def write_draft(
         f"{AREA_NAMES[area]} draft", area, slot.model, write, base,
         lambda d: verifier(area, d, toolbox.box, toolbox.prices, toolbox.history,
                            toolbox.trends),
-        lambda d: f"Title: {d.title}\n{d.body}", judge,
+        draft_text, judge,
         lambda: record_for_judge(toolbox, reason), slot.effort, log, keep,
     )  # fmt: skip
     slot.status = "ready" if slot.verified else "needs_review"
@@ -807,18 +859,45 @@ def draft_handoffs(
     judge: Judge | None = None,
     finding_check: FindingCheck | None = None,
     routing_check: RoutingCheck | None = None,
+    workers: int = WORKERS,
 ) -> Handoffs:
-    """Hole agent, routing and drafts for an approved box. Saves after every step."""
+    """Hole agent, routing and drafts for an approved box. Saves after every step.
+
+    With ``workers`` > 1 what does not wait on another step runs at the same time,
+    and no check is skipped: the routing starts on a finding verify.py passed while
+    the judge reads it, and is kept only if the judge passes that finding too
+    (otherwise it is dropped and the log says so); lab, safety and plant draft and
+    are judged side by side; finance waits for the verified lab request.
+    """
     if finding_check is None or routing_check is None:
         from coresight import verify  # verify.py imports this module
 
         finding_check = finding_check or verify.check_finding
         routing_check = routing_check or verify.check_routing
     handoffs = Handoffs()
-    persist = lambda: save(handoffs)  # noqa: E731
+    lock = threading.Lock()
+
+    def persist() -> None:
+        with lock:
+            save(handoffs)
+
     log = Log(handoffs, persist)
     toolbox = Toolbox(box, history, prices or load_prices())
     judge = judge or spark_judge(client, log)
+    pool = ThreadPoolExecutor(max_workers=workers) if workers > 1 else None
+    early: list[tuple[HoleFinding, Handoffs, Future]] = []
+
+    def route_early(finding: HoleFinding) -> None:
+        """Start the routing on a finding code passed, in its own record until kept."""
+        tb = copy.copy(toolbox)
+        tb.finding = finding
+        draft = Handoffs()
+        log("orchestrator", "model", "Code passed the finding: the orchestrator starts "
+            "routing while the judge reads it", MUSE_WONDER_MODEL_ID)  # fmt: skip
+        early.append((finding, draft, pool.submit(
+            route, client, tb, handoffs.signals, routing_check, Log(draft, lambda: None),
+            draft)))  # fmt: skip
+
     try:
         report = HoleReport(model=MUSE_SPARK_MODEL_ID, trends=toolbox.trends)
         handoffs.hole = report
@@ -828,13 +907,30 @@ def draft_handoffs(
             f"hole{': ' + found if found else ''}. The hole agent is reading them",
             report.model)  # fmt: skip
         try:
-            run_hole_agent(client, toolbox, finding_check, judge, log, report, persist)
+            run_hole_agent(client, toolbox, finding_check, judge, log, report, persist,
+                           route_early if pool else None)  # fmt: skip
         except Exception as exc:
             report.status, report.error = "failed", f"{type(exc).__name__}: {str(exc)[:200]}"
             log("hole", "error", report.error, report.model)
         if report.effort.attempts:
             log("hole", "cost", cost("Hole agent", report.effort), report.model)
-        routed = route(client, toolbox, handoffs.signals, routing_check, log, handoffs)
+        kept = next((e for e in early if report.verified and e[0] is report.finding), None)
+        for finding, _, _ in early:
+            if kept is None or finding is not kept[0]:
+                log("orchestrator", "drop", "An early routing is dropped: the judge did not "
+                    "pass the finding it read", MUSE_WONDER_MODEL_ID)  # fmt: skip
+        if kept is not None:
+            routed = kept[2].result()
+            draft = kept[1]
+            handoffs.routing, handoffs.orchestrator_model = draft.routing, draft.orchestrator_model
+            handoffs.routing_checks, handoffs.routing_verified = (
+                draft.routing_checks, draft.routing_verified)  # fmt: skip
+            handoffs.routing_effort, handoffs.escalation = draft.routing_effort, draft.escalation
+            with lock:
+                handoffs.log = sorted([*handoffs.log, *draft.log], key=lambda e: e.at)
+            persist()
+        else:
+            routed = route(client, toolbox, handoffs.signals, routing_check, log, handoffs)
         log("orchestrator", "cost", cost("Routing", handoffs.routing_effort, judged=False),
             handoffs.orchestrator_model)  # fmt: skip
         if not routed:
@@ -842,12 +938,8 @@ def draft_handoffs(
             persist()
             return handoffs
         applies = {r.area: r for r in handoffs.routing.routes if r.applies}
-        for area in AREAS:
-            if area not in applies:
-                continue
-            if area == "finance" and toolbox.lab_draft is None:
-                log("finance", "error", "Skipped: there is no verified lab request to price")
-                continue
+
+        def one(area: AreaKey) -> None:
             slot = AreaDraft(area=area, model=MUSE_SPARK_MODEL_ID)
             handoffs.drafts.append(slot)
             persist()
@@ -861,9 +953,34 @@ def draft_handoffs(
                 log(area, "cost", cost(f"{AREA_NAMES[area]} agent", slot.effort), slot.model)
             if area == "lab" and slot.verified:
                 toolbox.lab_draft = slot.draft
+
+        def finance() -> None:
+            if toolbox.lab_draft is None:
+                log("finance", "error", "Skipped: there is no verified lab request to price")
+            else:
+                one("finance")
+
+        side = [a for a in AREAS if a in applies and a != "finance"]
+        if pool:
+            futures = {a: pool.submit(one, a) for a in side}
+            if "finance" in applies:
+                if "lab" in futures:
+                    futures["lab"].result()  # finance prices the verified lab request
+                finance()
+            for future in futures.values():
+                future.result()
+        else:
+            for area in side:
+                one(area)
+            if "finance" in applies:
+                finance()
+        handoffs.drafts.sort(key=lambda d: AREAS.index(d.area))
         handoffs.status = "done"
     except Exception as exc:
         handoffs.status, handoffs.error = "failed", f"{type(exc).__name__}: {str(exc)[:200]}"
+    finally:
+        if pool:
+            pool.shutdown(wait=False, cancel_futures=True)
     persist()
     return handoffs
 
