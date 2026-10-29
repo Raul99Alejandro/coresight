@@ -5,7 +5,8 @@ two milestones are checked by code:
 
 1. The hole agent's finding (check_finding). The hole agent reads the trends that code
    found between boxes (hole.hole_trends) and proposes one action. Its finding passes
-   three checks, always these three, in this order:
+   four checks, always these four, in this order (the fourth, "role", is in
+   tests/test_verify_role.py):
    - "trends": every trend kind it cites is one hole_trends returned.
    - "action": "oriented_core" and "warn_geotech" need a cited "rqd_drop" or
      "weak_zone"; "sample_contact" needs a cited "lithology_change", "sulfides_appear"
@@ -106,13 +107,13 @@ def named(checks, names):
 
 
 def test_a_finding_that_cites_found_trends_passes(box):
-    c = named(check_finding(finding(), [DROP], box, []), ["trends", "action", "numbers"])
+    c = named(check_finding(finding(), [DROP], box, []), ["trends", "action", "numbers", "role"])
     assert all(x.ok for x in c.values()), c
 
 
 def test_citing_a_trend_code_did_not_find_fails(box):
     c = named(check_finding(finding(trends=["rqd_drop", "weak_zone"]), [DROP], box, []),
-              ["trends", "action", "numbers"])  # fmt: skip
+              ["trends", "action", "numbers", "role"])  # fmt: skip
     assert not c["trends"].ok and "a weak zone" in c["trends"].detail
     assert "weak_zone" not in c["trends"].detail
 
@@ -134,7 +135,7 @@ def test_citing_a_trend_code_did_not_find_fails(box):
 )
 def test_the_action_needs_a_cited_trend_that_supports_it(box, action, cited, trends, ok):
     f = finding(action=action, trends=cited, body="See the hole log.")
-    c = named(check_finding(f, trends, box, []), ["trends", "action", "numbers"])
+    c = named(check_finding(f, trends, box, []), ["trends", "action", "numbers", "role"])
     assert c["action"].ok is ok
     if not ok:
         assert c["action"].detail and "_" not in c["action"].detail
@@ -146,7 +147,7 @@ def test_numbers_in_a_finding_come_from_the_trends_or_the_runs(box):
     f = finding(action="oriented_core", trends=["weak_zone"], body=body)
     assert all(x.ok for x in check_finding(f, [ZONE], box, []))
     bad = finding(action="oriented_core", trends=["weak_zone"], body="RQD 12.5 % then 41.2 %")
-    c = named(check_finding(bad, [ZONE], box, []), ["trends", "action", "numbers"])
+    c = named(check_finding(bad, [ZONE], box, []), ["trends", "action", "numbers", "role"])
     assert not c["numbers"].ok
     assert "12.5" in c["numbers"].detail and "41.2" not in c["numbers"].detail
 
@@ -256,7 +257,7 @@ def test_a_draft_quoting_the_trends_is_traceable(box):
 
 def test_a_negative_number_is_not_its_positive(box):
     f = finding(body="RQD falls from 92.4 % in box 2 to 69.3 % in box 3. Level -2 m.")
-    c = named(check_finding(f, [DROP], box, []), ["trends", "action", "numbers"])
+    c = named(check_finding(f, [DROP], box, []), ["trends", "action", "numbers", "role"])
     assert not c["numbers"].ok and "-2" in c["numbers"].detail
 
 
@@ -264,13 +265,13 @@ def test_a_negative_number_is_not_its_positive(box):
 def test_a_percent_in_words_is_a_percent(box, word):
     f = finding(action="oriented_core", trends=["weak_zone"],
                 body=f"RQD 12.5 {word} then 41.2 %")  # fmt: skip
-    c = named(check_finding(f, [ZONE], box, []), ["trends", "action", "numbers"])
+    c = named(check_finding(f, [ZONE], box, []), ["trends", "action", "numbers", "role"])
     assert not c["numbers"].ok and "12.5" in c["numbers"].detail
 
 
 def test_every_unknown_trend_is_its_own_sentence(box):
     f = finding(trends=["rqd_drop", "weak_zone", "lithology_change"])
-    c = named(check_finding(f, [DROP], box, []), ["trends", "action", "numbers"])
+    c = named(check_finding(f, [DROP], box, []), ["trends", "action", "numbers", "role"])
     assert c["trends"].detail == (
         "Code did not find a weak zone along the hole. "
         "Code did not find a change of rock along the hole."

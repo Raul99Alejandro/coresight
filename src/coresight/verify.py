@@ -403,3 +403,15 @@ def check_routing(routing: Routing, signals: RoutingSignals) -> list[Check]:
         else:
             out.append(_check_finance(route.applies, lab_applies))
     return out
+
+
+# --- A draft proposes, it never decides for the operation (point 7) ----------------
+
+
+def check_role(text: str) -> Check:
+    """Fails when the text tells the operation to stop, hold or not go on.
+
+    The rules are in the docstring of tests/test_verify_role.py.
+    To be built with Muse Code.
+    """
+    raise NotImplementedError

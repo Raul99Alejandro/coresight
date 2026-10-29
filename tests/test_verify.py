@@ -13,7 +13,7 @@ from coresight.agents import load_prices
 from coresight.schemas import AreaDraft, Draft, DraftFigure, DraftLine, Handoffs, Interval
 from coresight.verify import verify
 
-CHECKS = ["intervals", "figures", "numbers", "prices"]
+CHECKS = ["intervals", "figures", "numbers", "prices", "role"]
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def prices():
 
 
 def by_name(checks):
-    assert [c.name for c in checks] == CHECKS  # always the same four, in this order
+    assert [c.name for c in checks] == CHECKS  # always the same five, in this order
     return {c.name: c for c in checks}
 
 
