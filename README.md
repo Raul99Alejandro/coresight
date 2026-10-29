@@ -62,7 +62,7 @@ Ablation, same 34 runs:
 
 The intervals overlap: with 11 boxes, no step of the ablation is a proven gain on its own.
 
-Spark localizes, SAM cuts (point B). Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing. Spark also marks `empty` stretches (bare wood, an empty compartment): they are taken out like a run block, so `geometry.py` logs them as core not recovered. SAM reads every row at once and Spark boxes at once the rows that need it, and the page says how many. On a public tray CoreSight had never seen (Nevada Test Site 1981), that took the analysis from 143 s to 47 s, and the empty wooden row from 19 pieces to none on the wood (8.5 cm at its left edge are the row above, seen by a row crop the calibration placed a little high).
+Spark localizes, SAM cuts (point B). Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing. Spark also marks `empty` stretches (bare wood, an empty compartment): they are taken out like a run block, so `geometry.py` logs them as core not recovered. SAM reads every row at once and Spark boxes at once the rows that need it, and the page says how many. On a public tray CoreSight had never seen (Nevada Test Site 1981), SAM and Spark went from 142 s to 45 s in production (58 s for the whole box), and the empty wooden row from 19 pieces to none on its 90 cm of wood. Two short ones are left at its ends, about 7.5 cm and 2 cm, where the row crop, placed a little high by the calibration (confidence 0.68), takes in the row above and the tray end.
 
 | Method | Mine geologist, 34 runs: RQD MAE [95% CI] | Our labels, Nevada (3 runs): RQD MAE | Our labels, Onkalo dry (5 runs) |
 |---|---|---|---|
@@ -159,6 +159,7 @@ Faster without dropping a check (third analysis, point 3). What does not wait on
 |---|---|---|---|---|
 | Before (one run, the judge sent the finding and the draft back once each) | 75 s | 18 s | 99 s | 191 s |
 | After (three runs in a row) | 26 to 46 s | 0 to 2 s after the finding | 44 to 54 s | 73, 90 and 96 s |
+| After, in production (first run with the new prompts; the judge sent the draft back once) | 34 s | 0 s after the finding | 68 s | 101 s |
 
 Meta's Agents Rule of Two: the agents read model output about the photo and private mine data, and hold no tool that changes state or communicates outside.
 

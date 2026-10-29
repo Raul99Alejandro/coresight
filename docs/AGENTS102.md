@@ -64,5 +64,6 @@ El taller enseña que verificar cuesta y que el costo se muestra. En la caja del
 |---|---|---|---|---|
 | Antes (una corrida; el juez regresó una vez el hallazgo y una vez el borrador) | 75 s | 18 s | 99 s | 191 s |
 | Después, local (tres corridas seguidas) | 26 a 46 s | 0 a 2 s después del hallazgo | 44 a 54 s | 73, 90 y 96 s |
+| Después, en producción (primera corrida con los prompts nuevos; el juez regresó el borrador una vez) | 34 s | 0 s después del hallazgo | 68 s | 101 s |
 
 Punto 7, en el mismo espíritu ("la firma final es de una persona"): las acciones que propone un borrador salen de una lista cerrada (`schemas.DraftAction`) y `verify.check_role` rechaza cualquier texto que pare la operación ("Do not continue drilling until..."). El juez también lo revisa: proponer una revisión o un aviso es su trabajo; ordenar que se pare, no.

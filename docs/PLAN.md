@@ -130,6 +130,7 @@ No se hace: LoRA con el Kaggle NC, una traza de barreno presentada como real, fo
 ## Plan del tercer análisis (28 oct, noche)
 
 Adoptado de `docs/ANALISIS-3.md`. A a G hechos y en producción. 1 y 2 hechos y en producción el 28 oct (`b7b8a47`): cookie firmada dueña de cada caja, muestras fijadas de solo lectura, comprobado con dos clientes. Nota estimada: 7.8 hoy, 8.4 a 8.7 con este plan.
+3, 5 y 7 hechos y en producción el 28 oct (`6b5907c`): agentes de la caja del recorrido en 101 s en producción (antes unos 3 min; 73 a 96 s en local), con todas las verificaciones; NTS 1981 en 58 s (SAM y Spark 142 a 45 s) y su fila de madera sin piezas en la madera (quedan dos orillas de 7.5 y 2 cm por la calibración); `verify.check_role` por Muse Code (constructor, revisor, constructor) y acciones de una lista cerrada. Ruta de operaciones `POST /api/ops/handoffs/{id}` para volver a correr los agentes de una caja fijada.
 Lo que falta ya no es alcance: es producción y pulido.
 
 | Fecha | Puntos | Objetivo | Listo cuando |
