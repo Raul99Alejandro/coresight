@@ -29,7 +29,12 @@ that the shift boss and the geotechnical engineer make, not a draft. So:
   Matching ignores case and works on whole words; the apostrophe may be ' or ’. The
   -s forms of the verbs count (stops, halts, shuts down, holds off); past forms do not
   ("drilling stopped at 8.02 m" is a fact about the hole, not an order). Sentences end
-  at ".", "!" or "?" followed by a space or the end of the text.
+  at ".", "!" or "?" followed by any white space (a space, a tab, a line break) or the
+  end of the text, and at every line break. A match never crosses the end of a
+  sentence, under any of the four rules, and rule 4 tries every "until" after the
+  operation word in its sentence. When deciding whether a stop verb starts a sentence
+  or follows a colon or semicolon, white space, opening quotes or brackets and list
+  marks ("-", "*", "•", "1.") in between are skipped.
 - Text that only describes the rock, recommends a check, a review or a warning passes:
   "Check support before the next run", "Geotechnics should review the box before the
   next run", "the fracturing stops at 7.6 m", "the hole was drilled to 8.02 m".
@@ -46,8 +51,11 @@ that the shift boss and the geotechnical engineer make, not a draft. So:
   the verb, rule 3 from the negation to the verb, rule 4 from the operation word to the
   clearance word. When several matches exist, the one that starts first in the text is
   quoted.
-- verify() runs check_role on the title and body as a fifth check, after the four it
-  has; check_finding runs it on the title, body and action_reason as a fourth check.
+- verify() runs check_role as a fifth check, after the four it has, on the title and
+  on the body; check_finding runs it as a fourth check on the title, the body and the
+  action_reason. Each field is checked on its own, so a match never runs from one field
+  into the next and the body starts a sentence; the check is the first field's that
+  fails, in that order, or a passing check.
 """
 
 import pytest
@@ -147,3 +155,41 @@ def test_check_finding_runs_the_role_check_fourth_on_its_words(box):
     assert checks[-1].ok
     bad = f.model_copy(update={"action_reason": "Halt the rig until geotech reviews."})
     assert check_finding(bad, [], box, [])[-1].detail == detail("Halt the rig")
+
+
+# --- From the read-only review of round 1 -----------------------------------------
+
+
+@pytest.mark.parametrize("text, quote", [
+    ("RQD is poor.\nStop and await review.", "Stop"),
+    ("RQD is poor\n- Stop drilling at the contact", "Stop drilling"),
+    ('Before the next run: "stop and get geotech review."', "stop"),
+    ("Drill until a b c d e f g, and until lab approves.", "Drill until a b c d e f g, and "
+                                                          "until lab approves"),
+])  # fmt: skip
+def test_review_round_1_misses(text, quote):
+    c = check_role(text)
+    assert not c.ok and c.detail == detail(quote)
+
+
+@pytest.mark.parametrize("text", [
+    "Log the drill core.\nUntil the lab approves the assay, store samples.",
+    "Do not mix samples. Drilling continues as usual.",
+    "Do not mix samples.\nDrilling continues as usual.",
+])  # fmt: skip
+def test_review_round_1_false_refusals(text):
+    assert check_role(text).ok
+
+
+def test_a_command_at_the_start_of_the_body_is_seen_and_fields_do_not_run_together(box):
+    prices = load_prices()
+    stop = Draft(title="Ground alert", body="Stop and get geotech review.")
+    assert verify("safety", stop, box, prices)[-1].detail == detail("Stop")
+    joined = Draft(title="The drill core is poor",
+                   body="Keep samples until lab approves the assay.")  # fmt: skip
+    assert verify("safety", joined, box, prices)[-1].ok
+    f = HoleFinding(title="Nothing along the hole", body="No trend",
+                    trends=[], action="none", action_reason="Stop and get geotech review.")
+    assert check_finding(f, [], box, [])[-1].detail == detail("Stop")
+    both = Draft(title="Stop drilling", body="Do not continue.")
+    assert verify("safety", both, box, prices)[-1].detail == detail("Stop drilling")
