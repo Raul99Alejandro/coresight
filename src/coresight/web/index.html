@@ -480,8 +480,8 @@ button.metric:hover{background:var(--fill-2)}
 .drawer.tour-spot{position:fixed;z-index:41}
 .tour-spot{scroll-margin-top:84px}
 body.touring{padding-bottom:280px} /* room to scroll what the card points at above it */
-.drawer.on ~ .tour{right:auto;left:24px}
-@media (max-width:640px){.tour{right:16px;left:16px;bottom:16px;width:auto}}
+.drawer.on ~ .tour,.tour.left{right:auto;left:24px}
+@media (max-width:640px){.tour,.tour.left,.drawer.on ~ .tour{right:16px;left:16px;bottom:16px;width:auto}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
 /* area agents (stage 6) */
@@ -596,7 +596,8 @@ body.touring{padding-bottom:280px} /* room to scroll what the card points at abo
 .h3-foot .h3-tg[aria-pressed="true"]{color:var(--ink)}.h3-foot .h3-tg[aria-pressed="true"] i{opacity:1}
 .h3-legend{display:none;gap:12px;flex-wrap:wrap}.hole3d.rqd-on .h3-legend{display:flex}
 .h3-hint{background:color-mix(in srgb,var(--bg) 70%,transparent);border-radius:6px;padding:1px 6px}
-.hero-segs{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.h3-foot .seg{pointer-events:auto;background:var(--raised);box-shadow:var(--sh-1)}.h3-foot .seg button{height:26px;font-size:12.5px;padding:0 10px}
+.h3-foot .seg .thumb{background:var(--fill-2);box-shadow:none}.hole3d.rqd-on .h3-hint{display:none}
 .issue{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--ink-2);font-size:14px;margin-bottom:10px}
 .issue b{color:var(--ink);font-weight:600}
 .issue svg{flex:none;color:var(--accent-ink);margin-top:1px}
@@ -816,6 +817,8 @@ function judgeHTML(d) {
 function effortHTML(e, judged = true) {
   if (!e || !e.attempts) return "";
   const verifying = e.check_s + e.judge_s;
+  // the same approved box ran before: the model answers come from data/cache in no time
+  if (e.turns && e.work_s + e.judge_s < 0.3) return `<div class="effort">${plural(e.attempts, "attempt")} of 3, ${plural(e.turns, "model turn")}, answered from the cache: the same approved box ran before</div>`;
   return `<div class="effort">${plural(e.attempts, "attempt")} of 3, ${plural(e.turns, "model turn")}, ${e.work_s.toFixed(1)} s writing and ${verifying.toFixed(1)} s verifying (${e.check_s.toFixed(2)} s code${judged ? `, ${e.judge_s.toFixed(1)} s judge` : ""})</div>`;
 }
 function holeHTML(h) {
@@ -998,14 +1001,14 @@ function renderHole() {
     : `Box ${i.box_before} and box ${i.box_after} both claim it. Box ${i.box_before} is used; check the depths of box ${i.box_after}.`}</div></div>`).join("");
   const zones = h.zones.length ? `<div class="zone-list">${h.zones.map((z) => `<div class="zone">${I.warn}<div><b>Weak zone, ${m2(z.from_m)} to ${m2(z.to_m)}</b><br>${plural(z.intervals, `consecutive ${h.step_m} m interval`)} below RQD ${h.zone_max_rqd}, lowest ${z.min_rqd_pct.toFixed(0)}%</div><span class="zr">RQD ${z.rqd_pct.toFixed(0)}%, ${z.rock_quality}</span></div>`).join("")}</div>` : "";
   $("page").innerHTML = `<section class="hero"><div class="grow"><h1>${esc(h.hole_id)}</h1><p>${esc(text)}</p></div>
-      <div class="hero-segs">${pick}<div class="seg" role="tablist" aria-label="Rows" id="hole-seg"><span class="thumb"></span>${[["intervals", `${h.step_m} m intervals`], ["runs", "Runs"]].map(([v, l]) => `<button role="tab" data-by="${v}" aria-selected="${S.holeBy === v}">${l}</button>`).join("")}</div></div></section>
+      <div class="seg" role="tablist" aria-label="Rows" id="hole-seg"><span class="thumb"></span>${[["intervals", `${h.step_m} m intervals`], ["runs", "Runs"]].map(([v, l]) => `<button role="tab" data-by="${v}" aria-selected="${S.holeBy === v}">${l}</button>`).join("")}</div></section>
     ${issues}
     <div class="hole-grid">
       <section class="card strip-card" id="strip">${stripSVG(h)}
         <div class="strip-legend"><span><i style="background:var(--q-poor)"></i>RQD</span><span><i style="border:1px solid var(--ink-3)"></i>TCR</span><span><i style="background:var(--bad)"></i>Weak zone</span></div></section>
       <section class="card hole3d" id="hole3d" aria-label="3D view of the hole: the box photos wrapped around the core at their depth"><div class="h3-load">Loading the 3D view</div>
         <div class="h3-note"><span>${esc(h.trace.note)}</span>${scale ? `<span class="soft">Real box photos at their measured depth, ${scale} times wider; empty where no core came back</span>` : ""}</div>
-        <div class="h3-foot"><button class="btn sm h3-tg" data-rqd3d aria-pressed="false"><i></i>RQD colour</button><span class="h3-legend">${Object.entries(QUALITY).map(([k, v]) => `<span><i style="background:${v}"></i>${cap(k)}</span>`).join("")}</span><span class="grow"></span><span class="h3-hint">Drag to turn, ${matchMedia("(pointer: coarse)").matches ? "pinch" : "Ctrl and scroll"} to zoom</span></div></section>
+        <div class="h3-foot"><button class="btn sm h3-tg" data-rqd3d aria-pressed="false"><i></i>RQD colour</button><span class="h3-legend">${Object.entries(QUALITY).map(([k, v]) => `<span><i style="background:${v}"></i>${cap(k)}</span>`).join("")}</span><span class="grow"></span><span class="h3-hint">Drag to turn, ${matchMedia("(pointer: coarse)").matches ? "pinch" : "Ctrl and scroll"} to zoom</span>${pick}</div></section>
     </div>
     ${zones}
     <div class="section"><h2>Hole log</h2><p>Approved boxes joined by depth. Tap a row to open its box.</p></div>
@@ -1020,7 +1023,9 @@ function renderHole() {
   ["hole-seg", "hole-pick"].forEach((k) => { const g = $(k), on = g && g.querySelector('[aria-selected="true"]'); if (!on) return;
     const th = g.querySelector(".thumb"); th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`; });
   const seg = $("hole-seg");
-  if ($("hole-pick")) $("hole-pick").querySelectorAll("button").forEach((x) => (x.onclick = () => { if (x.dataset.hole !== h.hole_id) location.hash = `#/hole/${encodeURIComponent(x.dataset.hole)}`; }));
+  if ($("hole-pick")) $("hole-pick").querySelectorAll("button").forEach((x) => (x.onclick = () => { if (x.dataset.hole === h.hole_id) return;
+    S.keep3d = $("hole3d").getBoundingClientRect().top; location.hash = `#/hole/${encodeURIComponent(x.dataset.hole)}`; }));
+  if (S.keep3d != null) { scrollBy({top:$("hole3d").getBoundingClientRect().top - S.keep3d, behavior:"instant"}); S.keep3d = null; } // the 3D stays put when the hole changes
   seg.querySelectorAll("button").forEach((x) => (x.onclick = () => { S.holeBy = x.dataset.by; stop3D(); renderHole(); }));
   $("strip").querySelectorAll("[data-box]").forEach((g) => (g.onclick = () => (location.hash = `#/box/${g.dataset.box}`)));
   draw3D();
@@ -1843,7 +1848,7 @@ const Tour = {
       async go() { await Tour.onSample(); closeDrawer(); return $("approve").hidden ? null : "#approve"; }},
     {title:"Agents, verified in two layers", text:"A hole agent reads the trends between boxes, Muse Wonder decides who needs to know, and area agents draft. Code checks first, then Muse Spark as a judge, three attempts at most, then a person. Nothing is sent.",
       async go() { const sh = await loadShowcase(); if (!sh.agents_box) return null; location.hash = `#/box/${sh.agents_box}`; return "#agents"; }},
-    {title:"From boxes to a drill hole", text:"Approved boxes join by depth into one hole, with weak zones flagged by code. In 3D each box photo wraps the core at its measured depth, empty where no core came back. The trace is an example. Onkalo, next to it, is good rock.",
+    {title:"From boxes to a drill hole", side:"left", text:"Approved boxes join by depth into one hole, with weak zones flagged by code. In 3D each box photo wraps the core at its measured depth, empty where no core came back. The trace is an example. Switch to Onkalo for good rock.",
       async go() { const sh = await loadShowcase(); if (!sh.hole_id) return null; location.hash = `#/hole/${encodeURIComponent(sh.hole_id)}`; return "#hole3d"; }},
   ],
   async onSample() {
@@ -1887,6 +1892,7 @@ const Tour = {
   card(st, waiting, error) {
     document.body.classList.add("touring");
     if (!Tour.el) { Tour.el = document.createElement("div"); Tour.el.className = "tour"; Tour.el.setAttribute("role", "dialog"); Tour.el.setAttribute("aria-label", "60-second tour"); document.body.appendChild(Tour.el); }
+    Tour.el.classList.toggle("left", st.side === "left");
     const n = Tour.steps.length, last = Tour.only || Tour.i === n - 1;
     Tour.el.innerHTML = `<div class="t-top"><small>${Tour.only ? "Input gate" : `${Tour.i + 1} of ${n}`}</small>${Tour.only ? '<span class="grow"></span>' : `<div class="t-bar">${Tour.steps.map((_, j) => `<i class="${j <= Tour.i ? "on" : ""}"></i>`).join("")}</div>`}<button class="btn plain icon sm" id="t-close" aria-label="Close the tour">${I.close}</button></div>
       <h3>${st.title}</h3><p>${st.text}</p>
