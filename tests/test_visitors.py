@@ -183,3 +183,19 @@ def test_we_pin_a_sample_with_the_ops_token(tmp_path, monkeypatch):
     assert a.post(f"/api/boxes/{copy}/approve").status_code == 403
     up = upload(a).json()["id"]
     assert b.post(f"/api/ops/pin/{up}", headers={"X-Ops-Token": "t0k"}).status_code == 400
+
+
+def test_only_we_rerun_the_agents_of_a_pinned_box(tmp_path, monkeypatch):
+    store = ReviewStore(tmp_path)
+    legacy_samples(store)
+    pin_legacy_samples(store)
+    a, _ = two_browsers(store)
+    tour = a.get("/api/showcase").json()["agents_box"]
+    assert a.post(f"/api/boxes/{tour}/handoffs").status_code == 403  # read-only for visitors
+    assert a.post(f"/api/ops/handoffs/{tour}").status_code == 404  # no token set: no route
+    monkeypatch.setenv("CORESIGHT_OPS_TOKEN", "t0k")
+    assert a.post(f"/api/ops/handoffs/{tour}", headers={"X-Ops-Token": "no"}).status_code == 403
+    r = a.post(f"/api/ops/handoffs/{tour}", headers={"X-Ops-Token": "t0k"})
+    assert r.status_code == 202 and r.json()["status"] == "done"
+    up = upload(a).json()["id"]
+    assert a.post(f"/api/ops/handoffs/{up}", headers={"X-Ops-Token": "t0k"}).status_code == 400

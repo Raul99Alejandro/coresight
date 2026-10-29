@@ -626,6 +626,28 @@ def create_app(
         edit(box.id, change)
         return {"id": box.id, "pinned": pinned}
 
+    @app.post("/api/ops/handoffs/{box_id}", status_code=202)
+    def ops_handoffs(box_id: str, x_ops_token: Annotated[str | None, Header()] = None) -> dict:
+        """Run the agents again on a pinned approved box (the tour's), after the agents
+        change: us only. Visitors cannot, since a pinned box is read-only for them."""
+        token = os.getenv("CORESIGHT_OPS_TOKEN")
+        if not token:
+            raise HTTPException(404, "Not Found")
+        if not x_ops_token or not hmac.compare_digest(x_ops_token.encode(), token.encode()):
+            raise HTTPException(403, "Wrong token.")
+        box = get_box(box_id)
+        if not box.pinned or box.status != "approved":
+            raise HTTPException(400, "Only a pinned approved box: the others are a visitor's.")
+        if box.handoffs and box.handoffs.status == "working":
+            raise HTTPException(409, "The agents are still working on this box.")
+        handoff_runs.take("agent runs")
+        edit(box.id, lambda b: setattr(b, "handoffs", Handoffs()))
+        if background:
+            pool.submit(run_handoffs, box.id)
+            return {"id": box.id, "status": "working"}
+        run_handoffs(box.id)
+        return {"id": box.id, "status": get_box(box.id).handoffs.status}
+
     @app.get("/ops")
     def ops_page() -> FileResponse:
         return FileResponse(WEB_DIR / "ops.html", headers={"X-Robots-Tag": "noindex"})
