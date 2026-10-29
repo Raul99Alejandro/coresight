@@ -196,6 +196,7 @@ def verify(area: AreaKey, draft: Draft, box: BoxReview, prices: Prices,
         _check_figures(draft, box),
         _check_numbers(draft, box, prices, history, trends),
         _check_prices(area, draft, prices),
+        check_role(f"{draft.title} {draft.body}"),
     ]
 
 
@@ -317,6 +318,7 @@ def check_finding(
         _check_finding_trends(finding, list(trends)),
         _check_finding_action(finding, list(trends)),
         _check_finding_numbers(finding, list(trends), box, list(history)),
+        check_role(f"{finding.title} {finding.body} {finding.action_reason}"),
     ]
 
 
@@ -407,11 +409,210 @@ def check_routing(routing: Routing, signals: RoutingSignals) -> list[Check]:
 
 # --- A draft proposes, it never decides for the operation (point 7) ----------------
 
+_ROLE_DETAIL_TAIL = (
+    ". A draft only proposes: check support, scale and inspect, review before "
+    "the next run, warn geotechnics, ask for oriented core, sample the contact, "
+    "send to the lab or ask the plant for a test. People in charge decide "
+    "whether work stops."
+)
+
+_ROLE_WORD = re.compile(r"[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*")
+
+_ROLE_STOP_SINGLE = {
+    "stop", "stops", "halt", "halts", "suspend", "suspends",
+    "pause", "pauses", "cease", "ceases", "freeze", "freezes",
+}
+_ROLE_DOWN_FIRST = {"shut", "shuts", "stand", "stands"}
+_ROLE_HOLD_FIRST = {"hold", "holds"}
+_ROLE_OPERATION = {
+    "drill", "drilling", "rig", "work", "works",
+    "operation", "operations", "production", "advance",
+}
+_ROLE_SUBJECT = {
+    "drill", "drilling", "rig", "work", "works",
+    "operation", "operations", "production",
+}
+_ROLE_WAIT_HOLD = {"wait", "waits", "hold", "holds"}
+_ROLE_NEG_SINGLE = {"cannot", "don't", "can't"}
+_ROLE_NEG_PAIR = {
+    ("do", "not"), ("must", "not"), ("should", "not"),
+    ("no", "further"), ("not", "to"),
+}
+_ROLE_GOING_ON = {
+    "drill", "drilling", "drills", "continue", "continues",
+    "proceed", "proceeds", "advance", "advances",
+    "resume", "resumes", "start", "starts",
+}
+_ROLE_CLEAR_SINGLE = {
+    "clears", "cleared", "clearance", "approves", "approval", "released",
+}
+_ROLE_SIGN_FIRST = {"sign", "signs"}
+
+
+def _role_tokens(text: str) -> list[tuple[str, int, int]]:
+    out: list[tuple[str, int, int]] = []
+    for m in _ROLE_WORD.finditer(text):
+        raw = m.group(0)
+        out.append((raw.lower().replace("’", "'"), m.start(), m.end()))
+    return out
+
+
+def _role_sentence_ids(text: str, starts: list[int]) -> list[int]:
+    ends: list[int] = []
+    for i, ch in enumerate(text):
+        if ch in ".!?" and (i + 1 == len(text) or text[i + 1] == " "):
+            ends.append(i)
+    ids: list[int] = []
+    k = 0
+    for s in starts:
+        while k < len(ends) and ends[k] < s:
+            k += 1
+        ids.append(k)
+    return ids
+
+
+def _role_is_command(text: str, tokens: list[tuple[str, int, int]],
+                     sent: list[int], idx: int) -> bool:
+    if idx == 0 or sent[idx] != sent[idx - 1]:
+        return True
+    j = tokens[idx][1] - 1
+    while j >= 0 and text[j] in " \t\n\r":
+        j -= 1
+    return j >= 0 and text[j] in ":;"
+
+
+def _role_stops(norms: list[str]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    i = 0
+    while i < len(norms):
+        if i + 1 < len(norms):
+            a, b = norms[i], norms[i + 1]
+            if (a in _ROLE_DOWN_FIRST and b == "down"
+                    or a in _ROLE_HOLD_FIRST and b == "off"):
+                out.append((i, i + 1))
+                i += 2
+                continue
+        if norms[i] in _ROLE_STOP_SINGLE:
+            out.append((i, i))
+        i += 1
+    return out
+
+
+def _role_operations(norms: list[str]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    i = 0
+    while i < len(norms):
+        if (i + 2 < len(norms) and norms[i] == "the"
+                and norms[i + 1] == "next" and norms[i + 2] == "run"):
+            out.append((i, i + 2))
+            i += 3
+            continue
+        if norms[i] in _ROLE_OPERATION:
+            out.append((i, i))
+        i += 1
+    return out
+
+
+def _role_negations(norms: list[str]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    i = 0
+    while i < len(norms):
+        if i + 1 < len(norms) and (norms[i], norms[i + 1]) in _ROLE_NEG_PAIR:
+            out.append((i, i + 1))
+            i += 2
+            continue
+        if norms[i] in _ROLE_NEG_SINGLE:
+            out.append((i, i))
+        i += 1
+    return out
+
+
+def _role_clearances(norms: list[str]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    i = 0
+    while i < len(norms):
+        if (i + 1 < len(norms) and norms[i] in _ROLE_SIGN_FIRST
+                and norms[i + 1] == "off"):
+            out.append((i, i + 1))
+            i += 2
+            continue
+        if norms[i] in _ROLE_CLEAR_SINGLE:
+            out.append((i, i))
+        i += 1
+    return out
+
 
 def check_role(text: str) -> Check:
     """Fails when the text tells the operation to stop, hold or not go on.
 
     The rules are in the docstring of tests/test_verify_role.py.
-    To be built with Muse Code.
     """
-    raise NotImplementedError
+    tokens = _role_tokens(text)
+    if not tokens:
+        return Check(name="role", ok=True)
+    norms = [t[0] for t in tokens]
+    sent = _role_sentence_ids(text, [t[1] for t in tokens])
+    stops = _role_stops(norms)
+    operations = _role_operations(norms)
+    matches: list[tuple[int, int]] = []
+    for s, e in stops:
+        op_after: tuple[int, int] | None = None
+        for o_s, o_e in operations:
+            if o_s > e:
+                if o_s - e - 1 <= 4:
+                    op_after = (o_s, o_e)
+                break
+        if op_after is not None or _role_is_command(text, tokens, sent, s):
+            end = tokens[op_after[1]][2] if op_after else tokens[e][2]
+            matches.append((tokens[s][1], end))
+    verbs = list(stops)
+    multi_starts = {s for s, e in stops if e > s}
+    for i, n in enumerate(norms):
+        if n in _ROLE_WAIT_HOLD and i not in multi_starts:
+            verbs.append((i, i))
+    verbs.sort()
+    for i, n in enumerate(norms):
+        if n not in _ROLE_SUBJECT:
+            continue
+        for v_s, v_e in verbs:
+            if v_s > i:
+                if v_s - i - 1 <= 4:
+                    matches.append((tokens[i][1], tokens[v_e][2]))
+                break
+    go_at = [i for i, n in enumerate(norms) if n in _ROLE_GOING_ON]
+    for n_s, n_e in _role_negations(norms):
+        for g in go_at:
+            if g > n_e:
+                if g - n_e - 1 <= 3:
+                    matches.append((tokens[n_s][1], tokens[g][2]))
+                break
+    until_at = [i for i, n in enumerate(norms) if n == "until"]
+    clearances = _role_clearances(norms)
+    for o_s, o_e in operations:
+        want = sent[o_e]
+        for u in until_at:
+            if u <= o_e:
+                continue
+            if sent[u] != want:
+                if sent[u] > want:
+                    break
+                continue
+            found: tuple[int, int] | None = None
+            for c_s, c_e in clearances:
+                if c_s <= u:
+                    continue
+                if sent[c_s] != want:
+                    if sent[c_s] > want:
+                        break
+                    continue
+                found = (c_s, c_e)
+                break
+            if found is not None and found[0] - u - 1 <= 6:
+                matches.append((tokens[o_s][1], tokens[found[1]][2]))
+                break
+    if not matches:
+        return Check(name="role", ok=True)
+    start, end = min(matches)
+    quote = text[start:end]
+    detail = f'The draft tells the operation to stop ("{quote}"){_ROLE_DETAIL_TAIL}'
+    return Check(name="role", ok=False, detail=detail)
