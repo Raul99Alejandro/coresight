@@ -504,6 +504,8 @@ button.metric:hover{background:var(--fill-2)}
 .draft .body{margin:0;color:var(--ink-2);font-size:14px;white-space:pre-wrap}
 .draft .chips{display:flex;gap:6px;flex-wrap:wrap}
 .draft .chips span{font-size:12.5px;padding:2px 9px;border-radius:8px;background:var(--fill);color:var(--ink-2)}
+.draft .chips.proposes{align-items:center;margin-top:8px}
+.draft .chips.proposes b{font-size:12.5px;font-weight:600;color:var(--ink-3);margin-right:2px}
 .draft table{width:100%;border-collapse:collapse;font-size:13.5px}
 .draft td{padding:6px 0;border-top:1px solid var(--hair)}
 .draft td.num,.draft th.num{text-align:right}
@@ -676,7 +678,11 @@ const STATUS = {ready:"Under review",approved:"Approved",processing:"Analyzing",
 const MODEL = {"muse-spark-1.3":"Muse Spark 1.3","muse-wonder-1.0":"Muse Wonder"};
 const AREA = {lab:"Lab", safety:"Safety & geotechnics", plant:"Plant", finance:"Finance"};
 const AREA_ORDER = ["lab", "safety", "plant", "finance"];
-const CHECK_NAME = {intervals:"Intervals inside this box", figures:"Figures equal geometry.py", numbers:"Every number traceable to a tool", prices:"Prices from the table only", trends:"Every trend cited was found by code", action:"The action follows from the trends cited"};
+const CHECK_NAME = {intervals:"Intervals inside this box", figures:"Figures equal geometry.py", numbers:"Every number traceable to a tool", prices:"Prices from the table only", trends:"Every trend cited was found by code", action:"The action follows from the trends cited", role:"Proposes only, never stops the operation"};
+const DRAFT_ACTION = {check_support:"Check ground support", scale_and_inspect:"Scale and inspect the walls", review_before_next_run:"Geotechnical review before the next run", warn_geotech:"Warn geotechnics", oriented_core:"Ask for oriented core", sample_contact:"Sample across the contact", send_to_lab:"Send to the lab", plant_test:"Ask the plant for a test"};
+// Typical seconds of each agent step, measured on the tour box (point 3): hole agent and
+// its judge, the rest of the routing (it starts while the judge reads), drafts and judges.
+const AGENT_STEPS = [["The hole agent is reading the hole", 40], ["The orchestrator is routing the box", 10], ["The area agents are writing and being judged", 50]];
 const ACTION = {oriented_core:"Ask for oriented core", warn_geotech:"Warn geotechnics before the next run", sample_contact:"Sample across the contact", none:"No action"};
 const I = {
   mic:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5V15"/></svg>',
@@ -830,7 +836,19 @@ function draftHTML(d) {
       <div><span class="area">${AREA[d.area]}</span><br><span class="src model">${esc(MODEL[d.model] || d.model)} with tools</span></div>
       <span class="prio ${x.priority}">${cap(x.priority)} priority</span></div>
     <h3>${esc(x.title)}</h3><p class="body">${esc(x.body)}</p>${iv ? `<div class="chips">${iv}</div>` : ""}${lines}
+    ${(x.actions || []).length ? `<div class="chips proposes"><b>Proposes</b>${x.actions.map((a) => `<span>${esc(DRAFT_ACTION[a] || a)}</span>`).join("")}</div>` : ""}
     ${review}${checksHTML(d)}${judgeHTML(d)}${effortHTML(d.effort)}<div class="df">${foot}</div></section>`;
+}
+// "Step 2 of 3: …, about 50 s left": the step from the log, the time left from AGENT_STEPS.
+function agentStep(h) {
+  const at = (k, actor) => { const e = h.log.find((x) => x.kind === k && x.actor === actor); return e ? Date.parse(e.at) : null; };
+  const start = h.log.length ? Date.parse(h.log[0].at) : Date.now();
+  const holeDone = at("cost", "hole") || (h.hole && h.hole.status !== "working" ? start : null);
+  const routed = h.routing_verified != null ? (at("cost", "orchestrator") || holeDone || start) : null;
+  const i = routed ? 2 : holeDone ? 1 : 0, since = [start, holeDone, routed][i];
+  const left = Math.max(0, AGENT_STEPS[i][1] - (Date.now() - since) / 1000) + AGENT_STEPS.slice(i + 1).reduce((s, x) => s + x[1], 0);
+  const eta = left < 5 ? "almost done" : left < 55 ? `about ${Math.ceil(left / 10) * 10} s left` : `about ${Math.round(left / 60 * 2) / 2} min left`;
+  return `Step ${i + 1} of 3: ${AGENT_STEPS[i][0].replace(/^The/, "the")}, ${eta}`;
 }
 function agentsHTML(b) {
   const h = b.handoffs;
@@ -840,8 +858,7 @@ function agentsHTML(b) {
   const routeTiles = AREA_ORDER.map((a) => { const r = routes[a];
     return `<div class="route ${r && r.applies ? "on" : ""}"><div class="rh">${AREA[a]}<span class="rtag">${!r ? "…" : r.applies ? "Applies" : "Not needed"}</span></div><p>${r ? esc(r.reason) : "Waiting for the orchestrator."}</p></div>`; }).join("");
   const last = h.log[h.log.length - 1];
-  const step = !h.hole || h.hole.status === "working" ? "The hole agent is reading the hole" : !h.routing_checks.length && !h.routing ? "The orchestrator is reading the box and the hole" : h.routing_verified ? "The area agents are writing their drafts" : "Code is checking the routing";
-  const working = agentsWorking(b) ? `<section class="card agents-working" style="margin-bottom:16px">${glyph(h.routing ? "spark" : "wonder", 22, "model work", true)}<div><b>${step}</b><small>${last ? esc(last.text.slice(0, 160)) : "Starting…"}</small></div></section>` : "";
+  const working = agentsWorking(b) ? `<section class="card agents-working" style="margin-bottom:16px">${glyph(h.routing ? "spark" : "wonder", 22, "model work", true)}<div><b>${agentStep(h)}</b><small>${last ? esc(last.text.slice(0, 160)) : "Starting…"}</small></div></section>` : "";
   const failed = h.status === "failed" ? banner(`The agents stopped: ${h.error || "unknown error"}`, '<button class="btn" id="agents-retry">Retry</button>') : "";
   const fallback = h.orchestrator_model && h.orchestrator_model !== "muse-wonder-1.0" ? " (plan B: Muse Wonder failed)" : "";
   const orch = `${glyph("wonder", 15, "model")}<span>${h.orchestrator_model ? `Routed by <b>${esc(MODEL[h.orchestrator_model] || h.orchestrator_model)}</b>${fallback}` : "Muse Wonder decides which areas apply"}</span>`;
@@ -1251,6 +1268,8 @@ const STAGE = {
 function liveSentence(b) {
   const s = b.stages.find((x) => x.status === "working"), n = b.tray ? b.tray.rows.length : 5;
   if (!s) return [glyph("cv", 20, null, true), "Starting."];
+  if (s.key === "segmentation" && /^Muse Spark is boxing/.test(s.detail || "")) return [glyph("spark", 20, "model work", true), `${esc(s.detail)}. SAM 3.1 cuts each box next.`];
+  if (s.key === "segmentation" && s.current == null) return [glyph("sam", 20, "model work", true), `SAM 3.1 is finding the core pieces in all ${n} rows.`];
   if (s.key === "segmentation") return [glyph("sam", 20, "model work", true), `SAM 3.1 is finding the core pieces in row ${(s.current ?? 0) + 1} of ${n}.`];
   if (s.key === "description") return [glyph("spark", 20, "model work", true), `${esc(s.name)} is describing ${esc((s.detail || "the runs").replace(/^Run/, "run"))}.`];
   if (s.key === "geometry") return [glyph("code", 20, "code work"), "geometry.py is measuring RQD, TCR and fracture frequency."];
@@ -1298,7 +1317,10 @@ function renderWorking() {
   b.mask_rows.filter((r) => !have.has(r)).forEach((r) => $("live-masks").insertAdjacentHTML("beforeend", maskImgs({...b, mask_rows:[r]}, "ov-live")));
   const seg = b.stages.find((s) => s.key === "segmentation"), working = seg.status === "working" ? (seg.current ?? 0) : null;
   const scan = $("scan"), dim = $("dim"), tag = $("sam-tag");
-  if (working !== null) {
+  if (working !== null && seg.current == null) {  // every row at once (point 5)
+    scan.hidden = false; scan.style.top = pct(T.rows[0][0] + 2); scan.style.height = pct(T.rows[T.rows.length - 1][1] - T.rows[0][0] - 4);
+    dim.style.top = "100%";
+  } else if (working !== null) {
     const [y1, y2] = T.rows[working];
     scan.hidden = false; scan.style.top = pct(y1 + 2); scan.style.height = pct(y2 - y1 - 4);
     dim.style.top = working + 1 < T.rows.length ? pct(T.rows[working + 1][0]) : "100%";
