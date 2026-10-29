@@ -37,7 +37,7 @@ from coresight.describe import MAX_EXAMPLES, Describer, cache_key, describe_prom
 from coresight.gate import check_input
 from coresight.geometry import IntervalLog
 from coresight.meta_client import SamObject, SamPoint, sam_cache_key, sam_prompt
-from coresight.pipeline import row_prompts
+from coresight.pipeline import rows_prompts
 from coresight.runs import (
     LaidPiece,
     Position,
@@ -70,6 +70,7 @@ MAX_PHOTO_SIDE_PX = 8000  # larger photos are refused before decoding them twice
 # "fallback+": "stone", and Muse Spark's boxes for a row "stone" leaves empty (point B,
 # chosen from outputs/eval/report.md)
 SEGMENT_METHOD = os.getenv("CORESIGHT_SEGMENT_METHOD", "fallback+sam+fill+profile")
+SPARK_ROWS_S = 40  # Muse Spark boxing rows side by side, measured on NTS 1981 (point 5)
 MODEL_NAMES = {"muse-spark-1.3": "Muse Spark 1.3"}
 
 
@@ -335,17 +336,24 @@ def analyze(
     spark = _tray_check(client, image)
     _gate(tray.confidence, None, spark, report)  # before SAM: a screenshot costs no SAM call
 
-    # stage 2 as pipeline.segment, one row at a time so the page can follow it
+    # stage 2 as pipeline.segment: SAM reads every row at once, then Spark boxes the rows
+    # SAM found nothing in, at once; the page hears each phase
     t, calls, cached, rows, found = time.perf_counter(), 0, 0, [], []
     crops = tray.row_crops(image)
     pieces, confidences, located = 0, [], 0
-    for i, crop in enumerate(crops):
-        report.stage(
-            "segmentation", status="working", current=i, progress=i / len(crops),
-            detail=f"Row {i + 1} of {len(crops)}",
-        )  # fmt: skip
-        hit = _sam_cached(client, crop)
-        masks, not_core, spark_row = row_prompts(client, crop, SEGMENT_METHOD)
+    hits = [_sam_cached(client, crop) for crop in crops]
+    report.stage("segmentation", status="working", progress=0,
+                 detail=f"SAM 3.1 is reading {len(crops)} rows")  # fmt: skip
+
+    def boxing(need: list[int]) -> None:
+        n = len(need)
+        report.stage("segmentation", status="working", progress=0.3,
+                     detail=f"Muse Spark is boxing {n} row{'s' if n > 1 else ''}, about "
+                            f"{SPARK_ROWS_S} s")  # fmt: skip
+
+    prompts = rows_prompts(client, crops, SEGMENT_METHOD, boxing)
+    for i, (crop, hit, (masks, not_core, spark_row)) in enumerate(
+            zip(crops, hits, prompts, strict=True)):  # fmt: skip
         calls, cached, located = calls + (not hit), cached + hit, located + spark_row
         report.masks(i, mask_overlay(masks, crop.shape[:2]))
         row = segment_row(crop, masks, tray.px_per_cm, SEGMENT_METHOD, not_core)

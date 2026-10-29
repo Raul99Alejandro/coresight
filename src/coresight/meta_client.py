@@ -79,7 +79,10 @@ kind of each object:
 - card: a card, tag or label.
 - waxed_sample: core wrapped in wax, foil or plastic, taken as a sample.
 - other: anything else in the row that is not rock core (a bag, a tool, a spacer).
-Do not box the slats, the tray walls or empty tray. Do not miss any piece."""
+- empty: a stretch of the row with no core in it: bare wood or the tray floor, an
+  empty compartment, or a whole row left empty. Give it one box over its whole length.
+  Paint, marks or stains on the wood are not core.
+Do not box the slats or the tray walls. Do not miss any piece."""
 
 # One SAM record: "<id><|box;...|><|mask;...;data=H,W,ENC payload|>" (docs:
 # sam/reading-segmentation). The box token has no payload, so records are found

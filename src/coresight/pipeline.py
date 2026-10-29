@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import cv2
@@ -77,6 +79,27 @@ def row_prompts(
     if method.startswith(SPARK) or (method.startswith(FALLBACK) and not masks):
         return *located_masks(client, crop), True
     return masks, [], False
+
+
+def rows_prompts(
+    client: MetaClient,
+    crops: list[np.ndarray],
+    method: str,
+    spark_rows: Callable[[list[int]], None] = lambda rows: None,
+) -> list[tuple[list[dict], list[tuple[float, float]], bool]]:
+    """``row_prompts`` for every row at once: SAM reads all the rows side by side, then
+    Muse Spark boxes, side by side, the rows that need it. ``spark_rows`` hears which
+    rows those are before Spark starts (the page says so: it is the slow part)."""
+    with ThreadPoolExecutor(max_workers=max(len(crops), 1)) as pool:
+        stone = list(pool.map(
+            lambda c: [] if method.startswith(SPARK) else row_masks(client, c), crops))
+        need = [i for i, m in enumerate(stone) if method.startswith(SPARK)
+                or (method.startswith(FALLBACK) and not m)]  # fmt: skip
+        if need:
+            spark_rows(need)
+        located = dict(zip(need, pool.map(lambda i: located_masks(client, crops[i]), need),
+                           strict=True))  # fmt: skip
+    return [(*located[i], True) if i in located else (m, [], False) for i, m in enumerate(stone)]
 
 
 def build_logs(

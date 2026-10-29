@@ -160,7 +160,8 @@ class GateResult(_Strict):
 
 # Localization (point B): Muse Spark marks what is core in a row, SAM 3.1 cuts it.
 
-LocatedKind = Literal["core", "run_block", "card", "waxed_sample", "other"]
+# empty (point 5): a stretch with no core (bare wood, an empty compartment): not recovered
+LocatedKind = Literal["core", "run_block", "card", "waxed_sample", "other", "empty"]
 
 
 class LocatedObject(_Strict):

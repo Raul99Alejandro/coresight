@@ -287,3 +287,62 @@ def test_fallback_turns_to_spark_only_for_a_row_stone_left_empty(monkeypatch):
     rows, _ = pipeline.segment(grey_crop(), FakeTray(), object(), "fallback+sam")
     assert located == [1]  # only the empty row asked Spark
     assert [r.intervals_px for r in rows] == [[(0, 400)], [(0, 900)]]
+
+
+def test_an_empty_stretch_spark_boxes_has_no_pieces_and_counts_as_not_recovered(tmp_path,
+                                                                                monkeypatch):
+    """Point 5: the bare wood of an empty row is "empty", taken out like a run block, so
+    geometry.py logs it as core that was not recovered (TCR and RQD drop)."""
+    from coresight import segmentation
+    from coresight.runs import log_segment, run_segments
+    from coresight.schemas import Interval, LocatedObject, RowLocation
+
+    def obj(kind, x1, x2):
+        return LocatedObject(kind=kind, x_min=x1, y_min=100, x_max=x2, y_max=900)
+
+    location = RowLocation(objects=[obj("core", 0, 499), obj("empty", 500, 999)])
+
+    class FakeClient:
+        def locate_row(self, png):
+            return location
+
+        def segment_row_raw(self, png, prompt):
+            return prompt
+
+    monkeypatch.setattr(segmentation, "sam_masks", lambda text: [mask(0, 150) | {"id": 0}])
+    crop = np.full((60, 150, 3), 150, np.uint8)  # 150 px, 10 px per cm: a 15 cm row
+    masks, not_core = segmentation.located_masks(FakeClient(), crop, cache_dir=tmp_path)
+    assert not_core == [(75.0, 150.0)]  # the empty half, as wide as Spark boxed it
+    row = segmentation.segment_row(crop, masks, 10.0, "spark+sam", not_core)
+    assert row.intervals_px == [(0, 75.0)]  # SAM's mask ran on into the wood: cut there
+    (laid,) = run_segments([row], [], 1)
+    log = log_segment(laid, Interval(from_m=0, to_m=0.15))
+    assert log.tcr_pct == pytest.approx(50.0)  # 7.5 of 15 cm recovered
+    assert log.rqd_pct == 0.0  # the one piece, 7.5 cm, is shorter than 10 cm
+
+
+def test_rows_are_read_side_by_side_and_spark_boxes_only_the_rows_sam_left_empty(monkeypatch):
+    """Point 5: a new tray took 142 s with its rows one after another. SAM reads every row
+    at once; the rows "stone" found nothing in go to Muse Spark at once, and the page
+    hears how many before Spark starts."""
+    import threading
+
+    from coresight import pipeline
+
+    crops = [np.full((4, 4, 3), v, np.uint8) for v in (0, 1, 2)]
+    together = threading.Barrier(2, timeout=5)  # passes only if two rows box at once
+
+    def stone(client, crop):
+        return [] if crop[0, 0, 0] > 0 else [mask(0, 4)]
+
+    def spark(client, crop):
+        together.wait()
+        return [mask(1, 3)], [(3.0, 4.0)]
+
+    monkeypatch.setattr(pipeline, "row_masks", stone)
+    monkeypatch.setattr(pipeline, "located_masks", spark)
+    heard = []
+    out = pipeline.rows_prompts(None, crops, "fallback+sam+fill+profile", heard.append)
+    assert heard == [[1, 2]]
+    assert [o[2] for o in out] == [False, True, True]
+    assert out[1][1] == [(3.0, 4.0)] and out[0][1] == []
