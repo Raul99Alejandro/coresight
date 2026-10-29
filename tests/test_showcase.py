@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
-from test_api import client
+from test_api import client, upload
 from test_review import PIECES, make_run
 
 from coresight import api, review
@@ -73,3 +73,30 @@ def test_the_tour_shows_a_screenshot_being_refused_live(tmp_path, monkeypatch):
     assert b["status"] == "failed" and "no scale" in b["error"]
     assert b["gate"]["ok"] is False and "screenshot" in b["source"]
     assert len(calls) == 1
+
+
+def test_many_tours_from_one_office_never_touch_the_upload_allowance(tmp_path, monkeypatch):
+    """Ten judges behind one address: the screenshot is refused once, then copied."""
+    calls = []
+
+    def analyzer(photo, job, report):
+        calls.append(job)
+        return review.analyze(photo, job.box_length_cm, job.runs, job.first_starts_in_box,
+                              None, None, report=report, n_rows=job.n_rows)  # fmt: skip
+
+    monkeypatch.setenv("CORESIGHT_MAX_ANALYSES_PER_VISITOR", "1")
+    monkeypatch.setenv("CORESIGHT_MAX_ANALYSES_PER_HOUR", "1")
+    monkeypatch.setenv("CORESIGHT_MAX_SAMPLES_PER_HOUR", "1")
+    app = create_app(store=ReviewStore(tmp_path), analyzer=analyzer, background=False,
+                     transcriber=lambda wav: ("", 0))  # fmt: skip
+    judges = [TestClient(app) for _ in range(10)]
+    tours = [j.post("/api/tour/not-a-box") for j in judges]
+    assert [t.status_code for t in tours] == [202] * 10 and len(calls) == 1
+    ids = {t.json()["id"] for t in tours}
+    assert len(ids) == 10
+    for j, t in zip(judges, tours, strict=True):
+        b = t.json()
+        assert b["status"] == "failed" and b["gate"]["ok"] is False and not b["pinned"]
+        assert j.get(f"/api/boxes/{b['id']}/tray.jpg").status_code == 200
+    assert judges[1].get(f"/api/boxes/{tours[0].json()['id']}").status_code == 404
+    assert upload(judges[0]).status_code == 202  # their own photo still has its allowance

@@ -677,7 +677,22 @@ def create_app(
 
     @app.post("/api/tour/not-a-box", status_code=202)
     def tour_not_a_box(request: Request) -> BoxReview:
-        """The tour's first step: CoreSight refuses a screenshot, live (calibration, no model)."""
+        """The tour's first step: CoreSight refuses a screenshot (calibration, no model).
+
+        The first refusal runs for real on the samples' cap; every later tour gets its own
+        copy of it, so any number of judges behind one office address never wait or use
+        the uploads' allowance.
+        """
+        refused = [b for b in store.all() if b.hole_id == "NOT-A-CORE-BOX"
+                   and b.source.startswith("Tour:") and b.status == "failed"
+                   and b.gate is not None and not b.gate.ok]  # fmt: skip
+        if refused:
+            box = refused[0].model_copy(deep=True)
+            box.id, box.owner, box.pinned = uuid.uuid4().hex[:12], request.state.visitor, False
+            box.created_at = datetime.now(UTC)
+            store.copy_files(refused[0].id, box.id)
+            store.save(box)
+            return box
         job = Job(box_length_cm=100, runs=[Interval(from_m=1, to_m=2)], first_starts_in_box=True,
                   tray_index=0)  # fmt: skip
         source = "Tour: a screenshot of CoreSight's own icon sheet, not a core box"

@@ -820,6 +820,15 @@ class ReviewStore:
     def save_tray(self, box_id: str, jpg: bytes) -> None:
         self.tray_path(box_id).write_bytes(jpg)
 
+    def copy_files(self, src_id: str, dst_id: str) -> None:
+        """The tray image, masks and crops of one box, again under another id."""
+        src = self._json(src_id).stem
+        dst = self._json(dst_id).stem
+        if self.tray_path(src_id).exists():
+            self.save_tray(dst_id, self.tray_path(src_id).read_bytes())
+        for path in self.root.glob(f"{src}_*"):
+            (self.root / f"{dst}{path.name[len(src):]}").write_bytes(path.read_bytes())
+
     def all(self) -> list[BoxReview]:
         paths = self.root.glob("*.json")
         boxes = [BoxReview.model_validate_json(p.read_text("utf-8")) for p in paths]
