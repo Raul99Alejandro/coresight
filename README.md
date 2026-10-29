@@ -62,7 +62,7 @@ Ablation, same 34 runs:
 
 The intervals overlap: with 11 boxes, no step of the ablation is a proven gain on its own.
 
-Spark localizes, SAM cuts (point B). Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing.
+Spark localizes, SAM cuts (point B). Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing. Spark also marks `empty` stretches (bare wood, an empty compartment): they are taken out like a run block, so `geometry.py` logs them as core not recovered. SAM reads every row at once and Spark boxes at once the rows that need it, and the page says how many. On a public tray CoreSight had never seen (Nevada Test Site 1981), that took the analysis from 143 s to 47 s, and the empty wooden row from 19 pieces to none on the wood (8.5 cm at its left edge are the row above, seen by a row crop the calibration placed a little high).
 
 | Method | Mine geologist, 34 runs: RQD MAE [95% CI] | Our labels, Nevada (3 runs): RQD MAE | Our labels, Onkalo dry (5 runs) |
 |---|---|---|---|
@@ -150,13 +150,21 @@ How it is verified, in the words of Meta's Agents 102 workshop:
 - **Max three attempts, then escalate to a human.** A failure goes back to the agent with the reasons of both layers. After three attempts the draft reaches the person marked "Needs review" with why; the routing stops and nobody drafts.
 - **Final human sign-off.** Even a verified draft waits for the geologist's approval, and approving only marks it in CoreSight: there is no outbound channel. A draft that failed three times can only be approved explicitly, and the log says so.
 - **Closed tool list.** Each agent sees only its own read-only tools; any other tool name is refused.
-- **The cost of verifying, shown.** The decision log says, in sentences, how many attempts and model turns each step took and how many seconds went to writing and to verifying (code and judge).
+- **The cost of verifying, shown.** The decision log says, in sentences, how many attempts and model turns each step took and how many seconds went to writing and to verifying (code and judge). While they work, the page says the step and about how long is left.
+- **A draft proposes, people decide.** What a draft proposes comes from a closed list (check support, scale and inspect, a review before the next run, warn geotechnics, oriented core, sample the contact, send to the lab, a plant test). `verify.check_role` refuses any wording that tells the operation to stop ("Do not continue drilling until..."), and the judge is told to do the same. Stopping a rig is for the people in charge.
+
+Faster without dropping a check (third analysis, point 3). What does not wait on another step runs at the same time: the routing starts on a finding `verify.py` passed while the judge reads it, and is kept only if the judge passes that finding too (otherwise it is dropped, and the log says so); lab, safety and plant draft and are judged side by side, and finance waits for the verified lab request. A retry continues the agent's conversation with only the reasons, so it does not read its tools again, and each agent gets its no-argument tools (box summary, trends, finding, history) in its first message. Meta's prompt caching is automatic and already reused about 97 % of a repeated prompt in our test, so the time was in the turns, not the input. Measured on the tour box (Nevada U12G box 3, no response cache):
+
+| | Hole agent and judge | Routing | Safety draft and judge | Total |
+|---|---|---|---|---|
+| Before (one run, the judge sent the finding and the draft back once each) | 75 s | 18 s | 99 s | 191 s |
+| After (three runs in a row) | 26 to 46 s | 0 to 2 s after the finding | 44 to 54 s | 73, 90 and 96 s |
 
 Meta's Agents Rule of Two: the agents read model output about the photo and private mine data, and hold no tool that changes state or communicates outside.
 
 ## Built with Muse Code
 
-Seven pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
+Eight pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
@@ -178,6 +186,10 @@ Seven pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against 
   - Builder, round 1 (session `01a18464-3527-7f22-a9b6-2c50b9baa9a7`): all 18 tests green.
   - Reviewer (session `01a18468-a270-7d61-8d57-23efb2b49741`, `--disable-write`): duplicate errors silently took the last one, a NaN on an unused candidate slipped through, no eligible candidate returned an unscored default, and a run given twice weighed double. Five new tests. It also found two errors in our own script: Onkalo boxes 5 and 6 share one photo, so holding out a box still let the fit see its photo, and the pooled x axis counted runs per site. We fixed the script: cross-validation is now by photo.
   - Builder, round 2 (session `01a1846d-5cd8-7fd3-9770-6ad32a239c2d`): all 23 tests green. Traces `learning-1`, `learning-2` and `learning-review-1`.
+- `check_role` in `src/coresight/verify.py`, the deterministic rule that a draft never tells the operation to stop ("Do not continue drilling until the safety team reviews." was a real Muse Spark draft), run inside `verify` and `check_finding`. Spec: `tests/test_verify_role.py`. Builder and reviewer:
+  - Builder, round 1 (session `01a1854c-adb6-7981-b7b3-367fe18b3b11`): all 32 tests green.
+  - Reviewer (session `01a1855a-ec2a-7611-bdd1-412fd2b23ce8`, `--disable-write`): a command at the start of the body was missed when the title had no full stop, only the first "until" was tried, a line break did not end a sentence, a match could cross sentences or fields (and refuse "Do not mix samples. Drilling continues"), a quote after a colon hid the order. Eight new tests.
+  - Builder, round 2 (session `01a18564-2d84-7920-bbb8-d725b6c00c7f`): all 40 tests green. Traces `role-1`, `role-2` and `role-review-1`.
 - Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`. Reviewers also run with `--disable-write`.
 - Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
 - Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).

@@ -196,7 +196,7 @@ def verify(area: AreaKey, draft: Draft, box: BoxReview, prices: Prices,
         _check_figures(draft, box),
         _check_numbers(draft, box, prices, history, trends),
         _check_prices(area, draft, prices),
-        check_role(f"{draft.title} {draft.body}"),
+        _role_over_fields(draft.title, draft.body),
     ]
 
 
@@ -318,7 +318,7 @@ def check_finding(
         _check_finding_trends(finding, list(trends)),
         _check_finding_action(finding, list(trends)),
         _check_finding_numbers(finding, list(trends), box, list(history)),
-        check_role(f"{finding.title} {finding.body} {finding.action_reason}"),
+        _role_over_fields(finding.title, finding.body, finding.action_reason),
     ]
 
 
@@ -447,6 +447,8 @@ _ROLE_CLEAR_SINGLE = {
     "clears", "cleared", "clearance", "approves", "approval", "released",
 }
 _ROLE_SIGN_FIRST = {"sign", "signs"}
+_ROLE_OPENERS = {"\"", "'", "’", "‘", "“", "”", "(", "[", "{"}
+_ROLE_LIST_SINGLE = {"-", "*", "•"}
 
 
 def _role_tokens(text: str) -> list[tuple[str, int, int]]:
@@ -460,7 +462,9 @@ def _role_tokens(text: str) -> list[tuple[str, int, int]]:
 def _role_sentence_ids(text: str, starts: list[int]) -> list[int]:
     ends: list[int] = []
     for i, ch in enumerate(text):
-        if ch in ".!?" and (i + 1 == len(text) or text[i + 1] == " "):
+        if ch in "\r\n":
+            ends.append(i)
+        elif ch in ".!?" and (i + 1 == len(text) or text[i + 1].isspace()):
             ends.append(i)
     ids: list[int] = []
     k = 0
@@ -476,16 +480,29 @@ def _role_is_command(text: str, tokens: list[tuple[str, int, int]],
     if idx == 0 or sent[idx] != sent[idx - 1]:
         return True
     j = tokens[idx][1] - 1
-    while j >= 0 and text[j] in " \t\n\r":
-        j -= 1
-    return j >= 0 and text[j] in ":;"
+    while j >= 0:
+        ch = text[j]
+        if ch.isspace() or ch in _ROLE_OPENERS or ch in _ROLE_LIST_SINGLE:
+            j -= 1
+            continue
+        if ch == ".":
+            k = j - 1
+            while k >= 0 and text[k].isdigit():
+                k -= 1
+            if k < j - 1:
+                j = k
+                continue
+        break
+    if j < 0:
+        return True
+    return text[j] in ":;"
 
 
-def _role_stops(norms: list[str]) -> list[tuple[int, int]]:
+def _role_stops(norms: list[str], sent: list[int]) -> list[tuple[int, int]]:
     out: list[tuple[int, int]] = []
     i = 0
     while i < len(norms):
-        if i + 1 < len(norms):
+        if i + 1 < len(norms) and sent[i] == sent[i + 1]:
             a, b = norms[i], norms[i + 1]
             if (a in _ROLE_DOWN_FIRST and b == "down"
                     or a in _ROLE_HOLD_FIRST and b == "off"):
@@ -498,12 +515,13 @@ def _role_stops(norms: list[str]) -> list[tuple[int, int]]:
     return out
 
 
-def _role_operations(norms: list[str]) -> list[tuple[int, int]]:
+def _role_operations(norms: list[str], sent: list[int]) -> list[tuple[int, int]]:
     out: list[tuple[int, int]] = []
     i = 0
     while i < len(norms):
         if (i + 2 < len(norms) and norms[i] == "the"
-                and norms[i + 1] == "next" and norms[i + 2] == "run"):
+                and norms[i + 1] == "next" and norms[i + 2] == "run"
+                and sent[i] == sent[i + 2]):
             out.append((i, i + 2))
             i += 3
             continue
@@ -513,11 +531,12 @@ def _role_operations(norms: list[str]) -> list[tuple[int, int]]:
     return out
 
 
-def _role_negations(norms: list[str]) -> list[tuple[int, int]]:
+def _role_negations(norms: list[str], sent: list[int]) -> list[tuple[int, int]]:
     out: list[tuple[int, int]] = []
     i = 0
     while i < len(norms):
-        if i + 1 < len(norms) and (norms[i], norms[i + 1]) in _ROLE_NEG_PAIR:
+        if (i + 1 < len(norms) and sent[i] == sent[i + 1]
+                and (norms[i], norms[i + 1]) in _ROLE_NEG_PAIR):
             out.append((i, i + 1))
             i += 2
             continue
@@ -527,12 +546,12 @@ def _role_negations(norms: list[str]) -> list[tuple[int, int]]:
     return out
 
 
-def _role_clearances(norms: list[str]) -> list[tuple[int, int]]:
+def _role_clearances(norms: list[str], sent: list[int]) -> list[tuple[int, int]]:
     out: list[tuple[int, int]] = []
     i = 0
     while i < len(norms):
         if (i + 1 < len(norms) and norms[i] in _ROLE_SIGN_FIRST
-                and norms[i + 1] == "off"):
+                and norms[i + 1] == "off" and sent[i] == sent[i + 1]):
             out.append((i, i + 1))
             i += 2
             continue
@@ -552,14 +571,14 @@ def check_role(text: str) -> Check:
         return Check(name="role", ok=True)
     norms = [t[0] for t in tokens]
     sent = _role_sentence_ids(text, [t[1] for t in tokens])
-    stops = _role_stops(norms)
-    operations = _role_operations(norms)
+    stops = _role_stops(norms, sent)
+    operations = _role_operations(norms, sent)
     matches: list[tuple[int, int]] = []
     for s, e in stops:
         op_after: tuple[int, int] | None = None
         for o_s, o_e in operations:
             if o_s > e:
-                if o_s - e - 1 <= 4:
+                if sent[e] == sent[o_s] and o_s - e - 1 <= 4:
                     op_after = (o_s, o_e)
                 break
         if op_after is not None or _role_is_command(text, tokens, sent, s):
@@ -576,18 +595,18 @@ def check_role(text: str) -> Check:
             continue
         for v_s, v_e in verbs:
             if v_s > i:
-                if v_s - i - 1 <= 4:
+                if sent[i] == sent[v_e] and v_s - i - 1 <= 4:
                     matches.append((tokens[i][1], tokens[v_e][2]))
                 break
     go_at = [i for i, n in enumerate(norms) if n in _ROLE_GOING_ON]
-    for n_s, n_e in _role_negations(norms):
+    for n_s, n_e in _role_negations(norms, sent):
         for g in go_at:
             if g > n_e:
-                if g - n_e - 1 <= 3:
+                if sent[n_e] == sent[g] and g - n_e - 1 <= 3:
                     matches.append((tokens[n_s][1], tokens[g][2]))
                 break
     until_at = [i for i, n in enumerate(norms) if n == "until"]
-    clearances = _role_clearances(norms)
+    clearances = _role_clearances(norms, sent)
     for o_s, o_e in operations:
         want = sent[o_e]
         for u in until_at:
@@ -616,3 +635,11 @@ def check_role(text: str) -> Check:
     quote = text[start:end]
     detail = f'The draft tells the operation to stop ("{quote}"){_ROLE_DETAIL_TAIL}'
     return Check(name="role", ok=False, detail=detail)
+
+
+def _role_over_fields(*texts: str) -> Check:
+    for text in texts:
+        found = check_role(text)
+        if not found.ok:
+            return found
+    return Check(name="role", ok=True)

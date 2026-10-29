@@ -64,6 +64,14 @@ Registro de uso:
   - En total: 2 rondas del constructor y 1 del revisor, 40 llamadas. La sandbox sigue sin PowerShell; corrimos pytest y ruff fuera (440 en verde, ruff limpio). No editamos su código.
   - Resultado medido (`outputs/eval/learning.md`): desde los umbrales por omisión, Nevada fuera de muestra queda en 15.1 puntos (no había nada que aprender); desde un sitio mal ajustado baja de 21.6 a 16.6 con las correcciones de la otra foto. Queda como "listo para aprender", sin presumir mejora. Las correcciones de descripción entran como few-shot a Spark y Glimmer; sin descripciones de un geólogo públicas para medir, no se presume.
 
+- 30 oct (punto 7 del tercer análisis): `check_role` en `src/coresight/verify.py`, la regla determinista que impide que un borrador le diga a la operación que pare ("Do not continue drilling until..."), y su llamada en `verify` y `check_finding`. Muse Code 1.4.14, `--model muse-spark-1.3`, constructor y revisor como en D, E y F.
+  - Especificación: `tests/test_verify_role.py`, escrita antes por nosotros (commit `3252a1d`, 32 tests). La lista cerrada de acciones (`schemas.DraftAction`) y la instrucción al juez las escribimos nosotros.
+  - Constructor, ronda 1: sesión `01a1854c-adb6-7981-b7b3-367fe18b3b11`, 18 llamadas. Traza: `docs/muse-code/role-1.json`. Commit: `8093263`.
+  - Revisor de solo lectura (`--disable-write`): sesión `01a1855a-ec2a-7611-bdd1-412fd2b23ce8`, 4 llamadas. Traza: `docs/muse-code/role-review-1.json`. Seis errores reales: un "Stop and get geotech review." al inicio del cuerpo pasaba porque el título se pegaba sin punto; `until` solo se buscaba una vez; un salto de línea no cerraba la oración; una coincidencia podía cruzar de una oración o de un campo a otro (y rechazar "Do not mix samples. Drilling continues"); unas comillas después de dos puntos escondían la orden. Volvieron como 8 tests (commit `fa3b5de`); no los arreglamos a mano.
+  - Constructor, ronda 2: sesión `01a18564-2d84-7920-bbb8-d725b6c00c7f`, 33 llamadas. Traza: `docs/muse-code/role-2.json`. 40 de 40 en verde.
+  - En total: 2 rondas del constructor y 1 del revisor, 55 llamadas. La sandbox sigue sin PowerShell; corrimos pytest y ruff fuera (498 en verde, ruff limpio). No editamos su código.
+  - Prueba con los textos reales de Spark: rechaza "Do not continue drilling until the safety team reviews.", "Before the next run: stop and get geotech review." y "Do not drill ahead without geotechnical review."; deja pasar "needs geotech review before further drilling" y "have a geotechnical review before the next run".
+
 ## Alcance ampliado (decidido el 26 oct)
 Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.
 

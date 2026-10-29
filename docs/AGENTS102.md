@@ -48,3 +48,21 @@ Para la evidencia de Muse Code, desde D en adelante:
 Para el video y el README:
 
 6. Usar el vocabulario del taller, porque es el de los jueces de Meta: "mandatory verification inside the submit step", "deterministic checks plus LLM as a judge", "verify at milestones", "max three attempts, then escalate to a human", "final human sign-off", "closed tool list".
+
+## Velocidad sin quitar verificaciones (30 oct, punto 3 del tercer análisis)
+
+El taller enseña que verificar cuesta y que el costo se muestra. En la caja del recorrido (Nevada U12G caja 3) los agentes tardaban 191 s, uno detrás de otro. Ningún check se quitó; cambió el orden y lo que se repetía:
+
+- El ruteo empieza sobre un hallazgo que `verify.py` ya aprobó, mientras el juez lo lee. Solo se queda si el juez también lo aprueba; si no, se descarta y el registro lo dice.
+- Laboratorio, seguridad y planta redactan y se juzgan a la vez. Finanzas espera la solicitud de laboratorio verificada.
+- Un reintento sigue la misma conversación con solo las razones: el agente no vuelve a leer sus herramientas.
+- Cada agente recibe en su primer mensaje lo que devuelven sus herramientas sin argumentos (resumen de la caja, tendencias, hallazgo, historial). La lista de herramientas es la misma y el registro dice qué recibió.
+- Prompt caching de Meta (https://dev.meta.ai/docs/prompt-caching): es automático, sin parámetro. Lo probamos con la API real: el segundo llamado con el mismo prefijo reusó 1507 de 1551 tokens (`usage.input_tokens_details.cached_tokens`). El tiempo no estaba en la entrada sino en los turnos y la salida, así que no construimos nada encima.
+- La página dice el paso y cuánto falta ("Step 2 of 3: the orchestrator is routing the box, about 1 min left").
+
+| | Agente de barreno y juez | Ruteo | Borrador de seguridad y juez | Total |
+|---|---|---|---|---|
+| Antes (una corrida; el juez regresó una vez el hallazgo y una vez el borrador) | 75 s | 18 s | 99 s | 191 s |
+| Después, local (tres corridas seguidas) | 26 a 46 s | 0 a 2 s después del hallazgo | 44 a 54 s | 73, 90 y 96 s |
+
+Punto 7, en el mismo espíritu ("la firma final es de una persona"): las acciones que propone un borrador salen de una lista cerrada (`schemas.DraftAction`) y `verify.check_role` rechaza cualquier texto que pare la operación ("Do not continue drilling until..."). El juez también lo revisa: proponer una revisión o un aviso es su trabajo; ordenar que se pare, no.
