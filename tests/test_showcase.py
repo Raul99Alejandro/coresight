@@ -53,6 +53,20 @@ def test_showcase_picks_the_dramatic_sample_the_agents_and_the_hole(tmp_path):
     assert s["hole_id"] == "U12G-GF-GT2"  # the hole of the agents box
 
 
+def test_we_choose_the_tours_agents_box_by_id(tmp_path, monkeypatch):
+    """The box the geologist corrected before approving, even without a hole finding."""
+    store = ReviewStore(tmp_path)
+    for b in (box(2, status="approved", handoffs=done(False), minutes=2),
+              box(3, status="approved", handoffs=done(True), minutes=3),
+              box(4, status="approved", handoffs=Handoffs(status="working"), minutes=4)):
+        store.save(b.model_copy(update={"pinned": True}))  # fmt: skip
+    monkeypatch.setenv("CORESIGHT_TOUR_AGENTS_BOX", "b2")
+    c = TestClient(create_app(store=store, background=False))
+    assert c.get("/api/showcase").json()["agents_box"] == "b2"
+    monkeypatch.setenv("CORESIGHT_TOUR_AGENTS_BOX", "b4")  # its agents have not finished
+    assert c.get("/api/showcase").json()["agents_box"] == "b3"
+
+
 def test_an_upload_is_never_shown_on_the_home_page(tmp_path):
     store = ReviewStore(tmp_path)
     store.save(box(1, source="upload", status="approved", handoffs=done()))

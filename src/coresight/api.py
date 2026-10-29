@@ -662,8 +662,9 @@ def create_app(
 
         Only pinned boxes, the same for every visitor whatever they approve:
         box: the newest pinned box of the showcase sample with pieces (any status but failed);
-        agents_box: the newest pinned approved box whose agents finished, one with a hole
-        finding first; hole_id: its hole. Uploads are never shown to other visitors.
+        agents_box: CORESIGHT_TOUR_AGENTS_BOX if it is pinned, approved and its agents
+        finished, else the newest such box, one with a hole finding first; hole_id: its hole.
+        Uploads are never shown to other visitors.
         """
         title = SAMPLES[SHOWCASE].title
         samples = [b for b in store.all()
@@ -672,6 +673,8 @@ def create_app(
         finished = [b for b in samples if b.status == "approved" and b.handoffs
                     and b.handoffs.status == "done"]  # fmt: skip
         finished.sort(key=lambda b: bool(b.handoffs.hole and b.handoffs.hole.finding), reverse=True)
+        chosen = os.getenv("CORESIGHT_TOUR_AGENTS_BOX")  # one with the geologist's corrections
+        finished.sort(key=lambda b: b.id == chosen, reverse=True)
         agents_box = finished[0] if finished else None
         return {
             "box": mine[0].id if mine else None,

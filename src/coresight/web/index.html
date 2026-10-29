@@ -767,8 +767,9 @@ function ledgerHTML(b) {
   const changedBreaks = new Set(edits.filter((c) => c.target.startsWith("break")).map((c) => `${c.run}/${c.target}`)).size;
   const described = b.runs.filter((r) => r.machine_description).length * 3;
   const changedFields = new Set(edits.filter((c) => ["lithology", "alteration", "mineralization"].includes(c.target)).map((c) => `${c.run}/${c.target}`)).size;
-  const recalcs = edits.filter((c) => c.target.startsWith("piece") || c.target.startsWith("break")).length;
-  const proposed = pieces + removed + breaks + described, changed = removed + changedBreaks + changedFields;
+  const samTaps = edits.filter((c) => c.source === "sam-point").length;  // a piece SAM cut again where the geologist tapped
+  const recalcs = edits.filter((c) => c.target.startsWith("piece") || c.target.startsWith("break")).length + samTaps;
+  const proposed = pieces + removed + breaks + described, changed = removed + changedBreaks + changedFields + samTaps;
   const calls = (s) => (s.calls || s.cached ? `${s.calls} call${s.calls === 1 ? "" : "s"}${s.cached ? `<small>${s.cached} from cache</small>` : ""}` : "");
   const row = (icon, name, sub, did, s, cost, reviewed) => `<div class="lrow"><span class="g chip ${ACTOR[icon]}"><svg width="18" height="18" aria-hidden="true"><use href="#g-${icon}"/></svg></span>
     <div><b>${name}</b><small>${sub}</small></div><small>${esc(did)}</small><div class="num">${s ? secs(s.seconds) : ""}${s && s.actor === "model" ? `<small>${calls(s)}</small>` : ""}</div><div class="num">${cost}</div><div class="num">${reviewed}</div></div>`;
@@ -781,9 +782,9 @@ function ledgerHTML(b) {
     ${row("spark", esc(st.description.name), "Meta Model API", st.description.detail, st.description, money(st.description.cost_usd), described ? `${described - changedFields} of ${described} fields kept` : "")}
     ${v.dictations ? row("voice", "Voice Transcribe", "Meta Model API", `${v.dictations} dictation${v.dictations > 1 ? "s" : ""}, ${(v.audio_ms / 1000).toFixed(1)} s of audio`, {seconds: v.seconds, actor: "code"}, money(v.audio_ms / 3600000 * 0.18), "edited before saving") : ""}
     <div class="agree"><span class="g chip human"><svg width="18" height="18" aria-hidden="true"><use href="#g-human"/></svg></span><div style="flex:1">
-      <b>The geologist kept ${proposed - changed} of ${proposed} values the models proposed</b>
+      <b>${changed ? `The geologist changed ${changed} of ${proposed} values the models proposed` : `The geologist kept all ${proposed} values the models proposed`}</b>
       <div class="split"><i style="width:${proposed ? (proposed - changed) / proposed * 100 : 100}%"></i></div>
-      <small>Pieces, breaks and description fields. ${changed ? `${changed} changed, each kept next to the original for evaluation.` : "Nothing changed yet."}</small></div></div>
+      <small>Pieces, breaks and description fields. ${changed ? `${samTaps ? `${samTaps} by tapping SAM 3.1 on the photo. ` : ""}Each change is kept next to the original for evaluation.` : "Nothing changed yet."}</small></div></div>
   </section>`;
 }
 
