@@ -149,3 +149,31 @@ def test_second_nevada_box_is_a_sample_that_starts_mid_run(name):
 
     s = SAMPLES[name]
     assert s.first_starts_in_box is False and "public domain" in s.credit
+
+
+def test_core_pieces_lie_at_the_depth_the_log_uses_with_their_photo():
+    # two pieces with a 2 cm gap in the photo: laid end to end from the run top
+    run = make_run([(0, 10, 50, "natural"), (0, 52, 80, "natural")], 0, 1)
+    view = hole.hole_view([box(1, [run])], "ONK-1")
+    a, b = view.core
+    assert (a.from_m, a.to_m, a.x0, a.x1, a.y0, a.y1) == (0, 0.4, 100, 500, 0, 100)
+    assert (b.from_m, b.to_m, b.x0, b.x1) == (0.4, 0.68, 520, 800)
+    assert (a.box_id, a.box_number, a.row) == (view.boxes[0].id, 1, 0)
+    # 0.68 to 1 m was not recovered: no piece there
+    assert max(c.to_m for c in view.core) == 0.68
+
+
+def test_core_pieces_cut_at_the_run_end_and_where_an_upper_box_ends():
+    long = make_run([(0, 0, 120, "natural")], 0, 1)  # more core than run
+    over = make_run([(0, 0, 100, "natural")], 0.8, 1.8)  # box 2 claims 0.8 to 1
+    view = hole.hole_view([box(1, [long]), box(2, [over])], "ONK-1")
+    first, second = view.core
+    assert (first.from_m, first.to_m, first.x1) == (0, 1, 1000)
+    assert (second.from_m, second.to_m, second.x0, second.x1) == (1, 1.8, 200, 1000)
+
+
+def test_core_pieces_skip_a_box_without_a_tray():
+    run = sound(0, 1)
+    b = box(1, [run])
+    assert hole.core_pieces([b.model_copy(update={"tray": None})]) == []
+    assert [c.to_m for c in hole.core_pieces([b])] == [1]

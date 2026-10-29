@@ -553,6 +553,23 @@ class HoleZone(Interval):
     rock_quality: RockQuality
 
 
+class HoleCore(Interval):
+    """One piece of core in the hole, at its depth, and where it lies in its box photo.
+
+    Placed as the hole log lays it (hole.core_pieces); the 3D view wraps this part of
+    the straightened tray around the cylinder. x and y are pixels of the tray image.
+    """
+
+    box_id: str
+    box_number: int = Field(ge=1)
+    row: int = Field(ge=0)
+    x0: float
+    x1: float
+    y0: float
+    y1: float
+    px_per_cm: float = Field(gt=0)  # of the tray: y1 - y0 over it is the core's width
+
+
 class HoleTrace(_Strict):
     """Collar orientation for the 3D view. Without a survey it is an example and says so."""
 
@@ -573,4 +590,5 @@ class HoleView(_Strict):
     runs: list[HoleInterval] = Field(default_factory=list)
     intervals: list[HoleInterval] = Field(default_factory=list)
     zones: list[HoleZone] = Field(default_factory=list)
+    core: list[HoleCore] = Field(default_factory=list)  # recovered core, for the 3D
     trace: HoleTrace

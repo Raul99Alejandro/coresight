@@ -588,6 +588,13 @@ button.metric:hover{background:var(--fill-2)}
 .h3-foot i{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:5px}
 .h3-label{position:absolute;z-index:1;transform:translate(10px,-50%);font-size:12px;color:var(--ink-2);white-space:nowrap;pointer-events:none;text-shadow:0 0 6px var(--bg)}
 .h3-label.z{color:var(--bad);font-weight:600}
+.h3-note{flex-wrap:wrap}.h3-note span.soft{background:var(--raised);color:var(--ink-2);box-shadow:var(--sh-1)}
+.h3-foot .h3-tg{pointer-events:auto;background:var(--raised);box-shadow:var(--sh-1);color:var(--ink-2)}
+.h3-foot .h3-tg i{width:10px;height:10px;border-radius:50%;margin:0;background:conic-gradient(var(--q-verypoor),var(--q-poor),var(--q-fair),var(--q-good),var(--q-excellent),var(--q-verypoor));opacity:.45}
+.h3-foot .h3-tg[aria-pressed="true"]{color:var(--ink)}.h3-foot .h3-tg[aria-pressed="true"] i{opacity:1}
+.h3-legend{display:none;gap:12px;flex-wrap:wrap}.hole3d.rqd-on .h3-legend{display:flex}
+.h3-hint{background:color-mix(in srgb,var(--bg) 70%,transparent);border-radius:6px;padding:1px 6px}
+.hero-segs{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .issue{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--ink-2);font-size:14px;margin-bottom:10px}
 .issue b{color:var(--ink);font-weight:600}
 .issue svg{flex:none;color:var(--accent-ink);margin-top:1px}
@@ -608,7 +615,8 @@ a.run{color:inherit}
 .box-chip small{color:var(--ink-3)}
 .box-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fill-2)}
 .box-chip.out{opacity:.7}
-@media (max-width:900px){.hole-grid{grid-template-columns:1fr}.hole3d{min-height:400px}}
+@media (max-width:900px){.hole-grid{grid-template-columns:1fr}.hole3d{min-height:460px}}
+@media (max-width:640px){.h3-note span{font-size:11.5px;padding:4px 9px}.h3-hint{display:none}}
 @media (max-width:640px){.hero .grow{flex-basis:100%}.zone{display:grid;grid-template-columns:20px 1fr;align-items:start}.zone .zr{grid-column:2;margin-left:0}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -966,6 +974,8 @@ function renderHole() {
     return;
   }
   const gaps = h.issues.filter((i) => i.kind === "gap").length, over = h.issues.length - gaps;
+  const scale = coreScale(h), others = S.holes.length > 1 ? S.holes : [];
+  const pick = others.length ? `<div class="seg" role="tablist" aria-label="Drill hole" id="hole-pick"><span class="thumb"></span>${others.map((x) => `<button role="tab" data-hole="${esc(x.hole_id)}" aria-selected="${x.hole_id === h.hole_id}">${esc(x.hole_id)}</button>`).join("")}</div>` : "";
   const worst = h.intervals.map((r) => r.rock_quality).sort((a, c) => Object.keys(QUALITY).indexOf(a) - Object.keys(QUALITY).indexOf(c))[0];
   const text = `${m2(h.from_m)} to ${m2(h.to_m)} from ${plural(inLog.length, "approved box", "approved boxes")}. ${h.zones.length ? plural(h.zones.length, "weak zone") : "No weak zone"}, ${worst} rock at worst.${gaps ? ` ${plural(gaps, "gap")} between boxes.` : ""}${over ? ` ${plural(over, "overlap")}.` : ""}`;
   const issues = h.issues.map((i) => `<div class="issue ${i.kind}">${I.warn}<div><b>${i.kind === "gap" ? "Gap" : "Overlap"} from ${m2(i.from_m)} to ${m2(i.to_m)}.</b> ${i.kind === "gap"
@@ -973,14 +983,14 @@ function renderHole() {
     : `Box ${i.box_before} and box ${i.box_after} both claim it. Box ${i.box_before} is used; check the depths of box ${i.box_after}.`}</div></div>`).join("");
   const zones = h.zones.length ? `<div class="zone-list">${h.zones.map((z) => `<div class="zone">${I.warn}<div><b>Weak zone, ${m2(z.from_m)} to ${m2(z.to_m)}</b><br>${plural(z.intervals, `consecutive ${h.step_m} m interval`)} below RQD ${h.zone_max_rqd}, lowest ${z.min_rqd_pct.toFixed(0)}%</div><span class="zr">RQD ${z.rqd_pct.toFixed(0)}%, ${z.rock_quality}</span></div>`).join("")}</div>` : "";
   $("page").innerHTML = `<section class="hero"><div class="grow"><h1>${esc(h.hole_id)}</h1><p>${esc(text)}</p></div>
-      <div class="seg" role="tablist" aria-label="Rows" id="hole-seg"><span class="thumb"></span>${[["intervals", `${h.step_m} m intervals`], ["runs", "Runs"]].map(([v, l]) => `<button role="tab" data-by="${v}" aria-selected="${S.holeBy === v}">${l}</button>`).join("")}</div></section>
+      <div class="hero-segs">${pick}<div class="seg" role="tablist" aria-label="Rows" id="hole-seg"><span class="thumb"></span>${[["intervals", `${h.step_m} m intervals`], ["runs", "Runs"]].map(([v, l]) => `<button role="tab" data-by="${v}" aria-selected="${S.holeBy === v}">${l}</button>`).join("")}</div></div></section>
     ${issues}
     <div class="hole-grid">
       <section class="card strip-card" id="strip">${stripSVG(h)}
         <div class="strip-legend"><span><i style="background:var(--q-poor)"></i>RQD</span><span><i style="border:1px solid var(--ink-3)"></i>TCR</span><span><i style="background:var(--bad)"></i>Weak zone</span></div></section>
-      <section class="card hole3d" id="hole3d"><div class="h3-load">Loading the 3D view</div>
-        <div class="h3-note"><span>${esc(h.trace.note)}</span></div>
-        <div class="h3-foot">${Object.entries(QUALITY).map(([k, v]) => `<span><i style="background:${v}"></i>${cap(k)}</span>`).join("")}<span class="grow"></span><span>Drag to turn</span></div></section>
+      <section class="card hole3d" id="hole3d" aria-label="3D view of the hole: the box photos wrapped around the core at their depth"><div class="h3-load">Loading the 3D view</div>
+        <div class="h3-note"><span>${esc(h.trace.note)}</span>${scale ? `<span class="soft">Real box photos at their measured depth, ${scale} times wider; empty where no core came back</span>` : ""}</div>
+        <div class="h3-foot"><button class="btn sm h3-tg" data-rqd3d aria-pressed="false"><i></i>RQD colour</button><span class="h3-legend">${Object.entries(QUALITY).map(([k, v]) => `<span><i style="background:${v}"></i>${cap(k)}</span>`).join("")}</span><span class="grow"></span><span class="h3-hint">Drag to turn, ${matchMedia("(pointer: coarse)").matches ? "pinch" : "Ctrl and scroll"} to zoom</span></div></section>
     </div>
     ${zones}
     <div class="section"><h2>Hole log</h2><p>Approved boxes joined by depth. Tap a row to open its box.</p></div>
@@ -992,62 +1002,116 @@ function renderHole() {
     <div class="box-chips">${h.boxes.map(boxChip).join("")}</div>
     ${motto()}
     <p class="foot-note">Every number comes from geometry.py: runs split between two boxes are joined, ${h.step_m} m intervals cut pieces at their bounds, and a weak zone is two or more consecutive intervals below RQD ${h.zone_max_rqd}. Lithology is the reviewed description of the run that covers most of each row. ${esc(h.trace.note)}</p>`;
-  const seg = $("hole-seg"), on = seg.querySelector('[aria-selected="true"]'), th = seg.querySelector(".thumb");
-  th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`;
+  ["hole-seg", "hole-pick"].forEach((k) => { const g = $(k), on = g && g.querySelector('[aria-selected="true"]'); if (!on) return;
+    const th = g.querySelector(".thumb"); th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`; });
+  const seg = $("hole-seg");
+  if ($("hole-pick")) $("hole-pick").querySelectorAll("button").forEach((x) => (x.onclick = () => { if (x.dataset.hole !== h.hole_id) location.hash = `#/hole/${encodeURIComponent(x.dataset.hole)}`; }));
   seg.querySelectorAll("button").forEach((x) => (x.onclick = () => { S.holeBy = x.dataset.by; stop3D(); renderHole(); }));
   $("strip").querySelectorAll("[data-box]").forEach((g) => (g.onclick = () => (location.hash = `#/box/${g.dataset.box}`)));
   draw3D();
 }
 
-/* 3D: a cylinder per row, coloured by Deere class, along the trace (an example unless surveyed) */
+/* 3D: the real core photo wrapped around the hole at its depth (hole.core_pieces), an RQD
+   layer that turns on and off, along the trace (an example unless surveyed) */
 let H3 = null;
-function stop3D() { if (H3) { cancelAnimationFrame(H3.raf); H3.ro.disconnect(); H3.controls.dispose(); H3.renderer.dispose(); H3 = null; } }
+function stop3D() { if (H3) { cancelAnimationFrame(H3.raf); H3.ro.disconnect(); H3.controls.dispose(); H3.renderer.dispose(); H3.textures.forEach((t) => t.dispose()); H3 = null; } }
+const loadImg = (src) => new Promise((done) => { const i = new Image(); i.onload = () => done(i); i.onerror = () => done(null); i.src = src; });
+// the photo of one piece turned so the row runs along the core; the top of the canvas is the deep end
+function pieceCanvas(img, c) {
+  const inset = (c.y1 - c.y0) * 0.1, across = c.y1 - c.y0 - 2 * inset, along = c.x1 - c.x0, w = 96, hgt = Math.round(Math.min(768, Math.max(8, along * w / across)));
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = hgt;
+  const g = cv.getContext("2d"); g.translate(0, hgt); g.rotate(-Math.PI / 2);
+  g.drawImage(img, c.x0, c.y0 + inset, along, across, 0, 0, hgt, w); // the row's edges are often the tray
+  return cv;
+}
+// how many times wider than the real core the 3D draws it (the row height in the photo is its width)
+function coreScale(h) {
+  if (!h.core.length) return null;
+  const r = h.core.reduce((s, c) => s + (c.y1 - c.y0) / c.px_per_cm, 0) / h.core.length / 200;
+  return Math.max(1, Math.round(core3DRadius(h) / r));
+}
+const core3DRadius = (h) => Math.max(0.08, Math.max(h.to_m - h.from_m, 1) / 26);
 async function draw3D(el = $("hole3d"), h = S.hole) {
   if (!el || !h) return;
   let THREE, OrbitControls;
   try { THREE = await import("three"); ({OrbitControls} = await import("three/addons/controls/OrbitControls.js")); }
   catch { el.querySelector(".h3-load").textContent = "The 3D view could not load. The log by depth is complete without it."; return; }
-  if (!el.isConnected) return;
-  stop3D();
+  const ids = [...new Set(h.core.map((c) => c.box_id))];
+  const imgs = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await loadImg(`/api/boxes/${id}/tray.jpg`)])));
+  if (!el.isConnected || !el.querySelector(".h3-load")) return;
+  if (el.id === "hole3d") stop3D();
   const rows = holeRows(h), css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const col = Object.fromEntries(Object.entries(QUALITY).map(([k, v]) => [k, css(v.slice(4, -1))]));
   const az = h.trace.azimuth_deg * Math.PI / 180, dip = h.trace.dip_deg * Math.PI / 180;
   const dir = new THREE.Vector3(Math.sin(az) * Math.cos(dip), Math.sin(dip), -Math.cos(az) * Math.cos(dip)).normalize();
-  const at = (d) => dir.clone().multiplyScalar(d), R = Math.max(0.12, h.to_m / 55);
+  const span = Math.max(h.to_m - h.from_m, 1), at = (d) => dir.clone().multiplyScalar(d), R = core3DRadius(h);
   const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); el.querySelector(".h3-load").remove(); el.prepend(renderer.domElement);
-  const scene = new THREE.Scene(), up = new THREE.Vector3(0, 1, 0);
-  scene.add(new THREE.AmbientLight(0xffffff, 1.6)); const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(5, 10, 7); scene.add(sun);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
+  el.querySelector(".h3-load").remove(); el.prepend(renderer.domElement);
+  const scene = new THREE.Scene(), up = new THREE.Vector3(0, 1, 0), textures = [];
+  scene.add(new THREE.AmbientLight(0xffffff, 2.0)); const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(5, 10, 7); scene.add(sun);
   const tube = (from, to, radius, mat) => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, to - from, 28), mat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, to - from, 40, 1, false), mat);
     m.quaternion.setFromUnitVectors(up, dir); m.position.copy(at((from + to) / 2)); scene.add(m); return m;
   };
-  rows.forEach((r) => tube(r.from_m, r.to_m - 0.004 * h.to_m, R, new THREE.MeshStandardMaterial({color:col[r.rock_quality], roughness:.55})));
-  h.zones.forEach((z) => tube(z.from_m, z.to_m, R * 1.9, new THREE.MeshBasicMaterial({color:css("--bad"), transparent:true, opacity:.16, depthWrite:false})));
+  const stone = css("--ink-3");
+  h.core.forEach((c) => {
+    const img = imgs[c.box_id];
+    let mat;
+    if (img) {
+      const t = new THREE.CanvasTexture(pieceCanvas(img, c)); t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.MirroredRepeatWrapping; t.repeat.set(2, 1); t.anisotropy = 4; textures.push(t);
+      mat = new THREE.MeshStandardMaterial({map:t, roughness:.85});
+    } else mat = new THREE.MeshStandardMaterial({color:stone, roughness:.85});
+    tube(c.from_m, c.to_m, R, mat);
+  });
+  // the hole wall where boxes cover it, faint, so depth with no core reads as empty
+  const covered = [[h.from_m, h.to_m]];
+  h.issues.filter((i) => i.kind === "gap").forEach((g) => { const [a, b] = covered.pop(); covered.push([a, g.from_m], [g.to_m, b]); });
+  covered.forEach(([a, b]) => b > a && tube(a, b, R * 1.04, new THREE.MeshBasicMaterial({color:stone, transparent:true, opacity:.12, depthWrite:false, side:THREE.BackSide})));
+  const rqd = new THREE.Group(); scene.add(rqd);
+  rows.forEach((r) => rqd.add(tube(r.from_m, r.to_m - 0.002 * span, R * 1.1, new THREE.MeshStandardMaterial({color:col[r.rock_quality], roughness:.5, transparent:true, opacity:.6, depthWrite:false}))));
+  rqd.visible = !!S.rqd3d;
+  // a weak zone glows behind the core, never over the photo
+  h.zones.forEach((z) => tube(z.from_m, z.to_m, R * 1.7, new THREE.MeshBasicMaterial({color:css("--bad"), transparent:true, opacity:.22, depthWrite:false, side:THREE.BackSide})));
   const dashed = (a, b) => { const g = new THREE.BufferGeometry().setFromPoints([at(a), at(b)]);
-    const l = new THREE.Line(g, new THREE.LineDashedMaterial({color:css("--ink-3"), dashSize:R * 2, gapSize:R * 1.5})); l.computeLineDistances(); scene.add(l); };
+    const l = new THREE.Line(g, new THREE.LineDashedMaterial({color:stone, dashSize:R * 1.5, gapSize:R})); l.computeLineDistances(); scene.add(l); };
   dashed(0, h.from_m); h.issues.filter((i) => i.kind === "gap").forEach((i) => dashed(i.from_m, i.to_m));
-  const size = Math.max(6, Math.round(h.to_m * 1.1)), grid = new THREE.GridHelper(size, 10, css("--ink-3"), css("--ink-3"));
-  grid.material.transparent = true; grid.material.opacity = .22; scene.add(grid);
+  const grid = new THREE.GridHelper(Math.max(4, Math.round(span * 0.8)), 8, stone, stone);
+  grid.material.transparent = true; grid.material.opacity = .2; scene.add(grid);
   const collar = new THREE.Mesh(new THREE.RingGeometry(R * 1.2, R * 2, 32), new THREE.MeshBasicMaterial({color:css("--accent"), side:THREE.DoubleSide}));
   collar.rotation.x = -Math.PI / 2; scene.add(collar);
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 2000), target = at(h.to_m / 2);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.02, 2000), target = at((h.from_m + h.to_m) / 2);
   const side = new THREE.Vector3().crossVectors(dir, up).normalize(); if (side.lengthSq() < 0.1) side.set(1, 0, 0);
-  camera.position.copy(target).add(side.multiplyScalar(h.to_m * 2.1 + 3)).add(new THREE.Vector3(0, h.to_m * 0.3, 0));
+  // far enough that the logged core fits the panel, whatever its shape
+  const fitAt = () => Math.max(span * 0.62, span * 0.62 * 0.62 / Math.max(camera.aspect, .3)) / Math.tan(16 * Math.PI / 180) + R * 6;
+  camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1);
+  camera.position.copy(target).add(side.clone().multiplyScalar(fitAt())).add(new THREE.Vector3(0, span * 0.12, 0));
   const controls = new OrbitControls(camera, renderer.domElement); controls.target.copy(target); controls.enableDamping = true;
-  controls.enableZoom = false; // the wheel scrolls the page; pinch and drag still turn it
-  controls.autoRotate = !matchMedia("(prefers-reduced-motion: reduce)").matches; controls.autoRotateSpeed = 0.7;
+  controls.minDistance = R * 4; controls.maxDistance = span * 4 + h.to_m;
+  // the wheel scrolls the page; Ctrl and the wheel, or a pinch, zoom
+  el.addEventListener("wheel", (e) => { if (!e.ctrlKey && !e.metaKey) e.stopPropagation(); }, {capture:true});
+  controls.autoRotate = !matchMedia("(prefers-reduced-motion: reduce)").matches; controls.autoRotateSpeed = 0.8;
   controls.addEventListener("start", () => (controls.autoRotate = false));
-  const labels = [[0, "Collar, 0 m"], ...(h.from_m > h.to_m * 0.08 ? [[h.from_m, m2(h.from_m)]] : []), [h.to_m, m2(h.to_m)], ...h.zones.map((z) => [(z.from_m + z.to_m) / 2, `Weak zone, RQD ${z.rqd_pct.toFixed(0)}%`, "z"])]
+  const labels = [...(h.from_m > span * 0.3 ? [] : [[0, "Collar, 0 m"]]), ...(h.from_m > 0.05 ? [[h.from_m, m2(h.from_m)]] : []), [h.to_m, m2(h.to_m)],
+    ...h.issues.filter((i) => i.kind === "gap").map((i) => [(i.from_m + i.to_m) / 2, "Gap: no approved box"]),
+    ...h.zones.map((z) => [(z.from_m + z.to_m) / 2, `Weak zone, RQD ${z.rqd_pct.toFixed(0)}%`, "z"])]
     .map(([d, t, c]) => { const e = document.createElement("div"); e.className = `h3-label ${c || ""}`; e.textContent = t; el.appendChild(e); return {e, p:at(d)}; });
   const fit = () => { const w = el.clientWidth, ht = el.clientHeight; renderer.setSize(w, ht, false); camera.aspect = w / ht; camera.updateProjectionMatrix(); };
   const ro = new ResizeObserver(fit); ro.observe(el); fit();
-  const v = new THREE.Vector3();
-  H3 = {renderer, controls, ro, raf:0};
+  const tg = el.querySelector("[data-rqd3d]");
+  const showRqd = (on) => { rqd.visible = on; el.classList.toggle("rqd-on", on); if (tg) tg.setAttribute("aria-pressed", String(on)); };
+  showRqd(rqd.visible);
+  if (tg) tg.onclick = () => showRqd((S.rqd3d = !rqd.visible));
+  const v = new THREE.Vector3(), right = new THREE.Vector3();
+  const me = {renderer, controls, ro, raf:0, textures};
+  if (el.id === "hole3d") H3 = me;
   const loop = () => {
+    if (!el.isConnected) { if (H3 === me) stop3D(); else { controls.dispose(); renderer.dispose(); textures.forEach((t) => t.dispose()); ro.disconnect(); } return; }
     controls.update(); renderer.render(scene, camera);
-    labels.forEach(({e, p}) => { v.copy(p).project(camera); e.style.left = `${(v.x + 1) / 2 * el.clientWidth}px`; e.style.top = `${(1 - v.y) / 2 * el.clientHeight}px`; e.style.opacity = v.z < 1 ? 1 : 0; });
-    if (H3) H3.raf = requestAnimationFrame(loop);
+    right.setFromMatrixColumn(camera.matrixWorld, 0); // labels sit beside the core, on screen
+    labels.forEach(({e, p}) => { v.copy(p).addScaledVector(right, R * 1.9).project(camera); e.style.left = `${Math.min((v.x + 1) / 2 * el.clientWidth, el.clientWidth - (e.w ||= e.offsetWidth) - 18)}px`; e.style.top = `${(1 - v.y) / 2 * el.clientHeight}px`; e.style.opacity = v.z < 1 && Math.abs(v.y) < 0.95 ? 1 : 0; });
+    me.raf = requestAnimationFrame(loop);
   };
   loop();
 }
@@ -1387,9 +1451,8 @@ function renderBox() {
   if ($("to-check")) $("to-check").onclick = () => { const i = b.runs.findIndex((r) => r.log.uncertain_breaks); S.open = {pieces:true}; openRun(i, b.runs[i].pieces.findIndex((p) => p.break_after === "uncertain" || p.break_after === "possible_mechanical")); };
 }
 function placeThumb() {
-  const seg = $("seg"); if (!seg) return;
-  const on = seg.querySelector('[aria-selected="true"]'), th = seg.querySelector(".thumb");
-  th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`;
+  ["seg", "hole-seg", "hole-pick"].forEach((k) => { const seg = $(k), on = seg && seg.querySelector('[aria-selected="true"]'); if (!on) return;
+    const th = seg.querySelector(".thumb"); th.style.left = `${on.offsetLeft}px`; th.style.width = `${on.offsetWidth}px`; });
 }
 
 function runRow(r, i) {
@@ -1764,7 +1827,7 @@ const Tour = {
       async go() { await Tour.onSample(); closeDrawer(); return $("approve").hidden ? null : "#approve"; }},
     {title:"Agents, verified in two layers", text:"A hole agent reads the trends between boxes, Muse Wonder decides who needs to know, and area agents draft. Code checks first, then Muse Spark as a judge, three attempts at most, then a person. Nothing is sent.",
       async go() { const sh = await loadShowcase(); if (!sh.agents_box) return null; location.hash = `#/box/${sh.agents_box}`; return "#agents"; }},
-    {title:"From boxes to a drill hole", text:"Approved boxes join by depth into one hole, with weak zones flagged by code. The 3D trace is an example; every number in it is measured.",
+    {title:"From boxes to a drill hole", text:"Approved boxes join by depth into one hole, with weak zones flagged by code. In 3D each box photo wraps the core at its measured depth, empty where no core came back. The trace is an example. Onkalo, next to it, is good rock.",
       async go() { const sh = await loadShowcase(); if (!sh.hole_id) return null; location.hash = `#/hole/${encodeURIComponent(sh.hole_id)}`; return "#hole3d"; }},
   ],
   async onSample() {

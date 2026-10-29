@@ -27,6 +27,7 @@ from coresight.schemas import (
     AnomalyType,
     BoxReview,
     HoleBox,
+    HoleCore,
     HoleInterval,
     HoleIssue,
     HoleTrace,
@@ -126,6 +127,44 @@ def _labelled(log: IntervalLog, boxes: list[BoxReview]) -> HoleInterval:
     )
 
 
+def core_pieces(boxes: list[BoxReview]) -> list[HoleCore]:
+    """Every piece of recovered core of ``boxes`` (top first) at its depth, with its photo.
+
+    Pieces are laid from the top of each run as ``run_pieces`` and ``pieces_at_depth``
+    lay them, so a piece sits where the hole log counts it; what is left of the run is
+    not recovered and has no piece. Where two boxes claim the same depth the upper box
+    is kept, as in the hole log. The photo part is cut in the same proportion as the
+    piece, along the row.
+    """
+    out: list[HoleCore] = []
+    deepest = -1.0
+    for b in boxes:
+        if b.tray is None:
+            continue
+        ppc = b.tray.px_per_cm
+        for r in b.runs:
+            top = max(r.from_m, deepest)
+            pos = 0.0
+            for p in r.pieces:
+                length = p.end_cm - p.start_cm
+                start, end = r.from_m + pos / 100.0, r.from_m + (pos + length) / 100.0
+                pos += length
+                s, e = max(start, top), min(end, r.to_m)
+                if e - s < 1e-4 or p.row >= len(b.tray.rows):
+                    continue
+                cm0 = p.start_cm + (s - start) * 100.0
+                cm1 = p.start_cm + (e - start) * 100.0
+                y0, y1 = b.tray.rows[p.row]
+                out.append(HoleCore(
+                    from_m=round(s, 4), to_m=round(e, 4), box_id=b.id,
+                    box_number=b.box_number, row=p.row, x0=round(cm0 * ppc, 1),
+                    x1=round(cm1 * ppc, 1), y0=round(y0, 1), y1=round(y1, 1),
+                    px_per_cm=ppc,
+                ))  # fmt: skip
+        deepest = max(deepest, *(r.to_m for r in b.runs)) if b.runs else deepest
+    return out
+
+
 def hole_view(boxes: Iterable[BoxReview], hole_id: str, step_m: float = STEP_M) -> HoleView:
     """The hole log from every box of ``hole_id``; only approved boxes enter the log."""
     boxes = list(boxes)
@@ -170,6 +209,7 @@ def hole_view(boxes: Iterable[BoxReview], hole_id: str, step_m: float = STEP_M) 
         )
         for i in log.issues
     ]
+    view.core = core_pieces(logged)
     view.runs = [_labelled(r, logged) for r in log.runs]
     view.intervals = [_labelled(i, logged) for i in log.intervals]
     view.zones = [
