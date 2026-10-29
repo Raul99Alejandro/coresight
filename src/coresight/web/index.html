@@ -488,6 +488,8 @@ button.metric:hover{background:var(--fill-2)}
 body.touring{padding-bottom:280px} /* room to scroll what the card points at above it */
 .drawer.on ~ .tour,.tour.left{right:auto;left:24px}
 @media (max-width:640px){.tour,.tour.left,.drawer.on ~ .tour{right:16px;left:16px;bottom:16px;width:auto}}
+/* step 1 under 1100 px: the refusal moves left of the card instead of under it */
+@media (min-width:900px) and (max-width:1100px){body.touring .empty{margin-left:32px;max-width:calc(100vw - 512px)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
 /* area agents (stage 6) */
@@ -1032,7 +1034,9 @@ function renderHole() {
   const seg = $("hole-seg");
   if ($("hole-pick")) $("hole-pick").querySelectorAll("button").forEach((x) => (x.onclick = () => { if (x.dataset.hole === h.hole_id) return;
     S.keep3d = $("hole3d").getBoundingClientRect().top; location.hash = `#/hole/${encodeURIComponent(x.dataset.hole)}`; }));
-  if (S.keep3d != null) { scrollBy({top:$("hole3d").getBoundingClientRect().top - S.keep3d, behavior:"instant"}); S.keep3d = null; } // the 3D stays put when the hole changes
+  if (S.keep3d != null) { // the 3D stays put when the hole changes, also once the 3D has drawn
+    const at = S.keep3d, put = () => $("hole3d") && scrollBy({top:$("hole3d").getBoundingClientRect().top - at, behavior:"instant"});
+    put(); requestAnimationFrame(() => { put(); requestAnimationFrame(put); }); S.keep3d = null; }
   seg.querySelectorAll("button").forEach((x) => (x.onclick = () => { S.holeBy = x.dataset.by; stop3D(); renderHole(); }));
   $("strip").querySelectorAll("[data-box]").forEach((g) => (g.onclick = () => (location.hash = `#/box/${g.dataset.box}`)));
   draw3D();
