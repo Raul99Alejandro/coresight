@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from test_review import PIECES, make_run
 
 from coresight.api import create_app, parse_runs
+from coresight.gate import check_input
 from coresight.review import Analysis, ReviewError, ReviewStore
 from coresight.schemas import AgentEvent, AreaDraft, Check, Draft, Handoffs, TrayView
 
@@ -366,3 +367,36 @@ def test_an_upload_carries_the_geologist_corrections_of_its_hole(tmp_path, monke
     assert seen[-1] == [{"field": "lithology", "model": "granite", "geologist": "granite gneiss"}]
     assert c.post("/api/samples/onkalo-box5").status_code == 202
     assert seen[-1] is None  # samples keep their cached description: the demo never waits
+
+
+def unsure_analyzer(photo, job, report):
+    """A tray found with calibration confidence 0.68, as NTS 1981 was."""
+    report.gate(check_input(0.68, 0.7, None))
+    return fake_analyzer(photo, job, report)
+
+
+def test_an_unsure_calibration_shows_no_number_until_the_rows_are_checked(tmp_path):
+    c = client(tmp_path, unsure_analyzer)
+    box = upload(c).json()
+    assert box["status"] == "ready" and box["gate"]["doubts"] and not box["rows_confirmed"]
+    assert "rows" in c.post(f"/api/boxes/{box['id']}/approve").json()["detail"]
+    assert c.get(f"/api/boxes/{box['id']}/log.csv").status_code == 409
+    ok = c.post(f"/api/boxes/{box['id']}/rows", json={"right": True}).json()
+    assert ok["rows_confirmed"] and ok["status"] == "ready"
+    assert c.get(f"/api/boxes/{box['id']}/log.csv").status_code == 200
+    assert c.post(f"/api/boxes/{box['id']}/rows", json={"right": True}).status_code == 400
+
+
+def test_rows_said_wrong_refuse_the_box_with_the_reason(tmp_path):
+    c = client(tmp_path, unsure_analyzer)
+    box = upload(c).json()
+    bad = c.post(f"/api/boxes/{box['id']}/rows", json={"right": False}).json()
+    assert bad["status"] == "failed" and bad["gate"]["ok"] is False
+    assert bad["gate"]["reasons"][0]["signal"] == "calibration"
+    assert "You said the rows are wrong" in bad["gate"]["message"]
+
+
+def test_a_clear_calibration_needs_no_row_check(tmp_path):
+    c = client(tmp_path)
+    box = upload(c).json()
+    assert c.post(f"/api/boxes/{box['id']}/rows", json={"right": True}).status_code == 400

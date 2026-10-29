@@ -150,6 +150,12 @@ a{color:inherit;text-decoration:none}
 /* a pinned sample (points 1 and 2): the same for every visitor, so nobody changes it */
 .ro-note{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--ink);margin-bottom:24px;font-size:14.5px}
 .ro-note b{font-weight:600}
+.rows-check{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:14px;background:color-mix(in srgb,var(--uncertain) 16%,transparent);margin-bottom:24px;font-size:14.5px}
+.rows-check b{display:block;font-weight:600;margin-bottom:2px}
+.rows-check p{margin:0 0 10px;color:var(--ink-2)}
+.rows-check .actions{display:flex;gap:8px;flex-wrap:wrap}
+.check-row{fill:color-mix(in srgb,var(--uncertain) 14%,transparent);stroke:var(--uncertain);stroke-dasharray:10 6}
+.check-num{fill:#fff;font-weight:600;paint-order:stroke;stroke:rgba(0,0,0,.6)}
 .ro-note span{flex:1;min-width:220px;color:var(--ink-2)}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 
@@ -1227,8 +1233,8 @@ function renderBar() {
   $("switch-label").textContent = b ? `${b.hole_id}, box ${b.box_number}` : "Boxes";
   $("pill").hidden = !b;
   if (b) { $("pill").className = `pill ${b.status}`; $("pill").innerHTML = (b.status === "processing" ? glyph("sam", 16, "model work") : "") + STATUS[b.status]; }
-  const hasLog = b && (b.status === "ready" || b.status === "approved");
-  $("export").hidden = !hasLog; $("approve").hidden = !(b && b.status === "ready" && !b.pinned);
+  const hasLog = b && (b.status === "ready" || b.status === "approved") && !rowsToCheck(b);
+  $("export").hidden = !hasLog; $("approve").hidden = !(hasLog && b.status === "ready" && !b.pinned);
 }
 
 function render() {
@@ -1240,7 +1246,27 @@ function render() {
     $("page").innerHTML = `<div class="empty"><h1>This photo could not be logged</h1>${banner(b.error || "Unknown error.")}<div class="actions"><button class="btn primary" id="retry">Try another photo</button></div></div>`;
     $("retry").onclick = () => openNew(); return;
   }
+  if (rowsToCheck(b)) return renderRowsCheck(b);
   renderBox();
+}
+
+/* N2: an unsure calibration shows the rows it found and no number until a person checks them */
+const rowsToCheck = (b) => b.status === "ready" && !!(b.gate && b.gate.doubts && b.gate.doubts.length) && !b.rows_confirmed;
+function renderRowsCheck(b) {
+  const T = b.tray, k = T.width / 760, d = b.gate.doubts[0];
+  const rows = T.rows.map(([y1, y2], i) => `<rect class="check-row" x="${4 * k}" y="${y1 + 2}" width="${T.width - 8 * k}" height="${y2 - y1 - 4}" rx="${6 * k}" stroke-width="${2 * k}"/>`
+    + `<text class="check-num" x="${14 * k}" y="${(y1 + y2) / 2 + 7 * k}" font-size="${20 * k}" stroke-width="${3 * k}">Row ${i + 1}</text>`).join("");
+  $("page").innerHTML = `${S.error ? banner(S.error) : ""}
+    <section class="hero"><div class="grow"><h1>${esc(b.hole_id)}, box ${esc(b.box_number)}</h1><p>Check the rows before CoreSight shows any number.</p></div></section>
+    <div class="rows-check" role="alert">${glyph("cv", 20)}<div><b>Calibration uncertain: check the rows.</b><p>${esc(d.detail)} CoreSight found ${T.rows.length} rows. Each dashed band below should hold one row of core, end to end, with no slat inside it.</p>
+      <div class="actions"><button class="btn primary sm" id="rows-ok">The rows are right</button><button class="btn sm" id="rows-bad">The rows are wrong</button></div></div></div>
+    <section class="card tray-card"><div class="tray" id="tray"><img alt="Core tray of ${esc(b.hole_id)} box ${esc(b.box_number)}, straightened, with the rows found" src="/api/boxes/${b.id}/tray.jpg"><svg viewBox="0 0 ${T.width} ${T.height}" preserveAspectRatio="none" aria-hidden="true">${rows}</svg></div></section>
+    <p class="foot-note">${esc(creditNote(b))}</p>`;
+  const send = async (right) => {
+    try { S.box = await api(`/api/boxes/${b.id}/rows`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({right})}); render(); loadLists();
+      toast(right ? "Rows checked. Here is the log." : "Box refused: nothing is measured."); } catch (e) { toast(e.message); }
+  };
+  $("rows-ok").onclick = () => send(true); $("rows-bad").onclick = () => send(false);
 }
 
 const GATE = {spark:["spark", "Muse Spark looked at the whole photo"], calibration:["cv", "Calibration looked for the tray slats"], segmentation:["sam", "SAM 3.1 looked for core pieces"]};

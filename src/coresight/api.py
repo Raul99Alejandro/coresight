@@ -438,6 +438,10 @@ class SamPointOut(BaseModel):
     mask: str  # data URL of the mask over the row, as masks/{row}.png
 
 
+class RowsCheck(BaseModel):
+    right: bool  # False: the rows found are wrong and the box is refused
+
+
 class DescriptionIn(BaseModel):
     field: DescriptionField
     value: str = Field(max_length=2000)
@@ -903,6 +907,11 @@ def create_app(
         run_handoffs(box_id)
         return get_box(box_id)
 
+    @app.post("/api/boxes/{box_id}/rows")
+    def check_rows(box_id: str, body: RowsCheck, request: Request) -> BoxReview:
+        """After an unsure calibration: a person says whether the rows found are right."""
+        return edit(box_id, lambda b: review.check_rows(b, body.right), request)
+
     @app.post("/api/boxes/{box_id}/approve")
     def approve(box_id: str, request: Request) -> BoxReview:
         edit(box_id, review.approve, request)
@@ -946,6 +955,8 @@ def create_app(
         box = get_box(box_id, request)
         if box.status not in ("ready", "approved"):
             raise HTTPException(409, "The box has no log yet.")
+        if review.rows_to_check(box):
+            raise HTTPException(409, "Check the rows first: the calibration was unsure.")
         return csv_response(export_csv(box), f"{box.hole_id}_box{box.box_number:02d}.csv")
 
     @app.get("/api/boxes/{box_id}/corrections.csv")

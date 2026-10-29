@@ -5,12 +5,15 @@ from __future__ import annotations
 from coresight.schemas import GateReason, GateResult, TrayCheck
 
 MIN_CALIBRATION = 0.5  # below this there is no trustworthy scale in cm
+# below this a person checks the rows before any number is shown: the public trays we
+# calibrate well score 1.00; NTS 1981 (cut to 3.5 of its rows) 0.68, the others 0.51 to 0.78
+SURE_CALIBRATION = 0.9
 MIN_SAM = 0.3  # below this SAM found no core piece it is sure of
 SPARK_SURE = 0.5  # a "not a tray" at or above this refuses the photo on its own
 WEAK_CALIBRATION = 0.7  # below this an unsure Spark "not a tray" counts
 WEAK_SAM = 0.5  # below this an unsure Spark "not a tray" counts
 
-_ADVICE = (
+ADVICE = (
     "Upload one photo of a core tray taken from above, with the whole tray, its slats "
     "and both ends in view."
 )
@@ -45,6 +48,19 @@ def _calibration_reason(calibration: float) -> GateReason | None:
     )
 
 
+def _calibration_doubt(calibration: float) -> GateReason | None:
+    if not MIN_CALIBRATION <= calibration < SURE_CALIBRATION:
+        return None
+    return GateReason(
+        signal="calibration",
+        value=calibration,
+        detail=(
+            f"The tray slats were found, but not clearly (calibration confidence "
+            f"{calibration:.2f}): the rows may be cut wrong, so check them before any number."
+        ),
+    )
+
+
 def _segmentation_reason(sam: float | None) -> GateReason | None:
     if sam is None or sam >= MIN_SAM:
         return None
@@ -70,6 +86,7 @@ def check_input(calibration: float, sam: float | None, spark: TrayCheck | None) 
         if reason is not None
     ]
     if not reasons:
-        return GateResult(ok=True)
-    message = " ".join([*(r.detail for r in reasons), _ADVICE])
+        doubt = _calibration_doubt(calibration)
+        return GateResult(ok=True, doubts=[doubt] if doubt else [])
+    message = " ".join([*(r.detail for r in reasons), ADVICE])
     return GateResult(ok=False, reasons=reasons, message=message)

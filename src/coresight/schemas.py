@@ -143,7 +143,7 @@ class TrayCheck(_Strict):
 
 
 class GateReason(_Strict):
-    """One signal that says the photo should not be measured."""
+    """One signal that says the photo should not be measured, or that a person must check it."""
 
     signal: GateSignal
     value: float  # the confidence that failed
@@ -156,6 +156,9 @@ class GateResult(_Strict):
     ok: bool
     reasons: list[GateReason] = Field(default_factory=list)
     message: str = ""  # what the person reads; empty when ok
+    # ok but unsure (calibration between gate.MIN_CALIBRATION and gate.SURE_CALIBRATION):
+    # the page shows the rows found and no number until a person says they are right
+    doubts: list[GateReason] = Field(default_factory=list)
 
 
 # Localization (point B): Muse Spark marks what is core in a row, SAM 3.1 cuts it.
@@ -508,6 +511,7 @@ class BoxReview(_Strict):
     gate: GateResult | None = None  # the input gate's last verdict (day 10)
     owner: str | None = None  # the browser that made it (api.VISITOR_COOKIE); None: nobody's
     pinned: bool = False  # a read-only sample everybody sees (home, tour, public hole)
+    rows_confirmed: bool = False  # a person said the rows of an unsure calibration are right
 
 # --- Drill hole view (point D) ------------------------------------------------
 

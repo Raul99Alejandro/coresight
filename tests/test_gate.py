@@ -133,3 +133,14 @@ def test_without_spark_the_other_two_decide():
 def test_confidences_outside_0_to_1_are_a_bug(calibration, sam):
     with pytest.raises(ValueError):
         check_input(calibration, sam, TRAY)
+
+
+def test_an_unsure_calibration_passes_with_a_doubt_for_the_geologist():
+    """NTS 1981: calibration cut 3.5 of the rows into 5, confidence 0.68 (ANALISIS-4 N2)."""
+    result = check_input(0.68, 0.7, TRAY)
+    assert result.ok and result.reasons == []
+    assert [d.signal for d in result.doubts] == ["calibration"] and result.doubts[0].value == 0.68
+    assert "0.68" in result.doubts[0].detail and "check them" in result.doubts[0].detail
+    assert check_input(0.5, None, TRAY).doubts and check_input(0.89, None, TRAY).doubts
+    assert check_input(0.9, None, TRAY).doubts == []  # our sample trays score 1.00
+    assert check_input(0.49, None, TRAY).doubts == []  # refused instead

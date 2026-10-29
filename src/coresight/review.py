@@ -34,7 +34,7 @@ from coresight.anomalies import with_rule_anomalies
 from coresight.calibration import CalibrationError, Tray, find_trays
 from coresight.crops import run_crops
 from coresight.describe import MAX_EXAMPLES, Describer, cache_key, describe_prompt, png_bytes
-from coresight.gate import check_input
+from coresight.gate import ADVICE, check_input
 from coresight.geometry import IntervalLog
 from coresight.meta_client import SamObject, SamPoint, sam_cache_key, sam_prompt
 from coresight.pipeline import rows_prompts
@@ -742,9 +742,34 @@ def set_description(
     return run
 
 
+def rows_to_check(box: BoxReview) -> bool:
+    """The calibration was unsure and nobody has said the rows are right yet."""
+    return bool(box.gate and box.gate.doubts) and not box.rows_confirmed
+
+
+def check_rows(box: BoxReview, right: bool) -> BoxReview:
+    """A person looked at the rows of an unsure calibration: measure on, or refuse."""
+    if box.status != "ready" or not rows_to_check(box):
+        raise ReviewError("These rows need no check.")
+    if right:
+        box.rows_confirmed = True
+        return box
+    doubts = box.gate.doubts
+    box.status = "failed"
+    box.error = "The rows CoreSight found were wrong, so nothing is measured."
+    box.gate = GateResult(
+        ok=False,
+        reasons=doubts,
+        message=" ".join([*(r.detail for r in doubts), "You said the rows are wrong.", ADVICE]),
+    )
+    return box
+
+
 def approve(box: BoxReview) -> BoxReview:
     if box.status != "ready":
         raise ReviewError(f"The box is {box.status}; only a box under review can be approved.")
+    if rows_to_check(box):
+        raise ReviewError("Check the rows first: the calibration was unsure.")
     missing = [i + 1 for i, r in enumerate(box.runs) if r.description is None]
     if missing:
         raise ReviewError(f"Write a lithology for run(s) {missing} before approving.")
