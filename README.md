@@ -9,6 +9,8 @@ Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-produ
 
 **[Watch the video (3 min)](https://www.youtube.com/watch?v=BceyZbq7P9c)**
 
+In the video, the sample box replays saved answers, shown on screen as "from cache". Uploads and the agents call the models live.
+
 [What existed before the hackathon and what was built during it](#built-before-the-hackathon).
 
 ![SAM 3.1 masks on a public core tray from Nevada: each piece of core is cut on its own. A card the log still counts as core is for the geologist to remove](docs/img/masks.jpg)
@@ -100,7 +102,7 @@ How this compares with people: we found no study that gives, in RQD points, how 
 We do not claim CoreSight is within human variability. The error is why a geologist reviews every value before it is used.
 
 What the numbers rest on:
-- 34 runs from the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle, CC BY-NC-SA 4.0). The reference is the RQD and recovery the mine geologist wrote on each box lid. These photos are not in the repo or the demo (non-commercial license). The values we read from the lids are in `data/labels/I*.json`, under the same license and with attribution; they are not used in the demo. The Bland-Altman plot of these runs is not published.
+- 34 runs from the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle, CC BY-NC-SA 4.0). The reference is the RQD and recovery the mine geologist wrote on each box lid. These photos are not in the repo or the demo (non-commercial license). The values we read from the lids are in `data/labels/I*.json`, under the same license and with attribution; they are not used in the demo. The Bland-Altman plot of these runs is not published. We use this dataset only to measure error: nothing was trained on it and the demo does not use it. We asked the organizers about this use on Nov 3.
 - Onkalo (Commons, CC BY-SA 4.0) and Nevada U12G (U.S. DOE, public domain), labelled by us.
 - The `+marks` variant reads marks the geologist already made, so it is not the headline.
 
@@ -188,7 +190,7 @@ Meta's Agents Rule of Two: the agents read model output about the photo and priv
 
 ## Built with Muse Code
 
-Seven pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first, with 19 traces in the repo. We did not edit its code.
+Seven pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first, with 19 traces in the repo. We did not edit its code in those rounds. Some of those files changed later outside Muse Code, such as `gate.py` in `a140e6b` and `verify.py` in `2e02cd2`; `git log` on the full tree shows each change.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.

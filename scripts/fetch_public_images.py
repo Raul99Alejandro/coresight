@@ -19,6 +19,9 @@ RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 # Wikimedia's robot policy requires a contact URL in the User-Agent.
 USER_AGENT = "CoreSight/0.1 (https://github.com/Raul99Alejandro/coresight) httpx"
+RETRIES = 6
+PAUSE_S = 1.5
+RETRY_STATUS = {429, 500, 502, 503, 504}
 
 # local file name -> Commons file title
 IMAGES: dict[str, str] = {
@@ -89,10 +92,40 @@ def file_info(client: httpx.Client, title: str) -> dict:
         "iiprop": "url|size|extmetadata",
         "format": "json",
     }
-    page = next(iter(client.get(COMMONS_API, params=params).json()["query"]["pages"].values()))
+    resp = get_with_retry(client, COMMONS_API, params=params)
+    page = next(iter(resp.json()["query"]["pages"].values()))
     if "imageinfo" not in page:
         raise RuntimeError(f"not found on Commons: {title}")
     return page["imageinfo"][0]
+
+
+def is_image(data: bytes) -> bool:
+    return data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n"))
+
+
+def get_with_retry(
+    client: httpx.Client, url: str, sleep=time.sleep, **kwargs
+) -> httpx.Response:
+    """GET that waits when Wikimedia limits us and raises on any other error."""
+    for attempt in range(RETRIES):
+        resp = client.get(url, **kwargs)
+        if resp.status_code not in RETRY_STATUS or attempt == RETRIES - 1:
+            resp.raise_for_status()
+            return resp
+        retry_after = resp.headers.get("Retry-After", "")
+        sleep(int(retry_after) if retry_after.isdigit() else 5 * 2**attempt)
+    raise AssertionError("unreachable")
+
+
+def download(client: httpx.Client, url: str, target: Path, sleep=time.sleep) -> bool:
+    """Save the photo. A file that is not an image, such as a saved error page, is replaced."""
+    if target.exists() and is_image(target.read_bytes()[:8]):
+        return False
+    data = get_with_retry(client, url, sleep=sleep).content
+    if not is_image(data):
+        raise RuntimeError(f"not an image: {url}")
+    target.write_bytes(data)
+    return True
 
 
 def main() -> None:
@@ -105,9 +138,8 @@ def main() -> None:
             info = file_info(client, title)
             meta = info["extmetadata"]
             target = RAW_DIR / name
-            if not target.exists():
-                target.write_bytes(client.get(info["url"]).content)
-                time.sleep(0.5)
+            if download(client, info["url"], target):
+                time.sleep(PAUSE_S)
             license_name = meta.get("LicenseShortName", {}).get("value", "?")
             author = _plain(meta.get("Artist", {}).get("value", "?"))
             rows.append(
