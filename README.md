@@ -9,7 +9,7 @@ Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-produ
 
 [What existed before the hackathon and what was built during it](#built-before-the-hackathon).
 
-![SAM 3.1 masks on a public core tray from Nevada: each piece of core is cut on its own, while cards and labels stay out](docs/img/masks.jpg)
+![SAM 3.1 masks on a public core tray from Nevada: each piece of core is cut on its own. A card the log still counts as core is for the geologist to remove](docs/img/masks.jpg)
 
 ![Drill hole view: approved boxes joined by depth, next to a 3D of the hole wrapped in the real box photos. The trace is an example](docs/img/hole.jpg)
 
@@ -102,7 +102,7 @@ What the numbers rest on:
 - Onkalo (Commons, CC BY-SA 4.0) and Nevada U12G (U.S. DOE, public domain), labelled by us.
 - The `+marks` variant reads marks the geologist already made, so it is not the headline.
 
-Time and cost per tray (5 rows, 2 runs): about 40 s and under US$0.05 with the hosted models (SAM 3.1 at US$2.50 per 1,000 images, Muse Spark Open at US$0.0125 per run), against at least an hour of a geologist by hand. Sources and the breakdown in [`docs/IMPACT.md`](docs/IMPACT.md).
+Time and cost per tray: under a minute and about US$0.05 with the hosted models, before the agents (about 40 s on 5 rows and 2 runs, 58 s on a tray that needs Spark's boxes; SAM 3.1 at US$2.50 per 1,000 images, Muse Spark Open at US$0.0125 per run; Spark's boxes and the agents are not priced), against at least an hour of a geologist by hand. Sources and the breakdown in [`docs/IMPACT.md`](docs/IMPACT.md).
 
 Files: [`outputs/eval/report.md`](outputs/eval/report.md) (every table, per site and method, Deere confusion matrix, dry against wet per run), [`outputs/eval/runs.csv`](outputs/eval/runs.csv) (error per run and method) and [`outputs/eval/bland_altman_public.svg`](outputs/eval/bland_altman_public.svg). Statistics in [`evaluation.py`](src/coresight/evaluation.py), with tests. Reproduce with `python scripts/eval_logs.py` once the Kaggle set is in `data/raw/`.
 

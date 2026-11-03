@@ -40,7 +40,7 @@ Not found: a published time per box for geotechnical logging. To ask a geologist
 | An AI RQD exceeded the client's manual values by about 10 to 20% in some intervals | [Jaroling et al. 2026, ACG](https://papers.acg.uwa.edu.au/d/2645_74_Jaroling/74_Jaroling.pdf). AI against people, not people against people |
 
 Not found: a study that gives the difference, in RQD points, between two geologists logging the same drill core.
-So we do not claim that CoreSight's error is "within human variability". What we can say: our reference is one mine geologist, and Pells et al. show that such a reference is itself uncertain. CoreSight's RQD error against that geologist (MAE 11.2 points, 95% limits of agreement -40 to +26, see the README) is large enough that a person must review every value, which is how CoreSight works.
+So we do not claim that CoreSight's error is "within human variability". What we can say: our reference is a mine geologist, and Pells et al. show that such a reference is itself uncertain. CoreSight's RQD error against that geologist (MAE 11.2 points, 95% limits of agreement -40 to +26, see the README) is large enough that a person must review the values, which is what the review step asks. The approval itself is one sign-off per box.
 
 ## What CoreSight costs and how long it takes
 
@@ -54,7 +54,7 @@ Measured on our runs, for a tray of 5 rows and 2 runs:
 | Description, Muse Glimmer (our laptop, offline) | about 5.5 min per run | no per-call cost | `outputs/describe/compare.md`, `docs/PROVENANCE.md` |
 | Calibration and geometry | under 1 s | none | the same review job |
 
-So a tray is about 40 s and under US$0.05 with the hosted models, against at least an hour of a geologist by hand.
+So a tray of 5 rows and 2 runs is about 40 s and US$0.0375 with the hosted models. The demo's Nevada box 1 (4 rows, 3 runs) comes to US$0.0475, and a public tray that needed Spark's boxes took 58 s in production. We round to under a minute and about US$0.05, against at least an hour of a geologist by hand. Not priced: the Muse Spark calls that box a row, and the agents, which took 4 min 47 s on the video's run.
 The geologist still reviews it; we have not yet measured how long that review takes. To measure with a geologist.
 
 ## Still to get
