@@ -5,6 +5,10 @@ Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-produ
 
 **[Try the live demo](https://coresight.analizac.com)**: open it and take the 60-second tour. No sign-up.
 
+**Video (3 min):** link added on submission day.
+
+[What existed before the hackathon and what was built during it](#built-before-the-hackathon).
+
 ![SAM 3.1 masks on a public core tray from Nevada: each piece of core is cut on its own, while cards and labels stay out](docs/img/masks.jpg)
 
 ![Drill hole view: approved boxes joined by depth, next to a 3D of the hole wrapped in the real box photos. The trace is an example](docs/img/hole.jpg)
@@ -27,7 +31,7 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | 6. Hole view: the approved boxes of one drill hole joined by depth; RQD, TCR, fracture frequency and Deere class by run and by 1 m interval; gaps and overlaps between boxes; weak zones; a 3D of the hole | `hole.py`, `geometry.log_hole`, `web/index.html` | Deterministic Python, three.js |
 | 7. Agents: a hole agent reads the trends between boxes and proposes an action; an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each area agent drafts; every step is verified by code and by Muse Spark as a judge; a human approves | `agents.py`, `verify.py`, `hole.hole_trends` | Muse Wonder (orchestrator), Muse Spark with tools and as a judge |
 
-Stage 4 can also run on Muse Glimmer on the mine's own hardware (offline mode), with the same validated output.
+Stage 4 can also run on Muse Glimmer on your own hardware, with no network (offline mode), with the same validated output.
 
 ## Quickstart
 
@@ -68,7 +72,7 @@ Ablation, same 34 runs:
 
 The intervals overlap: with 11 boxes, no step of the ablation is a proven gain on its own.
 
-Spark localizes, SAM cuts (point B). Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing. Spark also marks `empty` stretches (bare wood, an empty compartment): they are taken out like a run block, so `geometry.py` logs them as core not recovered. SAM reads every row at once and Spark boxes at once the rows that need it, and the page says how many. On a public tray CoreSight had never seen (Nevada Test Site 1981), SAM and Spark went from 142 s to 45 s in production (58 s for the whole box), and the empty wooden row from 19 pieces to none on its 90 cm of wood. Two short ones are left at its ends, about 7.5 cm and 2 cm, where the row crop, placed a little high by the calibration (confidence 0.68), takes in the row above and the tray end.
+Spark localizes, SAM cuts. Instead of the phrase "stone", Muse Spark boxes every core piece and every object that is not core (run blocks, cards) in tiles of each row, and those boxes go to SAM 3.1 as box prompts; what is not core is taken out of the length. Wax-sealed samples count as core: they were taken for testing but are recovered core, as in our labels. `fallback+` uses "stone" and turns to Spark only for a row where "stone" finds nothing. Spark also marks `empty` stretches (bare wood, an empty compartment): they are taken out like a run block, so `geometry.py` logs them as core not recovered. SAM reads every row at once and Spark boxes at once the rows that need it, and the page says how many. On a public tray CoreSight had never seen (Nevada Test Site 1981), SAM and Spark went from 142 s to 45 s in production (58 s for the whole box), and the empty wooden row from 19 pieces to none on its 90 cm of wood. Two short ones are left at its ends, about 7.5 cm and 2 cm, where the row crop, placed a little high by the calibration (confidence 0.68), takes in the row above and the tray end.
 
 | Method | Mine geologist, 34 runs: RQD MAE [95% CI] | Our labels, Nevada (3 runs): RQD MAE | Our labels, Onkalo dry (5 runs) |
 |---|---|---|---|
@@ -138,7 +142,15 @@ The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These four commits were
 | `3a7c613` | Survey of public core photo sources and their licenses (`data/labels/SOURCES.md`) |
 | `013503a` | Script that downloads the public photos (`scripts/fetch_public_images.py`); `meta_client.py` written from the public Meta Model API docs (not yet run against the API); day 1 smoke test script (`scripts/smoke_day1.py`); SAM response parser tests |
 
-Not built before kickoff: calibration, SAM segmentation of rows into pieces, wiring the geometry engine to real photos, Muse Spark descriptions and anomaly flags, the review UI and CSV export, the lab and safety hand-offs, the evaluation, and the demo.
+## Built during the hackathon
+
+Everything after commit `013503a`, from Oct 26, 2026:
+
+- Calibration, the input gate, SAM 3.1 segmentation, Muse Spark grounding and descriptions, and wiring the geometry engine to real photos.
+- The review page: corrections by typing, voice and SAM point prompts, history and CSV export.
+- The drill hole by depth (`pieces_at_depth` and `log_hole`, added to `geometry.py`), the hole view and the 3D.
+- The agents: hole agent, orchestrator, area agents, verification in two layers, the decision log.
+- The three Muse backends behind one contract, the evaluation, the abuse test, the deployment and the tour.
 
 ## Agents
 
@@ -159,7 +171,7 @@ How it is verified, in the words of Meta's Agents 102 workshop:
 - **The cost of verifying, shown.** The decision log says, in sentences, how many attempts and model turns each step took and how many seconds went to writing and to verifying (code and judge). While they work, the page says the step and about how long is left.
 - **A draft proposes, people decide.** What a draft proposes comes from a closed list (check support, scale and inspect, a review before the next run, warn geotechnics, oriented core, sample the contact, send to the lab, a plant test). `verify.check_role` refuses any wording that tells the operation to stop ("Do not continue drilling until..."), and the judge is told to do the same. Stopping a rig is for the people in charge.
 
-Faster without dropping a check (third analysis, point 3). What does not wait on another step runs at the same time: the routing starts on a finding `verify.py` passed while the judge reads it, and is kept only if the judge passes that finding too (otherwise it is dropped, and the log says so); lab, safety and plant draft and are judged side by side, and finance waits for the verified lab request. A retry continues the agent's conversation with only the reasons, so it does not read its tools again, and each agent gets its no-argument tools (box summary, trends, finding, history) in its first message. Meta's prompt caching is automatic and already reused about 97 % of a repeated prompt in our test, so the time was in the turns, not the input. Measured on the tour box (Nevada U12G box 3, no response cache):
+Faster without dropping a check. What does not wait on another step runs at the same time: the routing starts on a finding `verify.py` passed while the judge reads it, and is kept only if the judge passes that finding too (otherwise it is dropped, and the log says so); lab, safety and plant draft and are judged side by side, and finance waits for the verified lab request. A retry continues the agent's conversation with only the reasons, so it does not read its tools again, and each agent gets its no-argument tools (box summary, trends, finding, history) in its first message. Meta's prompt caching is automatic and already reused about 97 % of a repeated prompt in our test, so the time was in the turns, not the input. Measured on the tour box (Nevada U12G box 3, no response cache):
 
 | | Hole agent and judge | Routing | Safety draft and judge | Total |
 |---|---|---|---|---|
@@ -167,11 +179,13 @@ Faster without dropping a check (third analysis, point 3). What does not wait on
 | After (three runs in a row) | 26 to 46 s | 0 to 2 s after the finding | 44 to 54 s | 73, 90 and 96 s |
 | After, in production (first run with the new prompts; the judge sent the draft back once) | 34 s | 0 s after the finding | 68 s | 101 s |
 
+A run takes as long as the judge says it does. The run in the video (our own copy of Nevada box 1, approved after two corrections, Nov 3) took 4 min 47 s from approval to the last check: the judge backed 14 of 15 claims of the hole agent's finding and sent it back, the second attempt passed, and that step alone took 60 s writing and 131 s verifying. The early routing was dropped and done again, and the log says so.
+
 Meta's Agents Rule of Two: the agents read model output about the photo and private mine data, and hold no tool that changes state or communicates outside.
 
 ## Built with Muse Code
 
-Eight pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first. We did not edit its code.
+Seven pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against tests we wrote first, with 19 traces in the repo. We did not edit its code.
 
 - `src/coresight/verify.py`, the deterministic check every area draft must pass before a person can approve it. Spec: `tests/test_verify.py`.
   - Round 1 (session `bbc6432a-3cb8-407d-8572-921d33527e31`): the full verifier from the first 15 tests.
@@ -213,7 +227,7 @@ The unit is a drill hole, not a photo. Approved boxes of the same hole join into
 
 Built to hold up in production: the home page shows a real box being read and the hole it belongs to, and a "60-second tour" walks through the product live (a refused screenshot, a sample, Spark and SAM, a correction, the agents, the hole in 3D). The abuse test ([`tests/test_abuse.py`](tests/test_abuse.py)) covers a photo that is not a core box, a huge photo or a small file that declares a huge image (the size is read from the header before decoding), GIF, PDF, TIFF, HEIC and damaged files, a box without scale, and many uploads in a row (5 per visitor in 10 minutes, on top of the hourly caps); each ends in a message, never in a number. The public samples are pre-warmed (`scripts/prewarm_demo.py`: 0 live calls, about 2 s each) and a token-protected credit watch counts every request to Meta Model API and every cache hit.
 
-Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
+508 tests pass in CI at this commit. Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
 The agents look at the hole, not only the box: approving a box that sits under better rock gives a trend alert from the hole agent, a verified routing and a safety draft verified in two layers (see Agents).
 
 ## License

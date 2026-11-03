@@ -28,7 +28,7 @@ D:\models\llama.cpp\llama-server.exe -m D:\models\glimmer\Muse-Glimmer-30B-KQuan
 
 ## Voz en off (inglés, unos 15 s)
 
-"No internet. Muse Glimmer, Meta's open-weight model, runs on the mine's own laptop. Same photo, same contract, same validated log. Private core never leaves the site."
+"No internet. Muse Glimmer, Meta's open-weight model, on a laptop. Same photo, same contract, same validated log. Core photos can stay on site."
 
 ## Notas
 

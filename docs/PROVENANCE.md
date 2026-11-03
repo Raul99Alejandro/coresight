@@ -48,7 +48,7 @@ That is why one description takes about 5 minutes on this laptop. Meta's docs sa
 ### Offline
 
 `scripts/offline_glimmer.py` first checks that dev.meta.ai, huggingface.co and 1.1.1.1 cannot be reached, then describes a public photo with the cache off and logs the hashes of the image and the answer in `outputs/describe/offline_runs.jsonl`.
-The screen recording of that run is the offline evidence (see [`CLIP_GLIMMER.md`](CLIP_GLIMMER.md)).
+How to record that run as offline evidence: [`CLIP_GLIMMER.md`](CLIP_GLIMMER.md). A run is logged in that file only once it has been made.
 
 ## Muse Spark Open
 
