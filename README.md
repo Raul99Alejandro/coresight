@@ -1,5 +1,7 @@
 # CoreSight
 
+> **The hackathon submission is [Raul99Alejandro/coresight-hackathon](https://github.com/Raul99Alejandro/coresight-hackathon).** It holds only work done during the event. This repo is its pre-event dependency, pinned at commit `14bc545` (tag `pre-event-baseline`). `main` here also keeps the full tree and every dated commit.
+
 **Automated drill-core logging from core box photos.**
 Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-producing state, for the Meta Global AI Developer Hackathon (Startup track, theme *Push the Frontier*).
 
@@ -133,7 +135,7 @@ Every number, its source and what we could not find: [`docs/IMPACT.md`](docs/IMP
 
 ## Built before the hackathon
 
-The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These four commits were made on Oct 25, before kickoff. Everything after commit `013503a` was built during the hackathon.
+The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These five commits came before kickoff: four on Oct 25 and one on Oct 26 at 11:45 AM ET. Everything after commit `14bc545` was built during the hackathon.
 
 | Commit | What existed before kickoff |
 |---|---|
@@ -141,10 +143,11 @@ The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These four commits were
 | `fb53c33` | CI switched to manual runs |
 | `3a7c613` | Survey of public core photo sources and their licenses (`data/labels/SOURCES.md`) |
 | `013503a` | Script that downloads the public photos (`scripts/fetch_public_images.py`); `meta_client.py` written from the public Meta Model API docs (not yet run against the API); day 1 smoke test script (`scripts/smoke_day1.py`); SAM response parser tests |
+| `14bc545` | README note marking the earlier commits, and CI back on push |
 
 ## Built during the hackathon
 
-Everything after commit `013503a`, from Oct 26, 2026:
+Everything after commit `14bc545`, from kickoff on Oct 26, 2026:
 
 - Calibration, the input gate, SAM 3.1 segmentation, Muse Spark grounding and descriptions, and wiring the geometry engine to real photos.
 - The review page: corrections by typing, voice and SAM point prompts, history and CSV export.
