@@ -5,7 +5,7 @@ Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-produ
 
 **[Try the live demo](https://coresight.analizac.com)**: open it and take the 60-second tour. No sign-up.
 
-**Video (3 min):** link added on submission day.
+**[Watch the video (3 min)](https://www.youtube.com/watch?v=Og-IVdhk4vs)**
 
 [What existed before the hackathon and what was built during it](#built-before-the-hackathon).
 
