@@ -7,7 +7,7 @@ Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-produ
 
 **[Try the live demo](https://coresight.analizac.com)**: open it and take the 60-second tour. No sign-up.
 
-**[Watch the video (3 min)](https://www.youtube.com/watch?v=Og-IVdhk4vs)**
+**[Watch the video (3 min)](https://www.youtube.com/watch?v=BceyZbq7P9c)**
 
 [What existed before the hackathon and what was built during it](#built-before-the-hackathon).
 
@@ -100,7 +100,7 @@ How this compares with people: we found no study that gives, in RQD points, how 
 We do not claim CoreSight is within human variability. The error is why a geologist reviews every value before it is used.
 
 What the numbers rest on:
-- 34 runs from the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle, CC BY-NC-SA 4.0). The reference is the RQD and recovery the mine geologist wrote on each box lid. These photos and reference values are not in the repo or the demo (non-commercial license); only our errors are published, and the Bland-Altman plot of these runs stays private because its x axis would reveal the reference.
+- 34 runs from the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle, CC BY-NC-SA 4.0). The reference is the RQD and recovery the mine geologist wrote on each box lid. These photos are not in the repo or the demo (non-commercial license). The values we read from the lids are in `data/labels/I*.json`, under the same license and with attribution; they are not used in the demo. The Bland-Altman plot of these runs is not published.
 - Onkalo (Commons, CC BY-SA 4.0) and Nevada U12G (U.S. DOE, public domain), labelled by us.
 - The `+marks` variant reads marks the geologist already made, so it is not the headline.
 
