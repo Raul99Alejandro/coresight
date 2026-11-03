@@ -7,13 +7,10 @@ Proyecto de AnaliZac para el Meta Global AI Developer Hackathon.
 - Tema: **Push the Frontier** (modelos de Meta conectados al mundo físico).
 - Entrega: **mié 4 nov 2026, 20:00 hora de Zacatecas** (21:00 ET). Meta interna: 18:00.
 - Juzgado: 4 al 8 nov. Final en vivo y ganadores: lun 9 nov.
-- Plan día por día: `docs/PLAN.md`. Lo prometido en la aplicación: `docs/APPLICATION.md`.
+- Plan día por día: `internal/PLAN.md` (fuera de git). Lo prometido en la aplicación: `docs/APPLICATION.md`.
 - Comando `/day`: dice qué toca hoy y propone tareas.
 
 Entrada: foto de una caja. Salida: registro geotécnico y geológico por intervalo, revisado por un geólogo.
-
-## Restricción
-Nada relacionado con Freight Technologies: ni código, ni datos, ni el dominio de logística o aduanas.
 
 ## Arquitectura (neurosimbólica)
 

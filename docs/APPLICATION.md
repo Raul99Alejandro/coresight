@@ -73,7 +73,7 @@ Registro de uso:
   - Prueba con los textos reales de Spark: rechaza "Do not continue drilling until the safety team reviews.", "Before the next run: stop and get geotech review." y "Do not drill ahead without geotechnical review."; deja pasar "needs geotech review before further drilling" y "have a geotechnical review before the next run".
 
 ## Alcance ampliado (decidido el 26 oct)
-Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina. Detalle y calendario en `docs/PLAN.md`.
+Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que llevan el dato a otras áreas de la mina.
 
 | # | Compromiso nuevo | Modelo de Meta | Día |
 |---|---|---|---|
@@ -86,7 +86,6 @@ Raúl decidió ir más allá de lo prometido: núcleo profundo más agentes que 
 
 El compromiso 6 (handoffs a laboratorio y seguridad) queda cubierto por el 10.
 
-Premios extra a los que apunta: Best Agentic Use-Case (9 y 10), Best Build on Meta Open Weight Models (12), Most Viral Project (14).
 
 ## Visión (no es compromiso del hackathon)
 CoreSight es el primer módulo de una capa de agentes que conecte los departamentos de una mina. En el hackathon se construyen laboratorio, seguridad, planta y finanzas. Mantenimiento, operaciones y administración van en el pitch y en el video, no en el código.

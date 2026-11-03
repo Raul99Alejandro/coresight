@@ -79,11 +79,11 @@
     },
     {
       "tool": "read_file",
-      "result": "Read text file `docs/PLAN.md`.\n1|# Plan día por día\n2|\n3|Entrega oficial: **mié 4 nov 2026, 21:00 ET = 20:00 hora de Zacatecas**. Meta interna: enviar antes de las **18:00**.\n4|Kickoff: lun 26 oct a las 10:00 de Zacatecas (ya pasó).\n5|Juzgado: 5 al 8 nov. Final en vivo y ganadores: lun 9 nov.\n6|\n7|## Alcance (decidido el 26 oct)\n8|\n9|Núcleo profundo más agentes de área, en ese orden de prioridad:\n ..."
+      "result": "Read text file `docs/PLAN.md`. [Internal planning note: content removed from the public trace.]"
     },
     {
       "tool": "read_file",
-      "result": "Read text file `docs/ANALISIS.md`.\n1|# Análisis adversarial de CoreSight (27 oct)\n2|\n3|Propósito: decidir qué cambiar para tener las máximas posibilidades de ganar el track Startups.\n4|Punto de vista: un juez de Meta escéptico y un competidor fuerte.\n5|\n6|Fuentes revisadas:\n7|- El repo completo: docs, código en `src/coresight/`, `outputs/eval/report.md`, `outputs/describe/compare.md`, historial de ..."
+      "result": "Read text file `docs/ANALISIS.md`. [Internal planning note: content removed from the public trace.]"
     },
     {
       "tool": "read_file",

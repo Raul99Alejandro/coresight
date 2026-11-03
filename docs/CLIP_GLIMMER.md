@@ -1,6 +1,6 @@
 # Clip de Glimmer sin red (lo graba Raúl)
 
-Para el premio de modelos abiertos y el tramo 2:30 a 2:50 del video.
+Evidencia de que Muse Glimmer corre sin red.
 Duración final: 20 a 30 s. La descripción tarda unos 8 min en la laptop, así que la parte de espera va acelerada y se dice en pantalla.
 
 ## Antes de grabar

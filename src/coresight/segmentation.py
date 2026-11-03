@@ -1,7 +1,7 @@
 """Stage 2, segmentation: pieces of core along one straightened row, in cm.
 
 Four methods, each a layer on the previous one, measurable for the ablation
-(docs/PLAN.md, day 9):
+(see the Evaluation section of the README):
 
 - ``"sam"``: SAM 3.1 masks for the prompt "stone". Each mask becomes an
   interval along the row; depth markers (magenta foam), slivers and objects
@@ -21,7 +21,7 @@ Four methods, each a layer on the previous one, measurable for the ablation
   orientation line runs on across it is a possible mechanical break: still
   counted as natural (uncertain), but listed first for review.
 
-Each method also has a ``"spark+"`` twin (point B of docs/ANALISIS-2.md):
+Each method also has a ``"spark+"`` twin:
 instead of the phrase "stone", Muse Spark first localizes every core piece
 of the row and everything that is not core (run blocks, cards, tools), and
 SAM 3.1 cuts the core pieces with those boxes as prompts. Wax-sealed samples

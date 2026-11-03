@@ -8,7 +8,7 @@ Three signals decide whether a photo is measured at all:
 - spark: Muse Spark's TrayCheck of the whole photo, or None when Spark did not
   answer. A missing answer never refuses a photo on its own.
 
-Values measured on real photos (docs/ANALISIS-2.md): core trays give
+Values measured on real photos: core trays give
 calibration 1.0 and SAM 0.69 to 0.74; a screenshot of a web page gave
 calibration 0.0, SAM 0.00 and Spark "not a tray" with confidence 1.0;
 close-ups of core pieces without a tray give calibration about 0.2.
@@ -136,7 +136,7 @@ def test_confidences_outside_0_to_1_are_a_bug(calibration, sam):
 
 
 def test_an_unsure_calibration_passes_with_a_doubt_for_the_geologist():
-    """NTS 1981: calibration cut 3.5 of the rows into 5, confidence 0.68 (ANALISIS-4 N2)."""
+    """NTS 1981: calibration cut 3.5 of the rows into 5, confidence 0.68."""
     result = check_input(0.68, 0.7, TRAY)
     assert result.ok and result.reasons == []
     assert [d.signal for d in result.doubts] == ["calibration"] and result.doubts[0].value == 0.68

@@ -3,6 +3,12 @@
 **Automated drill-core logging from core box photos.**
 Built by AnaliZac, an AI consultancy in Zacatecas, Mexico's leading silver-producing state, for the Meta Global AI Developer Hackathon (Startup track, theme *Push the Frontier*).
 
+**[Try the live demo](https://coresight.analizac.com)**: open it and take the 60-second tour. No sign-up.
+
+![SAM 3.1 masks on a public core tray from Nevada: each piece of core is cut on its own, while cards and labels stay out](docs/img/masks.jpg)
+
+![Drill hole view: approved boxes joined by depth, next to a 3D of the hole wrapped in the real box photos. The trace is an example](docs/img/hole.jpg)
+
 After every drill hole, geologists log core boxes by hand: they measure RQD, count fractures, estimate recovery and describe lithology, alteration and mineralization. It is slow and subjective, and it becomes the bottleneck between drilling and the resource model.
 
 CoreSight takes an ordinary photo of a core box and returns a structured geotechnical and geological log per interval. A geologist reviews and approves it.
@@ -127,7 +133,7 @@ The hackathon kicked off on Oct 26, 2026 at 12:00 PM ET. These four commits were
 
 | Commit | What existed before kickoff |
 |---|---|
-| `1d32fde` | Project scaffold: `pyproject.toml`, Pydantic contracts (`schemas.py`), the deterministic geometry engine (`geometry.py`: RQD, TCR, fracture frequency, mechanical break merging) with its tests, pipeline stubs (`pipeline.py`), CI workflow, day-by-day plan (`docs/PLAN.md`) |
+| `1d32fde` | Project scaffold: `pyproject.toml`, Pydantic contracts (`schemas.py`), the deterministic geometry engine (`geometry.py`: RQD, TCR, fracture frequency, mechanical break merging) with its tests, pipeline stubs (`pipeline.py`), CI workflow, day-by-day plan |
 | `fb53c33` | CI switched to manual runs |
 | `3a7c613` | Survey of public core photo sources and their licenses (`data/labels/SOURCES.md`) |
 | `013503a` | Script that downloads the public photos (`scripts/fetch_public_images.py`); `meta_client.py` written from the public Meta Model API docs (not yet run against the API); day 1 smoke test script (`scripts/smoke_day1.py`); SAM response parser tests |
@@ -194,6 +200,7 @@ Eight pieces were written by Muse Code (1.4.13, and 1.4.14 from Oct 28) against 
 - Every run is headless: `muse exec --contributor-mode off --disable-approval --json`, sandbox on, never `--yolo`. Reviewers also run with `--disable-write`.
 - Muse's Windows sandbox could not start PowerShell on this machine, so it could not run the tests itself. We ran pytest and ruff outside it after each round.
 - Traces (prompt, every tool step, final answer, token usage) are in [`docs/muse-code/`](docs/muse-code/).
+- In `verify-1.json`, the two steps where Muse Code read our internal planning notes have that content removed. Nothing else in the traces was changed for that.
 - About `"model": "muse-spark-1.3-contributor"` in `verify-1.json` and `verify-2.json`: that is the model id Muse Code picks by default on this account when no `--model` is given. It is a catalog model, not the contributor mode: `--contributor-mode off` was set on every run and is a separate setting. We checked it with `muse model-profile show` and two one-line runs, one without `--model` (reports `muse-spark-1.3-contributor`) and one with `--model muse-spark-1.3` (reports `muse-spark-1.3`). From the gate on, every run passes `--model muse-spark-1.3`, and the traces say so.
 
 ## Status
@@ -204,10 +211,10 @@ The models work together. Where SAM 3.1 finds nothing with the phrase "stone", M
 
 The unit is a drill hole, not a photo. Approved boxes of the same hole join into one log by depth (`geometry.log_hole`): RQD, TCR, fracture frequency and Deere class by run and by 1 m interval, gaps and overlaps between boxes flagged, and weak zones (two or more consecutive 1 m intervals below RQD 50) marked. The hole view shows it as a depth column and in 3D. No public hole has a downhole survey, so the 3D uses an example orientation and says so on screen. Demo holes: Onkalo ONK-DTPH5.1 boxes 5 and 6, and Nevada U12G-GF-GT#2 boxes 1 and 3 (box 2 is not public and shows as a gap). A read-only `hole_log` tool gives the agents the hole by depth.
 
-Built to hold up in production: the home page shows a real box being read and the hole it belongs to, and a "60-second tour" walks through the product live (a refused screenshot, a sample, Spark and SAM, a correction, the agents, the hole in 3D; [`docs/TOUR.md`](docs/TOUR.md)). The abuse test ([`tests/test_abuse.py`](tests/test_abuse.py)) covers a photo that is not a core box, a huge photo or a small file that declares a huge image (the size is read from the header before decoding), GIF, PDF, TIFF, HEIC and damaged files, a box without scale, and many uploads in a row (5 per visitor in 10 minutes, on top of the hourly caps); each ends in a message, never in a number. The public samples are pre-warmed (`scripts/prewarm_demo.py`: 0 live calls, about 2 s each) and a token-protected credit watch counts every request to Meta Model API and every cache hit.
+Built to hold up in production: the home page shows a real box being read and the hole it belongs to, and a "60-second tour" walks through the product live (a refused screenshot, a sample, Spark and SAM, a correction, the agents, the hole in 3D). The abuse test ([`tests/test_abuse.py`](tests/test_abuse.py)) covers a photo that is not a core box, a huge photo or a small file that declares a huge image (the size is read from the header before decoding), GIF, PDF, TIFF, HEIC and damaged files, a box without scale, and many uploads in a row (5 per visitor in 10 minutes, on top of the hourly caps); each ends in a message, never in a number. The public samples are pre-warmed (`scripts/prewarm_demo.py`: 0 live calls, about 2 s each) and a token-protected credit watch counts every request to Meta Model API and every cache hit.
 
 Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
-The agents look at the hole, not only the box: approving a box that sits under better rock gives a trend alert from the hole agent, a verified routing and a safety draft verified in two layers (see Agents). Day-by-day plan in `docs/PLAN.md`.
+The agents look at the hole, not only the box: approving a box that sits under better rock gives a trend alert from the hole agent, a verified routing and a safety draft verified in two layers (see Agents).
 
 ## License
 
