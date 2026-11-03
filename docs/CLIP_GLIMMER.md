@@ -1,38 +1,22 @@
-# Clip de Glimmer sin red (lo graba Raúl)
+# Muse Glimmer in a container with no network
 
-Evidencia de que Muse Glimmer corre sin red.
-Duración final: 20 a 30 s. La descripción tarda unos 8 min en la laptop, así que la parte de espera va acelerada y se dice en pantalla.
+How the no-network run in the video was made, and how to repeat it.
+Its log: [`outputs/describe/offline_run.log`](../outputs/describe/offline_run.log). Its record, with the hashes: [`outputs/describe/offline_runs.jsonl`](../outputs/describe/offline_runs.jsonl).
 
-## Antes de grabar
+The model server runs in a container with `--network none`. The client joins that container's network, so it only sees `lo`, and `scripts/offline_glimmer.py` stops if it can reach dev.meta.ai, huggingface.co or 1.1.1.1. Only `src`, `scripts`, the photo and `outputs/describe` are mounted. `.env` is not.
 
-1. Cerrar todo lo que no sea la terminal (correo, Discord, navegador).
-2. Una sola terminal de PowerShell en `D:\Repos\coresight`, letra grande, fondo oscuro.
-3. Grabar la pantalla completa, para que se vea el ícono de red de Windows.
-
-## Toma por toma
-
-| # | En pantalla | Comando o acción | Texto en pantalla (inglés) |
-|---|---|---|---|
-| 1 | Barra de Windows | Apagar el Wi-Fi y desconectar el cable. Abrir el panel de red para que se vea "No internet" | "Network off" |
-| 2 | Terminal | `Test-NetConnection dev.meta.ai -Port 443` (sale `TcpTestSucceeded : False`) | "No route to Meta's API" |
-| 3 | Terminal | Levantar Glimmer (comando abajo) hasta que diga `listening on http://127.0.0.1:8080` (unos 30 s) | "Muse Glimmer, open weights, on this laptop" |
-| 4 | Segunda terminal | `.venv\Scripts\python scripts\offline_glimmer.py` | "A public core photo, cache off" |
-| 5 | Espera | Acelerar 30x o más | "About 8 min on an 8 GB laptop GPU, sped up" |
-| 6 | Terminal | El JSON validado con `visible_sulfides` y la línea `Valid GeologyDescription in ... s, no network.` | "Same validated output as the cloud model" |
-
-Comando de la toma 3 (en otra terminal):
+This is a container with no network, not an air-gapped machine: the laptop itself stayed online.
+It is one description. It took 863 s, against 327 s per item in the earlier 14 crops, which ran on another llama.cpp build, outside Docker.
 
 ```powershell
-D:\models\llama.cpp\llama-server.exe -m D:\models\glimmer\Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf --mmproj D:\models\glimmer\mmproj-Muse-Glimmer-30B-Q4_K_M.gguf -a muse-glimmer -c 16384 --host 127.0.0.1 --port 8080
+docker build -t coresight-offline-client -f deploy/offline-client.Dockerfile deploy
+
+docker run --name glimmer-offline --network none --gpus all -v D:/models/glimmer:/models:ro ghcr.io/ggml-org/llama.cpp:server-cuda -m /models/Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf --mmproj /models/mmproj-Muse-Glimmer-30B-Q4_K_M.gguf -a muse-glimmer -c 16384 --host 127.0.0.1 --port 8080
+
+docker inspect glimmer-offline --format "Network mode: {{.HostConfig.NetworkMode}}"
+
+docker run --rm --network container:glimmer-offline -e PYTHONUNBUFFERED=1 -v D:/Repos/coresight/src:/app/src:ro -v D:/Repos/coresight/scripts:/app/scripts:ro -v D:/Repos/coresight/data/raw/commons_potter_07.jpg:/app/data/raw/commons_potter_07.jpg:ro -v D:/Repos/coresight/outputs/describe:/app/outputs/describe coresight-offline-client python scripts/offline_glimmer.py
 ```
 
-## Voz en off (inglés, unos 15 s)
-
-"No internet. Muse Glimmer, Meta's open-weight model, on a laptop. Same photo, same contract, same validated log. Core photos can stay on site."
-
-## Notas
-
-- La foto es `data/raw/commons_potter_07.jpg` (Commons, Potter Mine). En la corrida del día 6, Glimmer marcó sulfuros visibles en ella. Si en la toma no los marca, no se repite ni se edita: se usa lo que salga.
-- `offline_glimmer.py` se detiene solo si encuentra red, así que no se puede grabar por error con internet.
-- Cada corrida queda en `outputs/describe/offline_runs.jsonl` con los hashes de la imagen y de la respuesta. Ese archivo entra al repo junto con el clip.
-- Al terminar: prender la red y apagar llama-server.
+Run the server in its own terminal and leave it up. The photo is `data/raw/commons_potter_07.jpg` (Wikimedia Commons, listed in `data/labels/SOURCES.md`).
+The video replays lines of this log with the wait sped up. It is not a screen recording.

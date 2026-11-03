@@ -31,7 +31,7 @@ The pipeline is neurosymbolic: Meta's models perceive and describe, and a determ
 | 6. Hole view: the approved boxes of one drill hole joined by depth; RQD, TCR, fracture frequency and Deere class by run and by 1 m interval; gaps and overlaps between boxes; weak zones; a 3D of the hole | `hole.py`, `geometry.log_hole`, `web/index.html` | Deterministic Python, three.js |
 | 7. Agents: a hole agent reads the trends between boxes and proposes an action; an orchestrator routes each approved box to the lab, safety and geotechnics, the processing plant and finance; each area agent drafts; every step is verified by code and by Muse Spark as a judge; a human approves | `agents.py`, `verify.py`, `hole.hole_trends` | Muse Wonder (orchestrator), Muse Spark with tools and as a judge |
 
-Stage 4 can also run on Muse Glimmer on your own hardware, with no network (offline mode), with the same validated output.
+Stage 4 can also run on Muse Glimmer on your own hardware, with the same validated output. One description has been run in a container with no network ([`docs/CLIP_GLIMMER.md`](docs/CLIP_GLIMMER.md)).
 
 ## Quickstart
 
@@ -123,7 +123,7 @@ Descriptions: the same 14 public crops (Onkalo, Potter Mine and Warren County, a
 
 Muse Glimmer runs on our laptop from Meta's official GGUF files; our SHA-256 of both files matches the hashes Hugging Face publishes for [`meta-models/Muse-Glimmer-30B-GGUF`](https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF). Muse Spark Open runs on Baseten.
 Weights, licenses, llama.cpp build, hardware, exact command, token counts and the hash of every published answer: [`docs/PROVENANCE.md`](docs/PROVENANCE.md) and [`outputs/describe/provenance.json`](outputs/describe/provenance.json).
-`scripts/offline_glimmer.py` refuses to run unless the network is off, then describes a public photo with Glimmer.
+`scripts/offline_glimmer.py` refuses to run if it can reach the network, then describes a public photo with Glimmer. We ran it once in a Docker container with no network, on the same laptop, which itself stayed online: one description, valid, 863 s ([`outputs/describe/offline_run.log`](outputs/describe/offline_run.log), commands in [`docs/CLIP_GLIMMER.md`](docs/CLIP_GLIMMER.md)).
 
 ## Why it matters
 

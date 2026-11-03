@@ -1,0 +1,32 @@
+1793732372.166968300	$ docker inspect glimmer-offline --format Network mode: {{.HostConfig.NetworkMode}}
+1793732372.488445000	Network mode: none
+1793732372.574656300	$ docker run --rm --network container:glimmer-offline -e PYTHONUNBUFFERED=1 -v D:/Repos/coresight/src:/app/src:ro -v D:/Repos/coresight/scripts:/app/scripts:ro -v D:/Repos/coresight/data/raw/commons_potter_07.jpg:/app/data/raw/commons_potter_07.jpg:ro -v D:/Repos/coresight/outputs/describe:/app/outputs/describe coresight-offline-client python -c import socket; print('Network interfaces:', [n for _, n in socket.if_nameindex()])
+1793732373.315783600	Network interfaces: ['lo']
+1793732373.734259800	$ docker run --rm --network container:glimmer-offline -e PYTHONUNBUFFERED=1 -v D:/Repos/coresight/src:/app/src:ro -v D:/Repos/coresight/scripts:/app/scripts:ro -v D:/Repos/coresight/data/raw/commons_potter_07.jpg:/app/data/raw/commons_potter_07.jpg:ro -v D:/Repos/coresight/outputs/describe:/app/outputs/describe coresight-offline-client python scripts/offline_glimmer.py
+1793732376.444890500	Network: off (dev.meta.ai, huggingface.co and 1.1.1.1 unreachable)
+1793732377.325639100	Muse Glimmer on http://127.0.0.1:8080/v1/, describing data/raw/commons_potter_07.jpg ...
+1793733240.484982800	{
+1793733240.633147400	 "lithology": "Fine- to medium-grained, strongly foliated / banded metamorphic rock, probably a sulfide-bearing schist / metasiltstone / metavolcanic. Colour is dominantly brown to reddish-brown with yellow-green metallic patches; the fabric is swirly / strongly deformed with alternating lighter yellow-metallic and darker brown bands following the foliation.",
+1793733240.719545000	 "alteration": "Oxidised, strong to pervasive, giving a brown-reddish limonite / iron-stain hue over the rock surface. No other alteration types can be confidently distinguished from the photo; none visible for chloritic, sericitic, silicified, potassic or carbonate alteration.",
+1793733240.803995000	 "mineralization": "Visible yellow-metallic sulfide consistent with pyrite, possibly with minor chalcopyrite, occurring as disseminated blebs and irregular patches to semi-massive swirly bands that are concordant with foliation. Estimated volume percent ~20-40%, approx. 30% of the exposed surface.",
+1793733240.881623000	 "anomalies": [
+1793733241.032069400	  {
+1793733241.118351800	   "type": "visible_sulfides",
+1793733241.201139100	   "explanation": "Abundant yellow metallic sulfide is visible throughout both core pieces, forming swirly bands and patches that cover a large proportion of the surface, especially on the right-hand piece.",
+1793733241.283917800	   "source": "model"
+1793733241.434688000	  },
+1793733241.499192700	  {
+1793733241.562318300	   "type": "other",
+1793733241.627870700	   "explanation": "Core is broken into at least two pieces with a visible gap between them on the left side of the image.",
+1793733241.698672600	   "source": "model"
+1793733241.817719300	  },
+1793733241.873631800	  {
+1793733241.932995100	   "type": "other",
+1793733241.994800200	   "explanation": "A small sub-horizontal fracture is visible on the lower right of the right-hand piece.",
+1793733242.066093700	   "source": "model"
+1793733242.192436000	  }
+1793733242.257733200	 ],
+1793733242.333715000	 "confidence": 0.55
+1793733242.414677600	}
+1793733242.499265500	Valid GeologyDescription in 863 s, no network.
+1793733242.641249200	Recorded in outputs/describe/offline_runs.jsonl

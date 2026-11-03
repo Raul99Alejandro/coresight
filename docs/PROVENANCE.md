@@ -6,7 +6,7 @@ The machine-readable version is [`outputs/describe/provenance.json`](../outputs/
 
 | | Muse Glimmer | Muse Spark Open |
 |---|---|---|
-| Where it runs | Our own laptop, llama.cpp, no network needed | Baseten Model APIs (hosted) |
+| Where it runs | Our own laptop, llama.cpp; one description also run in a container with no network | Baseten Model APIs (hosted) |
 | Weights | [`meta-models/Muse-Glimmer-30B-GGUF`](https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF), revision `b44f1072cf75e918a1b82a3a17b45c4389b076e7` | [`meta-models/Muse-Spark-Open-816B-A42B`](https://huggingface.co/meta-models/Muse-Spark-Open-816B-A42B), served by Baseten |
 | License | Apache 2.0 ([dev.meta.ai/docs/muse-glimmer](https://dev.meta.ai/docs/muse-glimmer/)) | Muse Model License ([dev.meta.ai/docs/muse-spark-open](https://dev.meta.ai/docs/muse-spark-open/)) |
 | Model ID in our code | `muse-glimmer` (alias given to llama-server) | `meta-models/muse-spark-open-1026` |
@@ -45,10 +45,18 @@ llama-server -m Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf --mmproj mmproj-Muse-Gl
 From llama-server's own log for the 14 calls: 16,596 prompt tokens at 105 tokens/s and 8,671 generated tokens at 1.96 tokens/s.
 That is why one description takes about 5 minutes on this laptop. Meta's docs say this file fits under 24 GB of VRAM; we have not measured the speed on such a GPU.
 
-### Offline
+### In a container with no network
 
-`scripts/offline_glimmer.py` first checks that dev.meta.ai, huggingface.co and 1.1.1.1 cannot be reached, then describes a public photo with the cache off and logs the hashes of the image and the answer in `outputs/describe/offline_runs.jsonl`.
-How to record that run as offline evidence: [`CLIP_GLIMMER.md`](CLIP_GLIMMER.md). A run is logged in that file only once it has been made.
+`scripts/offline_glimmer.py` first checks that dev.meta.ai, huggingface.co and 1.1.1.1 cannot be reached, then describes a public photo with the cache off and logs the hashes of the PNG sent and of the answer in `outputs/describe/offline_runs.jsonl`.
+
+One run so far, on 3 Nov 2026: one description of `data/raw/commons_potter_07.jpg`, valid against the contract, in 863.2 s.
+
+- Server: `ghcr.io/ggml-org/llama.cpp:server-cuda`, llama.cpp build 12063 (commit `2cbca389f`), Linux with CUDA, `--network none`, the same GGUF files as above mounted read-only. GPU memory rose to 7.4 GB.
+- Client: [`deploy/offline-client.Dockerfile`](../deploy/offline-client.Dockerfile), Python dependencies only, `--network container:glimmer-offline`. It mounts `src`, `scripts`, the photo and `outputs/describe`, and not `.env`.
+- Log, with the unix time of each line: [`outputs/describe/offline_run.log`](../outputs/describe/offline_run.log). It shows `Network mode: none`, `Network interfaces: ['lo']` and the three unreachable hosts.
+- Commands: [`CLIP_GLIMMER.md`](CLIP_GLIMMER.md).
+
+Two limits. It is a container with no network, not an air-gapped machine: the laptop stayed online. And it is one description: 863 s here against 327 s per item in the earlier 14, with another build and outside Docker, so the two are not comparable and we do not average them.
 
 ## Muse Spark Open
 

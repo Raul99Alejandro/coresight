@@ -51,7 +51,7 @@ Measured on our runs, for a tray of 5 rows and 2 runs:
 | SAM 3.1, one call per row | 15 s | US$0.0125 (5 images at US$2.50 per 1,000) | Time: an uncached review job (27 Oct). Price: [dev.meta.ai pricing](https://dev.meta.ai/docs/pricing-rate-limits) |
 | Description, Muse Spark 1.3 (API) | 9 to 11 s per run | not measured (runs on credits; list price US$1.25 / US$4.25 per million tokens in and out) | `outputs/describe/compare.md` |
 | Description, Muse Spark Open (Baseten) | 15 s per run | US$0.0125 per run | `outputs/describe/compare.md`, from token usage |
-| Description, Muse Glimmer (our laptop, offline) | about 5.5 min per run | no per-call cost | `outputs/describe/compare.md`, `docs/PROVENANCE.md` |
+| Description, Muse Glimmer (our laptop) | about 5.5 min per run; 863 s for the one run in a container with no network | no per-call cost | `outputs/describe/compare.md`, `docs/PROVENANCE.md` |
 | Calibration and geometry | under 1 s | none | the same review job |
 
 So a tray of 5 rows and 2 runs is about 40 s and US$0.0375 with the hosted models. The demo's Nevada box 1 (4 rows, 3 runs) comes to US$0.0475, and a public tray that needed Spark's boxes took 58 s in production. We round to under a minute and about US$0.05, against at least an hour of a geologist by hand. Not priced: the Muse Spark calls that box a row, and the agents, which took 4 min 47 s on the video's run.

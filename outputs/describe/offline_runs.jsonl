@@ -1,0 +1,1 @@
+{"utc": "2026-11-03T19:14:00+00:00", "image": "data/raw/commons_potter_07.jpg", "image_sha256": "4d068a1c19ebffa1dbbc693785e025368b3ce83117ad0be9ff4cedc530392f69", "answer_sha256": "e661a2607aede9a5958475d6b036a50b2d54325a6402067c6f2921f227bc1fbb", "seconds": 863.2, "offline_probes": ["dev.meta.ai:443", "huggingface.co:443", "1.1.1.1:53"]}
