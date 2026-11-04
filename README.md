@@ -102,7 +102,7 @@ How this compares with people: we found no study that gives, in RQD points, how 
 We do not claim CoreSight is within human variability. The error is why a geologist reviews every value before it is used.
 
 What the numbers rest on:
-- 34 runs from the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle, CC BY-NC-SA 4.0). The reference is the RQD and recovery the mine geologist wrote on each box lid. These photos are not in the repo or the demo (non-commercial license). The values we read from the lids are in `data/labels/I*.json`, under the same license and with attribution; they are not used in the demo. The Bland-Altman plot of these runs is not published. We use this dataset only to measure error: nothing was trained on it and the demo does not use it. We asked about this use on Nov 3; the answer was that organizers do not rule on individual dataset licenses, so this is our own reading of the license.
+- 34 runs from the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle, CC BY-NC-SA 4.0). The reference is the RQD and recovery the mine geologist wrote on each box lid. These photos are not in the repo or the demo (non-commercial license). The values we read from the lids are in `data/labels/I*.json`, under the same license and with attribution; they are not used in the demo. The Bland-Altman plot of these runs is not published. We use this dataset only to measure error: nothing was trained on it and the demo does not use it. We asked in the hackathon forum on Nov 3. The automated answer was that organizers do not rule on individual dataset licenses, and that a project using data without the rights is disqualified. No organizer has ruled on this use, so this is our own reading of the license.
 - Onkalo (Commons, CC BY-SA 4.0) and Nevada U12G (U.S. DOE, public domain), labelled by us.
 - The `+marks` variant reads marks the geologist already made, so it is not the headline.
 
@@ -232,9 +232,18 @@ The unit is a drill hole, not a photo. Approved boxes of the same hole join into
 
 Built to hold up in production: the home page shows a real box being read and the hole it belongs to, and a "60-second tour" walks through the product live (a refused screenshot, a sample, Spark and SAM, a correction, the agents, the hole in 3D). The abuse test ([`tests/test_abuse.py`](tests/test_abuse.py)) covers a photo that is not a core box, a huge photo or a small file that declares a huge image (the size is read from the header before decoding), GIF, PDF, TIFF, HEIC and damaged files, a box without scale, and many uploads in a row (5 per visitor in 10 minutes, on top of the hourly caps); each ends in a message, never in a number. The public samples are pre-warmed (`scripts/prewarm_demo.py`: 0 live calls, about 2 s each) and a token-protected credit watch counts every request to Meta Model API and every cache hit.
 
-508 tests pass in CI at this commit. Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
+513 tests pass in CI at this commit. Working end to end: calibration, SAM 3.1 segmentation, geometry, Muse Spark descriptions on three backends, the review page with voice corrections and CSV export. Live demo at https://coresight.analizac.com.
 The agents look at the hole, not only the box: approving a box that sits under better rock gives a trend alert from the hole agent, a verified routing and a safety draft verified in two layers (see Agents).
 
 ## License
 
-Apache License 2.0, see [`LICENSE`](LICENSE). Public images keep their own licenses, listed in `data/labels/SOURCES.md`.
+Our code is under the Apache License 2.0, see [`LICENSE`](LICENSE). These files are outside that license and keep their own:
+
+| Files | Source | Author | License |
+|---|---|---|---|
+| `data/labels/I*.json` | Values read from the box lids in the [Mining Core Sampling Dataset](https://www.kaggle.com/datasets/imoore/mining-core-sampling-dataset) (Kaggle) | imoore | CC BY-NC-SA 4.0 |
+| `outputs/eval/failures/ONK-*.jpg` | [Drill core boxes Onkalo 1](https://commons.wikimedia.org/wiki/File:Drill_core_boxes_Onkalo_1.jpg) | Kallerna | CC BY-SA 4.0 |
+| `tests/data/potter_closeup.jpg` | Drill core at the Potter Mine, Wikimedia Commons, resized | James St. John | CC BY 2.0 |
+| `outputs/eval/failures/U12G-*.jpg`, `docs/img/*.jpg`, `docs/sam-prompts/*.jpg` | [Core samples, Nevada Test Site](https://commons.wikimedia.org/wiki/File:CORE_SAMPLES,_NEVADA_TEST_SITE_-_DPLA_-_db76f1349ca15c6259411296fd16eef3.jpg), with our overlays | U.S. Department of Energy, NNSA | Public domain |
+
+All photo sources are listed in `data/labels/SOURCES.md`.
